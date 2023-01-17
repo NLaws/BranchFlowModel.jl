@@ -45,8 +45,8 @@ function add_variables(m, p::Inputs)
     @variable(m, 0 <= lᵢⱼ[ij_edges, T])
 
     # TODO better indexing for lines and attributes
-    @constraint(m, [((i,j), edge) in zip(p.edges, ij_edges)],
-        lᵢⱼ[edge, 1:T] .<= p.Isqaured_up_bounds[get_ijlinecode(i,j,p)]
+    @constraint(m, [((i,j), edge) in zip(p.edges, ij_edges), t in T],
+        lᵢⱼ[edge, t] <= p.Isqaured_up_bounds[get_ijlinecode(i,j,p)]
     )
 
     nothing
@@ -99,7 +99,7 @@ function constrain_power_balance(m, p::Inputs)
             )
             qcon = @constraint(m, [t in 1:p.Ntimesteps],
                 sum( Qᵢⱼ[string(i*"-"*j), t] for i in i_to_j(j, p) ) 
-                - sum( lᵢⱼ[string(i*"-"*j), t] * rxj(i,j,p) for i in i_to_j(j, p) ) +
+                - sum( lᵢⱼ[string(i*"-"*j), t] * xij(i,j,p) for i in i_to_j(j, p) ) +
                 Qⱼ[j,t] - sum( Qᵢⱼ[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
             )
         end
@@ -122,6 +122,7 @@ function constrain_KVL(m, p::Inputs)
     w = m[:vsqrd]
     P = m[:Pᵢⱼ]
     Q = m[:Qᵢⱼ]
+    l = m[:lᵢⱼ]
     for j in p.busses
         for i in i_to_j(j, p)  # for radial network there is only one i in i_to_j
             i_j = string(i*"-"*j)
@@ -130,7 +131,7 @@ function constrain_KVL(m, p::Inputs)
             vcon = @constraint(m, [t in 1:p.Ntimesteps],
                 w[j,t] == w[i,t]
                     - 2*(rᵢⱼ * P[i_j,t] + xᵢⱼ * Q[i_j,t])
-                    + (rᵢⱼ² + xᵢⱼ²) * lᵢⱼ[i_j, t]
+                    + (rᵢⱼ^2 + xᵢⱼ^2) * l[i_j, t]
             )
         end
     end
@@ -146,8 +147,12 @@ function constrain_cone(m, p::Inputs)
     for j in p.busses
         for i in i_to_j(j, p)  # for radial network there is only one i in i_to_j
             i_j = string(i*"-"*j)
-            @constraint(m, [t in 1:p.Ntimesteps],
-                w[j,t] * l[i_j, t] ≥ P[i_j,t]^2 + Q[i_j,t]^2
+            # # equivalent but maybe not handled as well in JuMP ?
+            # @constraint(m, [t in 1:p.Ntimesteps],
+            #     w[j,t] * l[i_j, t] ≥ P[i_j,t]^2 + Q[i_j,t]^2
+            # )
+            @constraint(m, [t in 1:p.Ntimesteps], 
+                [w[j,t]/2, l[i_j, t], P[i_j,t], Q[i_j,t]] in JuMP.RotatedSecondOrderCone()
             )
         end
     end

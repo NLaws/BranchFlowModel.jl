@@ -1,25 +1,25 @@
 """
-    function i_to_j(j::String, p::Inputs)
+    function i_to_j(j::AbstractString, p::Inputs)
 find all busses upstream of bus j
 
 !!! note
     In a radial network this function should return an Array with length of 1.
 """
-function i_to_j(j::String, p::Inputs)
+function i_to_j(j::AbstractString, p::Inputs)
     convert(Array{String, 1}, map(x->x[1], filter(t->t[2]==j, p.edges)))
 end
 
 
 """
-    function j_to_k(j::String, p::Inputs)
+    function j_to_k(j::AbstractString, p::Inputs)
 find all busses downstream of bus j
 """
-function j_to_k(j::String, p::Inputs)
+function j_to_k(j::AbstractString, p::Inputs)
     convert(Array{String, 1}, map(x->x[2], filter(t->t[1]==j, p.edges)))
 end
 
 
-function rij(i::String, j::String, p::Inputs{SinglePhase})
+function rij(i::AbstractString, j::AbstractString, p::Inputs{SinglePhase})
     linecode = get_ijlinecode(i, j, p)
     linelength = get_ijlinelength(i, j, p)
     rmatrix = p.Zdict[linecode]["rmatrix"] * linelength / p.Zbase
@@ -27,7 +27,7 @@ function rij(i::String, j::String, p::Inputs{SinglePhase})
 end
 
 
-function xij(i::String, j::String, p::Inputs{SinglePhase})
+function xij(i::AbstractString, j::AbstractString, p::Inputs{SinglePhase})
     linecode = get_ijlinecode(i, j, p)
     linelength = get_ijlinelength(i, j, p)
     xmatrix = p.Zdict[linecode]["xmatrix"] * linelength / p.Zbase
@@ -35,25 +35,25 @@ function xij(i::String, j::String, p::Inputs{SinglePhase})
 end
 
 
-function get_ijlinelength(i::String, j::String, p::Inputs)
+function get_ijlinelength(i::AbstractString, j::AbstractString, p::Inputs)
     ij_idx = get_ij_idx(i, j, p)
     return p.linelengths[ij_idx]
 end
 
 
-function get_ijlinecode(i::String, j::String, p::Inputs)
+function get_ijlinecode(i::AbstractString, j::AbstractString, p::Inputs)
     ij_idx = get_ij_idx(i, j, p)
     return p.linecodes[ij_idx]
 end
 
 
-function get_ijedge(i::String, j::String, p::Inputs)
+function get_ijedge(i::AbstractString, j::AbstractString, p::Inputs)
     ij_idx = get_ij_idx(i, j, p)
     return p.edges[ij_idx]
 end
 
 
-function get_ij_idx(i::String, j::String, p::Inputs)
+function get_ij_idx(i::AbstractString, j::AbstractString, p::Inputs)
     ij_idxs = findall(t->(t[1]==i && t[2]==j), p.edges)
     if length(ij_idxs) > 1
         error("found more than one edge for i=$i and j=$j")
@@ -65,7 +65,7 @@ function get_ij_idx(i::String, j::String, p::Inputs)
 end
 
 
-function get_edge_values(var_prefix::String, m::JuMP.AbstractModel, p::Inputs)
+function get_edge_values(var_prefix::AbstractString, m::JuMP.AbstractModel, p::Inputs)
     vals = Float64[]
     for edge in p.edges
         var = string(var_prefix, "[", edge[1], "-", edge[2], "]")
@@ -83,7 +83,7 @@ function get_edge_values(var_prefix::String, m::JuMP.AbstractModel, p::Inputs)
 end
 
 
-function get_bus_values(var_prefix::String, m::JuMP.AbstractModel, p::Inputs)
+function get_bus_values(var_prefix::AbstractString, m::JuMP.AbstractModel, p::Inputs)
     vals = Float64[]
     for b in p.busses
         var = string(var_prefix,  "[", b, "]")
@@ -101,7 +101,7 @@ function get_bus_values(var_prefix::String, m::JuMP.AbstractModel, p::Inputs)
 end
 
 
-function get_constraints_by_variable_name(m, v::String)
+function get_constraints_by_variable_name(m, v::AbstractString)
     ac = ConstraintRef[]
     for tup in list_of_constraint_types(m)
         append!(ac, all_constraints(m, tup[1], tup[2]))
