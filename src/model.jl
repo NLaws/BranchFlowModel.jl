@@ -1,5 +1,5 @@
 """
-    build_ldf!(m::JuMP.AbstractModel, p::Inputs)
+    build_model!(m::JuMP.AbstractModel, p::Inputs)
 
 Add variables and constraints to `m` using the values in `p`. Calls the following functions:
 ```julia
@@ -7,15 +7,17 @@ add_variables(m, p)
 constrain_power_balance(m, p)
 constrain_substation_voltage(m, p)
 constrain_KVL(m, p)
+constrain_cone(m, p)
 constrain_loads(m, p)
 ```
 """
-function build_ldf!(m::JuMP.AbstractModel, p::Inputs)
+function build_model!(m::JuMP.AbstractModel, p::Inputs)
 
     add_variables(m, p)
     constrain_power_balance(m, p)
     constrain_substation_voltage(m, p)
     constrain_KVL(m, p)
+    constrain_cone(m, p)
     constrain_loads(m, p)
 
 end
@@ -40,8 +42,12 @@ function add_variables(m, p::Inputs)
     @variable(m, p.Q_lo_bound <= Qᵢⱼ[ij_edges, T] <= p.Q_up_bound )
 
     # current squared (non-negative)
-    @variable(m, 0 <= lᵢⱼ[ij_edges, T] <= p.P_up_bound )
-    # TODO line ratings/limits (soft?)
+    @variable(m, 0 <= lᵢⱼ[ij_edges, T])
+
+    # TODO better indexing for lines and attributes
+    @constraint(m, [((i,j), edge) in zip(p.edges, ij_edges)],
+        lᵢⱼ[edge, 1:T] .<= p.Isqaured_up_bounds[get_ijlinecode(i,j,p)]
+    )
 
     nothing
 end
@@ -49,7 +55,7 @@ end
 
 """
     function constrain_power_balance(m, p::Inputs)
-        
+
 Pij in - losses == sum of line flows out + net injection
 NOTE: using sum over Pij for future expansion to mesh grids
 i -> j -> k
@@ -123,11 +129,28 @@ function constrain_KVL(m, p::Inputs)
             xᵢⱼ = xij(i,j,p)
             vcon = @constraint(m, [t in 1:p.Ntimesteps],
                 w[j,t] == w[i,t]
-                    - 2*(rᵢⱼ * P[i_j,t] +  xᵢⱼ * Q[i_j,t])
+                    - 2*(rᵢⱼ * P[i_j,t] + xᵢⱼ * Q[i_j,t])
+                    + (rᵢⱼ² + xᵢⱼ²) * lᵢⱼ[i_j, t]
             )
         end
     end
     nothing
+end
+
+
+function constrain_cone(m, p::Inputs)
+    w = m[:vsqrd]
+    P = m[:Pᵢⱼ]
+    Q = m[:Qᵢⱼ]
+    l = m[:lᵢⱼ]
+    for j in p.busses
+        for i in i_to_j(j, p)  # for radial network there is only one i in i_to_j
+            i_j = string(i*"-"*j)
+            @constraint(m, [t in 1:p.Ntimesteps],
+                w[j,t] * l[i_j, t] ≥ P[i_j,t]^2 + Q[i_j,t]^2
+            )
+        end
+    end
 end
 
 

@@ -3,6 +3,12 @@ uuid = "73c867df-75f8-459f-abd8-059b58de1e18"
 authors = ["Nick Laws"]
 version = "0.1.0"
 
+[deps]
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PowerModelsDistribution = "d7431456-977f-11e9-2de3-97ff7677985e"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+
 [compat]
 julia = "1"
 

@@ -49,6 +49,7 @@ function dss_dict_to_arrays(d::Dict)
     phases = Vector[]
     linecodes = String[]
     linelengths = Float64[]
+    Isqaured_up_bounds = Dict{String, Float64}()
 
     for v in values(d["line"])
         if "switch" in keys(v) && v["switch"] == true
@@ -73,12 +74,22 @@ function dss_dict_to_arrays(d::Dict)
             push!(linecodes, v["linecode"])
             push!(linelengths, v["length"])
             push!(phases, phs)
+
+            # TODO ratings could be in linecode dict too
+            # TODO assuming that there are linecodes, should converge on consistent keys for lines
+            if "emergamps" in keys(v)  # assuming lowercase keys
+                Isqaured_up_bounds[v["linecode"]] = v["emergamps"]^2
+            elseif "normamps" in keys(v)
+                Isqaured_up_bounds[v["linecode"]] = v["normamps"]^2
+            else
+                Isqaured_up_bounds[v["linecode"]] = DEFAULT_AMP_LIMIT^2
+            end
         catch
             @warn("Unable to parse line $(v) when processing OpenDSS model.")
         end
     end
 
-    return edges, linecodes, linelengths, d["linecode"], phases
+    return edges, linecodes, linelengths, d["linecode"], phases, Isqaured_up_bounds
 end
 
 

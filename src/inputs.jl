@@ -23,8 +23,29 @@
         Q_up_bound::Float64
         P_lo_bound::Float64
         Q_lo_bound::Float64
+        Isqaured_up_bounds::Dict{String, <:Real}
         phases_into_bus::Dict{String, Vector{Int}}
     end
+
+# Inputs
+- `edges` e.g. [("0", "1"), ("1", "2")]
+- `linecodes` vector of string keys for the Zdict (impedance values for lines). When using an OpenDSS model a `linecode` is the `name` in `New linecode.name`
+- `linelengths` vector of floats to scale impedance values
+- `busses` vector of bus names
+- `phases` vector of vectors for the line phases (for now just [[1], [1], ...])
+- `Pload` dict with `busses` for keys and uncontrolled real power loads (positive is load)
+- `Qload` dict with `busses` for keys and uncontrolled reactive power loads (positive is load)
+- `Sbase` base apparent power for network, typ. feeder capacity. Used to normalize all powers
+- `Vbase` base voltage for network, used to determine `Zbase`` = `Vbase`^2 / Sbase
+- `Ibase` = `Sbase` / (`Vbase` * sqrt(3))
+- `Zdict` dict with `linecodes` for keys and subdicts with "xmatrix" and "zmatrix" keys. Values are scaled by `Zbase`.
+- `v0` slack bus reference voltage
+
+TODO Zdict example
+TODO test against simple model to make sure scaling is done right
+
+!!! NOTE
+    The `edges`, `linecodes`, `phases`, and `linelengths` are in mutual order (e.g. the i-th value in each list corresponds to the same line)
 """
 mutable struct Inputs{T<:Phases} <: AbstractInputs
     edges::Array{Tuple, 1}
@@ -50,6 +71,7 @@ mutable struct Inputs{T<:Phases} <: AbstractInputs
     Q_up_bound::Float64
     P_lo_bound::Float64
     Q_lo_bound::Float64
+    Isqaured_up_bounds::Dict{String, <:Real}  # index on ij_edges = [string(i*"-"*j) for j in p.busses for i in i_to_j(j, p)]
     phases_into_bus::Dict{String, Vector{Int}}
 end
 # TODO line flow limits
@@ -101,6 +123,7 @@ function Inputs(
         Q_up_bound=1e4,
         P_lo_bound=-1e4,
         Q_lo_bound=-1e4,
+        Isqaured_up_bounds=Dict{String, Float64}()
     )
     Ibase = Sbase / (Vbase * sqrt(3))
     # Ibase^2 should be used to recover amperage from lᵢⱼ ?
@@ -113,67 +136,43 @@ function Inputs(
     end
     busses = unique(busses)
 
+    if isempty(Isqaured_up_bounds)
+        Isqaured_up_bounds = Dict(l => DEFAULT_AMP_LIMIT^2 for l in linecodes)
+    end
+
     if v_lolim < 0 @error("lower voltage limit v_lolim cannot be less than zero") end
     if v_uplim < 0 @error("upper voltage limit v_uplim cannot be less than zero") end
 
     receiving_busses = collect(e[2] for e in edges)
     phases_into_bus = Dict(k=>v for (k,v) in zip(receiving_busses, phases))
 
-    if any(get(v, "nphases", 1) == 3 for v in values(Zdict))
-        Inputs{ThreePhase}(
-            edges,
-            linecodes,
-            linelengths,
-            busses,
-            phases,
-            substation_bus,
-            Pload,
-            Qload,
-            Sbase,
-            Vbase,
-            Ibase,
-            Zdict,
-            v0,
-            v_lolim, 
-            v_uplim,
-            Zbase,
-            Ntimesteps,
-            0.1,  # power factor
-            length(busses),  # Nnodes
-            P_up_bound,
-            Q_up_bound,
-            P_lo_bound,
-            Q_lo_bound,
-            phases_into_bus
-        )
-    else
-        Inputs{SinglePhase}(
-            edges,
-            linecodes,
-            linelengths,
-            busses,
-            phases,
-            substation_bus,
-            Pload,
-            Qload,
-            Sbase,
-            Vbase,
-            Ibase,
-            Zdict,
-            v0,
-            v_lolim, 
-            v_uplim,
-            Zbase,
-            Ntimesteps,
-            0.1,  # power factor
-            length(busses),  # Nnodes
-            P_up_bound,
-            Q_up_bound,
-            P_lo_bound,
-            Q_lo_bound,
-            phases_into_bus
-        )
-    end
+    Inputs{SinglePhase}(
+        edges,
+        linecodes,
+        linelengths,
+        busses,
+        phases,
+        substation_bus,
+        Pload,
+        Qload,
+        Sbase,
+        Vbase,
+        Ibase,
+        Zdict,
+        v0,
+        v_lolim, 
+        v_uplim,
+        Zbase,
+        Ntimesteps,
+        0.1,  # power factor
+        length(busses),  # Nnodes
+        P_up_bound,
+        Q_up_bound,
+        P_lo_bound,
+        Q_lo_bound,
+        Isqaured_up_bounds,
+        phases_into_bus
+    )
 end
 
 
@@ -217,11 +216,13 @@ function Inputs(
     d = open(dssfilepath) do io  # 
         parse_dss(io)  # method from PowerModelsDistribution
     end
-    edges, linecodes, linelengths, linecodes_dict, phases = dss_dict_to_arrays(d)
+    edges, linecodes, linelengths, linecodes_dict, phases, Isqaured_up_bounds = dss_dict_to_arrays(d)
 
     if isempty(Pload) && isempty(Qload)
         Pload, Qload = dss_loads(d)
     end
+
+    # TODO line limits from OpenDSS ?
 
     Inputs(
         edges,
@@ -242,6 +243,7 @@ function Inputs(
         Q_up_bound=Q_up_bound,
         P_lo_bound=P_lo_bound,
         Q_lo_bound=Q_lo_bound,
+        Isqaured_up_bounds
     )
 end
 
