@@ -131,3 +131,18 @@ function check_soc_inequalities(m::JuMP.AbstractModel, p::Inputs)
     end
     return gaps
 end
+
+
+"""
+    get_load_bal_shadow_prices(m::JuMP.AbstractModel, p::Inputs)
+
+create and return a dict indexed by bus and time for shadow prices
+    (just real prices for now)
+"""
+function get_load_bal_shadow_prices(m::JuMP.AbstractModel, p::Inputs)
+    d = Dict{String, Dict}()
+    for j in p.busses, t in 1:p.Ntimesteps
+        d[j] = Dict(t => JuMP.shadow_price(m[:loadbalcons][j]["p"][t]))
+    end
+    return d
+end
