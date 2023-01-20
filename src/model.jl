@@ -66,6 +66,7 @@ function constrain_power_balance(m, p::Inputs)
     Pᵢⱼ = m[:Pᵢⱼ]
     Qᵢⱼ = m[:Qᵢⱼ]
     lᵢⱼ = m[:lᵢⱼ]
+    m[:loadbalcons] = Dict()
     # TODO change Pⱼ and Qⱼ to expressions, make P₀ and Q₀ dv's, which will reduce # of variables
     # by (Nnodes - 1)*8760 and number of constraints by 6*(Nnodes - 1)*8760
     for j in p.busses
@@ -86,10 +87,14 @@ function constrain_power_balance(m, p::Inputs)
             )
         elseif !isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # leaf nodes / sinks, flows in = draw out
             pcon = @constraint(m, [t in 1:p.Ntimesteps],
-                sum( Pᵢⱼ[string(i*"-"*j), t] for i in i_to_j(j, p) ) + Pⱼ[j, t] == 0
+                sum( Pᵢⱼ[string(i*"-"*j), t] for i in i_to_j(j, p) ) -
+                sum( lᵢⱼ[string(i*"-"*j), t] * rij(i,j,p) for i in i_to_j(j, p) ) 
+                + Pⱼ[j, t] == 0
             )
             qcon = @constraint(m, [t in 1:p.Ntimesteps],
-                sum( Qᵢⱼ[string(i*"-"*j), t] for i in i_to_j(j, p) ) + Qⱼ[j, t] == 0
+                sum( Qᵢⱼ[string(i*"-"*j), t] for i in i_to_j(j, p) ) -
+                sum( lᵢⱼ[string(i*"-"*j), t] * xij(i,j,p) for i in i_to_j(j, p) ) + 
+                Qⱼ[j, t] == 0
             )
         else
             pcon =  @constraint(m, [t in 1:p.Ntimesteps],
@@ -103,7 +108,9 @@ function constrain_power_balance(m, p::Inputs)
                 Qⱼ[j,t] - sum( Qᵢⱼ[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
             )
         end
+        m[:loadbalcons][j] = Dict("p" => pcon, "q" => qcon)
     end
+    # TODO Farivar and Low have b*v and q*v in these equations for shunts? neglected for now
 
     nothing
 end
@@ -149,10 +156,10 @@ function constrain_cone(m, p::Inputs)
             i_j = string(i*"-"*j)
             # # equivalent but maybe not handled as well in JuMP ?
             # @constraint(m, [t in 1:p.Ntimesteps],
-            #     w[j,t] * l[i_j, t] ≥ P[i_j,t]^2 + Q[i_j,t]^2
+            #     w[i,t] * l[i_j, t] ≥ P[i_j,t]^2 + Q[i_j,t]^2
             # )
             @constraint(m, [t in 1:p.Ntimesteps], 
-                [w[j,t]/2, l[i_j, t], P[i_j,t], Q[i_j,t]] in JuMP.RotatedSecondOrderCone()
+                [w[i,t]/2, l[i_j, t], P[i_j,t], Q[i_j,t]] in JuMP.RotatedSecondOrderCone()
             )
         end
     end
