@@ -101,10 +101,33 @@ function get_bus_values(var_prefix::AbstractString, m::JuMP.AbstractModel, p::In
 end
 
 
-function get_constraints_by_variable_name(m, v::AbstractString)
+function get_constraints_by_variable_name(m::JuMP.AbstractModel, v::AbstractString)
     ac = ConstraintRef[]
     for tup in list_of_constraint_types(m)
         append!(ac, all_constraints(m, tup[1], tup[2]))
     end
     filter( cr -> occursin(v, string(cr)), ac )
+end
+
+
+"""
+    check_soc_inequalities(m::JuMP.AbstractModel, p::Inputs)
+
+create and return a vector of the gaps in the second order cone constraints
+"""
+function check_soc_inequalities(m::JuMP.AbstractModel, p::Inputs)
+    @assert termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
+    w = value.(m[:vsqrd])
+    lij = value.(m[:lᵢⱼ])
+    Pj = value.(m[:Pⱼ])
+    Qj = value.(m[:Qⱼ])
+    gaps = Vector{Float64}()  # todo size empty array based on number of SOC cons
+
+    # TODO mesh accounting
+    for j in p.busses, i in i_to_j(j, p), t in 1:p.Ntimesteps
+        push!(gaps, 
+            lij[string(i*"-"*j), t] * w[i, t] - Pj[j,t]^2 + Qj[j,t]^2 
+        )
+    end
+    return gaps
 end

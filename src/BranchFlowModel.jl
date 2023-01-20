@@ -25,7 +25,8 @@ export
     i_to_j, 
     j_to_k, 
     rij, 
-    xij
+    xij,
+    check_soc_inequalities
 
 include("types.jl")
 include("io.jl")
