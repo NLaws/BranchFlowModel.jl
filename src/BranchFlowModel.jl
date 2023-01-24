@@ -26,7 +26,8 @@ export
     j_to_k, 
     rij, 
     xij,
-    check_soc_inequalities
+    check_soc_inequalities,
+    get_load_bal_shadow_prices
 
 include("types.jl")
 include("io.jl")
