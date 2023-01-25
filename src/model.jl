@@ -17,7 +17,11 @@ function build_model!(m::JuMP.AbstractModel, p::Inputs)
     constrain_power_balance(m, p)
     constrain_substation_voltage(m, p)
     constrain_KVL(m, p)
-    constrain_cone(m, p)
+    if p.relaxed
+        constrain_cone(m, p)
+    else
+        constrain_psd(m, p)
+    end
     constrain_loads(m, p)
 
 end
@@ -160,6 +164,23 @@ function constrain_cone(m, p::Inputs)
             # )
             @constraint(m, [t in 1:p.Ntimesteps], 
                 [w[i,t]/2, l[i_j, t], P[i_j,t], Q[i_j,t]] in JuMP.RotatedSecondOrderCone()
+            )
+        end
+    end
+end
+
+
+function constrain_psd(m, p::Inputs)
+    w = m[:vsqrd]
+    P = m[:Pᵢⱼ]
+    Q = m[:Qᵢⱼ]
+    l = m[:lᵢⱼ]
+    for j in p.busses
+        for i in i_to_j(j, p)  # for radial network there is only one i in i_to_j
+            i_j = string(i*"-"*j)
+            # need to use PSD?
+            @constraint(m, [t in 1:p.Ntimesteps],
+                w[i,t] * l[i_j, t] == P[i_j,t]^2 + Q[i_j,t]^2
             )
         end
     end

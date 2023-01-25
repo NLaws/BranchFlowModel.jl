@@ -73,6 +73,7 @@ mutable struct Inputs{T<:Phases} <: AbstractInputs
     Q_lo_bound::Float64
     Isqaured_up_bounds::Dict{String, <:Real}  # index on ij_edges = [string(i*"-"*j) for j in p.busses for i in i_to_j(j, p)]
     phases_into_bus::Dict{String, Vector{Int}}
+    relaxed::Bool
 end
 # TODO line flow limits
 
@@ -97,6 +98,8 @@ end
         Q_up_bound=1e4,
         P_lo_bound=-1e4,
         Q_lo_bound=-1e4,
+        Isqaured_up_bounds=Dict{String, Float64}(),
+        relaxed=true
     )
 
 Lowest level Inputs constructor (the only one that returns the Inputs struct). 
@@ -123,7 +126,8 @@ function Inputs(
         Q_up_bound=1e4,
         P_lo_bound=-1e4,
         Q_lo_bound=-1e4,
-        Isqaured_up_bounds=Dict{String, Float64}()
+        Isqaured_up_bounds=Dict{String, Float64}(),
+        relaxed=true
     )
     Ibase = Sbase / (Vbase * sqrt(3))
     # Ibase^2 should be used to recover amperage from lᵢⱼ ?
@@ -171,7 +175,8 @@ function Inputs(
         P_lo_bound,
         Q_lo_bound,
         Isqaured_up_bounds,
-        phases_into_bus
+        phases_into_bus,
+        relaxed
     )
 end
 
@@ -212,6 +217,7 @@ function Inputs(
         Q_up_bound=1e4,
         P_lo_bound=-1e4,
         Q_lo_bound=-1e4,
+        relaxed=true,
     )
     d = open(dssfilepath) do io  # 
         parse_dss(io)  # method from PowerModelsDistribution
@@ -243,7 +249,8 @@ function Inputs(
         Q_up_bound=Q_up_bound,
         P_lo_bound=P_lo_bound,
         Q_lo_bound=Q_lo_bound,
-        Isqaured_up_bounds
+        Isqaured_up_bounds=Isqaured_up_bounds,
+        relaxed=relaxed
     )
 end
 
