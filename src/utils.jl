@@ -141,9 +141,10 @@ create and return a dict indexed by bus and time for shadow prices
 """
 function get_load_bal_shadow_prices(m::JuMP.AbstractModel, p::Inputs)
     @assert has_duals(m)
-    d = Dict{String, Dict}()
+    d = Dict{String, Dict}(j => Dict{Int64, Float64}() for j in p.busses)
+
     for j in p.busses, t in 1:p.Ntimesteps
-        d[j] = Dict(t => JuMP.shadow_price(m[:loadbalcons][j]["p"][t]))
+        d[j][t] = JuMP.shadow_price(m[:loadbalcons][j]["p"][t])
     end
     return d
 end
