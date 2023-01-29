@@ -17,13 +17,12 @@ function build_model!(m::JuMP.AbstractModel, p::Inputs)
     constrain_power_balance(m, p)
     constrain_substation_voltage(m, p)
     constrain_KVL(m, p)
+    constrain_loads(m, p)
     if p.relaxed
         constrain_cone(m, p)
     else
         constrain_psd(m, p)
     end
-    constrain_loads(m, p)
-
 end
 
 
