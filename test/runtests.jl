@@ -3,9 +3,10 @@ using Test
 using Random
 using ECOS
 using JuMP
+using OpenDSSDirect
+using Ipopt
 
 Random.seed!(42)
-
 
 
 @testset "BranchFlowModel.jl" begin
@@ -122,4 +123,34 @@ end
 
 end
 
+
+@testset "ieee13 unbalanced MultiPhase" begin
+    T = 3
+
+    # make the dss solution to compare
+    dss("Redirect data/ieee13/IEEE13Nodeckt.dss")
+    @test(OpenDSSDirect.Solution.Converged() == true)
+
+    dss_voltages = Dict(
+        k => v for (k,v) in zip(
+            OpenDSSDirect.Circuit.AllBusNames(), OpenDSSDirect.Circuit.AllBusVMag()
+        )
+    )
+
+    inputs = Inputs(
+        joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), 
+        "0";
+        Sbase=5_000_000, 
+        Vbase=4160, 
+        v0 = 1.00,
+        v_uplim = 1.05,
+        v_lolim = 0.95,
+        Ntimesteps = T
+    );
+
+    m = Model(Ipopt.Optimizer)
+
+
 end
+
+end  # all tests
