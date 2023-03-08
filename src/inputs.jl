@@ -60,7 +60,7 @@ mutable struct Inputs{T<:Phases} <: AbstractInputs
     Vbase::Real
     Ibase::Real
     Zdict::Dict{String, Dict{String, Any}}
-    v0::Real
+    v0::Real  # TODO MultiPhase v0
     v_lolim::Real
     v_uplim::Real
     Zbase::Real
@@ -150,7 +150,12 @@ function Inputs(
     receiving_busses = collect(e[2] for e in edges)
     phases_into_bus = Dict(k=>v for (k,v) in zip(receiving_busses, phases))
 
-    Inputs{SinglePhase}(
+    input_type = SinglePhase
+    if any(get(v, "nphases", 1) > 1 for v in values(Zdict))
+        input_type = MultiPhase
+    end
+
+    Inputs{input_type}(
         edges,
         linecodes,
         linelengths,

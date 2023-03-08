@@ -35,6 +35,22 @@ function xij(i::AbstractString, j::AbstractString, p::Inputs{SinglePhase})
 end
 
 
+function rij(i::AbstractString, j::AbstractString, p::Inputs{MultiPhase})
+    linecode = get_ijlinecode(i, j, p)
+    linelength = get_ijlinelength(i, j, p)
+    rmatrix = p.Zdict[linecode]["rmatrix"] * linelength / p.Zbase
+    return rmatrix
+end
+
+
+function xij(i::AbstractString, j::AbstractString, p::Inputs{MultiPhase})
+    linecode = get_ijlinecode(i, j, p)
+    linelength = get_ijlinelength(i, j, p)
+    xmatrix = p.Zdict[linecode]["xmatrix"] * linelength / p.Zbase
+    return xmatrix
+end
+
+
 function get_ijlinelength(i::AbstractString, j::AbstractString, p::Inputs)
     ij_idx = get_ij_idx(i, j, p)
     return p.linelengths[ij_idx]
