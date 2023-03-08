@@ -19,7 +19,7 @@ function build_model!(m::JuMP.AbstractModel, p::Inputs{MultiPhase})
 
     add_variables(m, p)
     constrain_power_balance(m, p)
-    constrain_substation_voltage(m, p)
+
     constrain_KVL(m, p)
     constrain_loads(m, p)
     if p.relaxed
@@ -164,30 +164,25 @@ function constrain_power_balance(m, p::Inputs{MultiPhase})
 end
 
 
-function constrain_substation_voltage(m, p::Inputs{MultiPhase})
-    # @info "constrain_substation_voltage"
-    @constraint(m, con_substationV[t in 1:p.Ntimesteps],
-       m[:vsqrd][p.substation_bus, t] == p.v0^2
-    )
-    nothing
+function cj(A)
+    conj(transpose(A))
 end
 
 
 function constrain_KVL(m, p::Inputs{MultiPhase})
-    w = m[:vsqrd]
-    P = m[:Pᵢⱼ]
-    Q = m[:Qᵢⱼ]
-    l = m[:lᵢⱼ]
+    w = m[:w]
+    Sᵢⱼ = m[:Sij]
+    lᵢⱼ = m[:l]
     for j in p.busses
         for i in i_to_j(j, p)  # for radial network there is only one i in i_to_j
             i_j = string(i*"-"*j)
-            rᵢⱼ = rij(i,j,p)
-            xᵢⱼ = xij(i,j,p)
-            vcon = @constraint(m, [t in 1:p.Ntimesteps],
-                w[j,t] == w[i,t]
-                    - 2*(rᵢⱼ * P[i_j,t] + xᵢⱼ * Q[i_j,t])
-                    + (rᵢⱼ^2 + xᵢⱼ^2) * l[i_j, t]
-            )
+            z = zij(i,j,p)
+            # TODO only need the upper triangle of these element-wise, matrix constraints
+            @constraint(m, [t in 1:p.Ntimesteps],
+                w[t][j] .== w[t][i]
+                    - (Sᵢⱼ[t][i_j] * cj(z) + z * cj(Sᵢⱼ[t][i_j]))
+                    + z * lᵢⱼ[t][i_j] * cj(z)
+            );
         end
     end
     nothing
