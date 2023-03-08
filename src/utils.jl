@@ -51,6 +51,19 @@ function xij(i::AbstractString, j::AbstractString, p::Inputs{MultiPhase})
 end
 
 
+function zij(i::AbstractString, j::AbstractString, p::Inputs{MultiPhase})
+    r = rij(i, j, p)
+    x = xij(i, j, p)
+    # need to fill out to 3x3 with zeros
+    phases = sort(p.phases_into_bus[j])
+    z = convert(Matrix{ComplexF64}, zeros(3,3))
+    for (ii, phs1) in enumerate(phases), (jj, phs2) in enumerate(phases)
+        z[phs1, phs2] = r[ii, jj] + x[ii, jj]*im
+    end
+    return z
+end
+
+
 function get_ijlinelength(i::AbstractString, j::AbstractString, p::Inputs)
     ij_idx = get_ij_idx(i, j, p)
     return p.linelengths[ij_idx]

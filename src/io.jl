@@ -45,31 +45,65 @@ Parse the dict from PowerModelsDistribution.parse_dss into values needed for Lin
 """
 function dss_dict_to_arrays(d::Dict)
     # TODO allocate empty arrays with number of lines
+    # TODO separate this method into sub-methods, generally parse components separately
     edges = Tuple[]
     phases = Vector[]
     linecodes = String[]
     linelengths = Float64[]
     Isqaured_up_bounds = Dict{String, Float64}()
 
-    for v in values(d["line"])
+    # some reuseable stuff
+    function get_b1_b2_phs(v::Dict)
+        if occursin(".", v["bus1"])  # have to account for .1.2 phases for example
+            b1 = chop(v["bus1"], tail=length(v["bus1"])-findfirst('.', v["bus1"])+1)
+            phs = sort!(collect(parse(Int,ph) for ph in split(v["bus1"][findfirst('.', v["bus1"])+1:end], ".")))
+        else  # default to 3 phases
+            b1 = v["bus1"]
+            phs = [1,2,3]
+        end
+
+        if occursin(".", v["bus2"])
+            b2 = chop(v["bus2"], tail=length(v["bus2"])-findfirst('.', v["bus2"])+1)
+        else
+            b2 = v["bus2"]
+        end
+        return b1, b2, phs
+    end
+
+    for (k,v) in d["line"]
         if "switch" in keys(v) && v["switch"] == true
+            try
+                # need to connect busses over switch, use r=0.001=x  Diagonal(ones(3))
+                b1, b2, phs = get_b1_b2_phs(v)
+                # switch does not have length so we make one up
+                linecode = "switch" * v["name"]
+                push!(edges, (b1, b2))
+                push!(linecodes, linecode)
+                push!(linelengths, 1.0)
+                push!(phases, phs)
+
+                Isqaured_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
+                # TODO not getting switch linecode in Isqaured_up_bounds ???
+                if "emergamps" in keys(v)  # assuming lowercase keys
+                    Isqaured_up_bounds[linecode] = v["emergamps"]^2
+                elseif "normamps" in keys(v)
+                    Isqaured_up_bounds[linecode] = v["normamps"]^2
+                end
+
+                # TODO handle missing r1 or x1
+                d["linecode"][linecode] = Dict(
+                    "nphases" => length(phs),
+                    "rmatrix" => Diagonal(ones(3)) * v["r1"],
+                    "xmatrix" => Diagonal(ones(3)) * v["x1"],
+                )
+            catch e
+                @warn("Unable to parse switch $(k) when processing OpenDSS model.")
+                println(e)
+            end
             continue
         end
         try
-            if occursin(".", v["bus1"])  # have to account for .1.2 phases for example
-                b1 = chop(v["bus1"], tail=length(v["bus1"])-findfirst('.', v["bus1"])+1)
-                phs = sort!(collect(parse(Int,ph) for ph in split(v["bus1"][findfirst('.', v["bus1"])+1:end], ".")))
-            else  # default to 3 phases
-                b1 = v["bus1"]
-                phs = 123
-            end
-
-            if occursin(".", v["bus2"])
-                b2 = chop(v["bus2"], tail=length(v["bus2"])-findfirst('.', v["bus2"])+1)
-            else
-                b2 = v["bus2"]
-            end
-
+            b1, b2, phs = get_b1_b2_phs(v)
             push!(edges, (b1, b2))
             push!(linecodes, v["linecode"])
             push!(linelengths, v["length"])
@@ -85,7 +119,7 @@ function dss_dict_to_arrays(d::Dict)
                 Isqaured_up_bounds[v["linecode"]] = DEFAULT_AMP_LIMIT^2
             end
         catch
-            @warn("Unable to parse line $(v) when processing OpenDSS model.")
+            @warn("Unable to parse line $(k) when processing OpenDSS model.")
         end
     end
 

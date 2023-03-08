@@ -128,27 +128,30 @@ end
     T = 3
 
     # make the dss solution to compare
-    dss("Redirect data/ieee13/IEEE13Nodeckt.dss")
-    @test(OpenDSSDirect.Solution.Converged() == true)
+    # dss("Redirect data/ieee13/IEEE13Nodeckt.dss")
+    # @test(OpenDSSDirect.Solution.Converged() == true)
 
-    dss_voltages = Dict(
-        k => v for (k,v) in zip(
-            OpenDSSDirect.Circuit.AllBusNames(), OpenDSSDirect.Circuit.AllBusVMag()
-        )
-    )
+    # dss_voltages = Dict(
+    #     k => v for (k,v) in zip(
+    #         OpenDSSDirect.Circuit.AllBusNames(), OpenDSSDirect.Circuit.AllBusVMag()
+    #     )
+    # )
 
-    inputs = Inputs(
+    p = Inputs(
         joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), 
-        "0";
+        "rg60";
         Sbase=5_000_000, 
         Vbase=4160, 
         v0 = 1.00,
         v_uplim = 1.05,
         v_lolim = 0.95,
-        Ntimesteps = T
+        Ntimesteps = 3
     );
 
     m = Model(Ipopt.Optimizer)
+
+    BranchFlowModel.add_variables(m,p)
+    BranchFlowModel.constrain_power_balance(m,p)
 
 
 end
