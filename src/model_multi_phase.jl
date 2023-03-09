@@ -75,10 +75,24 @@ function add_variables(m, p::Inputs{MultiPhase})
             # Sj is 3x1
             Sj[t][j] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, reshape([0.0im; 0im; 0im], 3, 1))
             for phs in p.phases_into_bus[j]  # fill in Sj vector with variables for phases going into bus j
+                real_load = 0.0
+                if j in keys(p.Pload)
+                    if phs in keys(p.Pload[j])
+                        real_load = p.Pload[j][phs][t]
+                    end
+                end
+        
+                reactive_load = 0.0
+                if j in keys(p.Qload)
+                    if phs in keys(p.Qload[j])
+                        reactive_load = p.Qload[j][phs][t]
+                    end
+                end
                 Sj[t][j][phs] = @variable(m, 
                     set = ComplexPlane(), base_name="Sj_" * string(t) *"_"* j *"_"* string(phs), 
                     lower_bound = p.P_lo_bound + p.Q_lo_bound*im,
-                    upper_bound = p.P_up_bound + p.Q_up_bound*im
+                    upper_bound = p.P_up_bound + p.Q_up_bound*im,
+                    start = -real_load - reactive_load*im
                 )
             end
 
@@ -202,7 +216,6 @@ function constrain_KVL(m, p::Inputs{MultiPhase})
         for i in i_to_j(j, p)  # for radial network there is only one i in i_to_j
             i_j = string(i*"-"*j)
             z = zij(i,j,p)
-            # TODO only need the upper triangle of these element-wise, matrix constraints
             @constraint(m, [t in 1:p.Ntimesteps],
                 w[t][j] .== w[t][i]
                     - (Sᵢⱼ[t][i_j] * cj(z) + z * cj(Sᵢⱼ[t][i_j]))
@@ -226,6 +239,7 @@ function constrain_loads(m, p::Inputs{BranchFlowModel.MultiPhase})
     m[:injectioncons] = Dict()
     for j in setdiff(p.busses, [p.substation_bus])
 
+        # default to zero injection
         real_load = Dict(phs => zeros(p.Ntimesteps) for phs in [1,2,3])
 
         if j in keys(p.Pload)
@@ -234,6 +248,7 @@ function constrain_loads(m, p::Inputs{BranchFlowModel.MultiPhase})
             end
         end
 
+        # default to zero injection
         reactive_load = Dict(phs => zeros(p.Ntimesteps) for phs in [1,2,3])
 
         if j in keys(p.Qload)
