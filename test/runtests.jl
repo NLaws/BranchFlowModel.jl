@@ -5,6 +5,7 @@ using ECOS
 using JuMP
 using OpenDSSDirect
 using SCS
+using LinearAlgebra
 
 Random.seed!(42)
 
@@ -125,7 +126,6 @@ end
 
 
 @testset "ieee13 unbalanced MultiPhase" begin
-    T = 3
 
     # make the dss solution to compare
     # dss("Redirect data/ieee13/IEEE13Nodeckt.dss")
@@ -145,14 +145,20 @@ end
         v0 = 1.00,
         v_uplim = 1.05,
         v_lolim = 0.95,
-        Ntimesteps = 3
+        Ntimesteps = 1
     );
 
     m = Model(SCS.Optimizer)
 
-    BranchFlowModel.add_variables(m,p)
-    BranchFlowModel.constrain_power_balance(m,p)
-    BranchFlowModel.constrain_KVL(m,p)
+    build_model!(m,p)
+
+    ij_edges = [string(i*"-"*j) for j in p.busses for i in i_to_j(j, p)]
+
+    @objective(m, Min, 
+        sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:p.Ntimesteps, i_j in  ij_edges)
+    )
+
+    optimize!(m)
 
 
 end

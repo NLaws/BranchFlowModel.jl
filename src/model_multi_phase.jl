@@ -45,7 +45,7 @@ function add_variables(m, p::Inputs{MultiPhase})
         l[t] = Dict()
         Sij[t] = Dict()
         # slack bus power injection
-        Sj[t] = Dict(p.substation_bus =>  @variable(m, [1:3, 1:3] in ComplexPlane(), 
+        Sj[t] = Dict(p.substation_bus =>  @variable(m, [1:3] in ComplexPlane(), 
             base_name="Sj_" * string(t) *"_"* p.substation_bus,
             lower_bound = p.P_lo_bound + p.Q_lo_bound*im, 
             upper_bound = p.P_up_bound + p.Q_up_bound*im
@@ -105,7 +105,8 @@ function add_variables(m, p::Inputs{MultiPhase})
                         w[t][j][phs1, phs2] = @variable(m, 
                             base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2), 
                             lower_bound = p.v_lolim^2,
-                            upper_bound = p.v_uplim^2
+                            upper_bound = p.v_uplim^2,
+                            start = 1.0
                         )
 
                     else
@@ -118,7 +119,8 @@ function add_variables(m, p::Inputs{MultiPhase})
                         w[t][j][phs1, phs2] = @variable(m, 
                             set = ComplexPlane(), base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2), 
                             lower_bound = p.v_lolim^2 + p.v_lolim^2*im,
-                            upper_bound = p.v_uplim^2 + p.v_uplim^2*im
+                            upper_bound = p.v_uplim^2 + p.v_uplim^2*im,
+                            start = 1.0 + 0.0im
                         )
                     end
                 end
@@ -132,6 +134,7 @@ function add_variables(m, p::Inputs{MultiPhase})
                 w[t][j]          Sij[t][i_j];
                 cj(Sij[t][i_j])  l[t][i_j]
             ])
+            # TODO store the matrices to check rank=1 after solve
 
             @constraint(m, M in HermitianPSDCone())
         end
@@ -218,29 +221,31 @@ end
 - keys of Pload must match Inputs.busses. Any missing keys have load set to zero.
 - Inputs.substation_bus is unconstrained, slack bus
 """
-function constrain_loads(m, p::Inputs{MultiPhase})
-    Pⱼ = m[:Pⱼ]
-    Qⱼ = m[:Qⱼ]
-    
-    for j in p.busses
+function constrain_loads(m, p::Inputs{BranchFlowModel.MultiPhase})
+    Sⱼ = m[:Sj]
+    m[:injectioncons] = Dict()
+    for j in setdiff(p.busses, [p.substation_bus])
+
+        real_load = Dict(phs => zeros(p.Ntimesteps) for phs in [1,2,3])
+
         if j in keys(p.Pload)
-            @constraint(m, [t in 1:p.Ntimesteps],
-                Pⱼ[j,t] == -p.Pload[j][t] / p.Sbase
-            )
-        elseif j != p.substation_bus
-            @constraint(m, [t in 1:p.Ntimesteps],
-                Pⱼ[j,t] == 0
-            )
+            for phs in keys(p.Pload[j])
+                real_load[phs] = p.Pload[j][phs]
+            end
         end
+
+        reactive_load = Dict(phs => zeros(p.Ntimesteps) for phs in [1,2,3])
+
         if j in keys(p.Qload)
-            @constraint(m, [t in 1:p.Ntimesteps],
-                Qⱼ[j,t] == -p.Qload[j][t] / p.Sbase
-            )
-        elseif j != p.substation_bus
-            @constraint(m, [t in 1:p.Ntimesteps],
-                Qⱼ[j,t] == 0
-            )
+            for phs in keys(p.Qload[j])
+                reactive_load[phs] = p.Qload[j][phs]
+            end
         end
+
+        con = @constraint(m, [t in 1:p.Ntimesteps, phs in p.phases_into_bus[j]],
+            Sⱼ[t][j][phs] == (-real_load[phs][t] - reactive_load[phs][t]im ) / p.Sbase
+        )
+        m[:injectioncons][j] = con
     end
     nothing
 end
