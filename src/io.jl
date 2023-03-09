@@ -38,6 +38,15 @@ function dsstxt_to_sparse_array(fp::String, first_data_row::Int = 5)
 end
 
 
+function heads(edges:: Vector{Tuple})
+    return collect(e[1] for e in edges)
+end
+
+
+function tails(edges:: Vector{Tuple})
+    return collect(e[2] for e in edges)
+end
+
 """
     dss_dict_to_arrays(d::Dict)
 
@@ -45,7 +54,7 @@ Parse the dict from PowerModelsDistribution.parse_dss into values needed for Lin
 """
 function dss_dict_to_arrays(d::Dict)
     # TODO allocate empty arrays with number of lines
-    # TODO separate this method into sub-methods, generally parse components separately
+    # TODO separate this method into sub-methods, generally parse components separately, add transformers
     edges = Tuple[]
     phases = Vector[]
     linecodes = String[]
@@ -70,7 +79,7 @@ function dss_dict_to_arrays(d::Dict)
         return b1, b2, phs
     end
 
-    for (k,v) in d["line"]
+    for (k,v) in d["line"]  # Line dict includes switches
         if "switch" in keys(v) && v["switch"] == true
             try
                 # need to connect busses over switch, use r=0.001=x  Diagonal(ones(3))
@@ -120,6 +129,68 @@ function dss_dict_to_arrays(d::Dict)
             end
         catch
             @warn("Unable to parse line $(k) when processing OpenDSS model.")
+        end
+    end
+
+    # make phases_into_bus to infer transformer phases
+    phases_into_bus = Dict(k=>v for (k,v) in zip(tails(edges), phases))
+
+    for (k,v) in d["transformer"]  # Line dict includes switches
+        try
+            # need to connect busses over transformers
+            b1 = get(v, "bus", nothing)
+            b2 = get(v, "bus_2", nothing)
+
+            if !(b1 in tails(edges)) && !(b2 in heads(edges))
+                # this transformer does not connect anything so we ignore it
+                continue
+            end
+
+            if b1 in tails(edges)
+                phs = phases_into_bus[b1]
+            else
+                @warn("Not parsing transformer $k between $b1 and $b2
+                      because it does not have a line or switch into it.")
+                continue
+            end
+
+            nwindings = v["windings"]
+            if nwindings != 2
+                @warn("Parsing a $nwindings winding transformer as a 2 winding transformer.")
+            end
+
+            R1 = v["%r"] / 100 * v["kv"]^2 / v["kva"]
+            R2 = v["%r_2"] / 100 * v["kv_2"]^2 / v["kva_2"]
+            R = R1 + R2
+            X = v["xhl"] / 100 * v["kv"]^2 / v["kva"]
+            # TODO other reactance values XLT, XHT
+
+            
+            linecode = v["name"]
+            push!(edges, (b1, b2))
+            push!(linecodes, linecode)
+            push!(linelengths, 1.0)
+            push!(phases, phs)
+
+            Isqaured_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
+
+            rmatrix = zeros(3,3)
+            xmatrix = zeros(3,3)
+            # set the diagaonal values
+            for phs1 in phs
+                rmatrix[phs1, phs1] = R
+                xmatrix[phs1, phs1] = X
+            end
+
+            # TODO handle missing r1 or x1
+            d["linecode"][linecode] = Dict(
+                "nphases" => length(phs),
+                "rmatrix" => rmatrix,
+                "xmatrix" => xmatrix,
+            )
+        catch e
+            @warn("Unable to parse transformer $(k) when processing OpenDSS model.")
+            println(e)
         end
     end
 
