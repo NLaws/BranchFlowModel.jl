@@ -147,6 +147,13 @@ end
         v_lolim = 0.95,
         Ntimesteps = 1
     );
+    p.Isqaured_up_bounds = Dict(
+        lc => 100 for lc in Set(p.linecodes)
+    )
+    p.P_lo_bound = -10
+    p.Q_lo_bound = -10
+    p.P_up_bound = 10
+    p.Q_up_bound = 10
 
     m = Model(SCS.Optimizer)
 
