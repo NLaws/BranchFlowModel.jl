@@ -177,3 +177,12 @@ function get_load_bal_shadow_prices(m::JuMP.AbstractModel, p::Inputs)
     end
     return d
 end
+
+"""
+    cj(A)
+
+short cut for conj(transpose(A))
+"""
+function cj(A)
+    conj(transpose(A))
+end

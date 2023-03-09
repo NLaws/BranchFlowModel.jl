@@ -4,7 +4,7 @@ using Random
 using ECOS
 using JuMP
 using OpenDSSDirect
-using Ipopt
+using SCS
 
 Random.seed!(42)
 
@@ -148,10 +148,11 @@ end
         Ntimesteps = 3
     );
 
-    m = Model(Ipopt.Optimizer)
+    m = Model(SCS.Optimizer)
 
     BranchFlowModel.add_variables(m,p)
     BranchFlowModel.constrain_power_balance(m,p)
+    BranchFlowModel.constrain_KVL(m,p)
 
 
 end
