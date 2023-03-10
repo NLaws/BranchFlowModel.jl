@@ -3,7 +3,7 @@ module BranchFlowModel
 using JuMP
 using LinearAlgebra
 import SparseArrays: sparse
-import PowerModelsDistribution: parse_dss
+import PowerModelsDistribution: parse_dss, DELTA
 
 const DEFAULT_AMP_LIMIT = 1000.0
 

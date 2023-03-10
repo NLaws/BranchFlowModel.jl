@@ -82,9 +82,8 @@ function dss_dict_to_arrays(d::Dict)
     for (k,v) in d["line"]  # Line dict includes switches
         if "switch" in keys(v) && v["switch"] == true
             try
-                # need to connect busses over switch, use r=0.001=x  Diagonal(ones(3))
+                # need to connect busses over switch
                 b1, b2, phs = get_b1_b2_phs(v)
-                # switch does not have length so we make one up
                 linecode = "switch" * v["name"]
                 push!(edges, (b1, b2))
                 push!(linecodes, linecode)
@@ -92,7 +91,6 @@ function dss_dict_to_arrays(d::Dict)
                 push!(phases, phs)
 
                 Isqaured_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
-                # TODO not getting switch linecode in Isqaured_up_bounds ???
                 if "emergamps" in keys(v)  # assuming lowercase keys
                     Isqaured_up_bounds[linecode] = v["emergamps"]^2
                 elseif "normamps" in keys(v)
@@ -115,7 +113,6 @@ function dss_dict_to_arrays(d::Dict)
             b1, b2, phs = get_b1_b2_phs(v)
             push!(edges, (b1, b2))
             push!(linecodes, v["linecode"])
-            push!(linelengths, v["length"])
             push!(phases, phs)
 
             # TODO ratings could be in linecode dict too
@@ -127,6 +124,19 @@ function dss_dict_to_arrays(d::Dict)
             else
                 Isqaured_up_bounds[v["linecode"]] = DEFAULT_AMP_LIMIT^2
             end
+
+            # scale the r/x matrices
+            rx_units = d["linecode"][v["linecode"]]["units"]  # "mi"
+            length_units = v["units"]  # "ft"
+            if length_units == "ft" && rx_units == "mi"
+                line_length_ft = v["length"]
+                line_length_miles = line_length_ft / 5280
+                push!(linelengths, line_length_miles) 
+            else
+                throw(ArgumentError("Only accounting for ft and mi in R/X conversion."))
+            end
+
+
         catch
             @warn("Unable to parse line $(k) when processing OpenDSS model.")
         end
@@ -218,7 +228,7 @@ function dss_loads(d::Dict)
             P[bus] = Dict{Int, Array{Real}}()
             Q[bus] = Dict{Int, Array{Real}}()
         end
-        if v["phases"] == 1
+        if v["phases"] == 1 && get(v, "conn", "") != DELTA  # DELTA is a PMD Enum
             P[bus][phases[1]] = [v["kw"] * 1000]  
             if "kvar" in keys(v)
                 Q[bus][phases[1]] = [v["kvar"] * 1000]
