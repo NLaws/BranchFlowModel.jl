@@ -42,7 +42,7 @@ function add_variables(m, p::Inputs{MultiPhase})
 
     for t in T
         # fix head voltage at p.v0
-        v0 = [1.0+0im; -0.5 + im*sqrt(3)/2; -0.5 - im*sqrt(3)/2]
+        v0 = [p.v0 + 0im; -0.5*p.v0 + im*sqrt(3)/2*p.v0; -0.5*p.v0 - im*sqrt(3)/2*p.v0]
         w[t] = Dict(p.substation_bus => v0*cj(v0))
         # empty dicts for line values in each time step to fill
         l[t] = Dict()
