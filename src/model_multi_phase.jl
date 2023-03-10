@@ -23,6 +23,39 @@ zero(::Type{Any}) = 0.0
 zero(::Type{Union{Float64, GenericAffExpr}}) = 0.0
 
 
+"""
+    add_variables(m, p::Inputs{MultiPhase})
+
+Create complex variables:
+- `m[:w]` are 3x3 Hermitian matrices of voltage squared (V*V^T)
+- `m[:l]` are 3x3 Hermitian matrices of current squared (I*I^T)
+- `m[:Sj]` are 3x1 matrices of net power injections (at bus j)
+- `m[:Sij]` are 3x3 Complex matrices of line flow powers (from i to j)
+
+All of the variable containers have typeof `Dict{Int, Dict{String, AbstractVecOrMat}}``.
+- The first index is time step (integer)
+- The second index is bus or line (string)
+- and finally a matrix of complex variables
+
+
+Some examples of using variables:
+```julia
+
+value.(m[:Sj][1]["671"])
+
+value(variable_by_name(m, "real(Sj_1_671_1)"))
+
+value.(m[:w][1]["671"])
+
+value.(m[:Sj][1][p.substation_bus]) 
+
+for b in keys(p.Pload)
+    println(b, "  ", value.(m[:Sj][1][b]))
+end
+
+fix(variable_by_name(m, "real(Sj_1_645_3)"), 0.0, force=true)
+```
+"""
 function add_variables(m, p::Inputs{MultiPhase})
     T = 1:p.Ntimesteps
 
@@ -172,6 +205,10 @@ end
 Sij in - losses == sum of line flows out + net injection
 NOTE: using sum over Pij for future expansion to mesh grids
 i -> j -> k
+
+All of the power balance constraints are stored in `m[:loadbalcons]` with the bus name (string)
+as the first index. For example `m[:loadbalcons]["busname"]` will give the constrain container
+from JuMP for all time steps.
 """
 function constrain_power_balance(m, p::Inputs{MultiPhase})
     Sⱼ = m[:Sj]
@@ -218,6 +255,12 @@ function constrain_power_balance(m, p::Inputs{MultiPhase})
 end
 
 
+"""
+    matrix_upper_triangle_to_vec(M::AbstractMatrix{T}, phases::AbstractVector{Int}) where T
+
+Used in defining the KVL constraints, this method returns the upper triangle of `M` for only
+the indices in `phases`.
+"""
 function matrix_upper_triangle_to_vec(M::AbstractMatrix{T}, phases::AbstractVector{Int}) where T
     v = T[]
     for i in phases, j in phases 
@@ -229,6 +272,11 @@ function matrix_upper_triangle_to_vec(M::AbstractMatrix{T}, phases::AbstractVect
 end
 
 
+"""
+    constrain_KVL(m, p::Inputs{MultiPhase})
+
+Add the voltage drop definintions between busses.
+"""
 function constrain_KVL(m, p::Inputs{MultiPhase})
     w = m[:w]
     Sᵢⱼ = m[:Sij]
@@ -257,9 +305,17 @@ end
 """
     constrain_loads(m, p::Inputs{MultiPhase})
 
-- set loads to negative of Inputs.Pload, which are normalized by Sbase when creating Inputs
-- keys of Pload must match Inputs.busses. Any missing keys have load set to zero.
+- set loads to negative of Inputs.Pload and Inputs.Qload, 
+    which are normalized by Sbase when creating Inputs.
+- keys of Pload and Qload must match Inputs.busses. Any missing keys have load set to zero.
 - Inputs.substation_bus is unconstrained, slack bus
+
+Each of the power injection constraints are stored in the model under `m[:injectioncons]`.
+To acces the constraints you can:
+```julia
+m[:injectioncons]["busname"][t,phs]
+```
+where `t` is the integer time step and `phs` is the integer phase.
 """
 function constrain_loads(m, p::Inputs{BranchFlowModel.MultiPhase})
     Sⱼ = m[:Sj]
