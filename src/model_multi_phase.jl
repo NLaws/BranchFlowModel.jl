@@ -38,6 +38,8 @@ function add_variables(m, p::Inputs{MultiPhase})
     # complex powers injections 
     Sj = Dict{Int64, S}()
 
+    m[:H] = Dict{Int64, S}()  # to store PSD matrices
+
     for t in T
         # fix head voltage at p.v0
         v0 = [1.0+0im; -0.5 + im*sqrt(3)/2; -0.5 - im*sqrt(3)/2]
@@ -51,6 +53,7 @@ function add_variables(m, p::Inputs{MultiPhase})
             lower_bound = p.P_lo_bound + p.Q_lo_bound*im, 
             upper_bound = p.P_up_bound + p.Q_up_bound*im
         ))
+        m[:H][t] = Dict()
         
         for j in keys(p.phases_into_bus)
             if j == p.substation_bus
@@ -149,7 +152,7 @@ function add_variables(m, p::Inputs{MultiPhase})
                 w[t][j]          Sij[t][i_j];
                 cj(Sij[t][i_j])  l[t][i_j]
             ])
-            # TODO store the matrices to check rank=1 after solve
+            m[:H][t][j] = M
 
             @constraint(m, M in HermitianPSDCone())
         end
@@ -180,7 +183,7 @@ function constrain_power_balance(m, p::Inputs{MultiPhase})
     for j in p.busses
         if isempty(i_to_j(j, p)) && !isempty(j_to_k(j, p)) # source nodes, injection = flows out
             con = @constraint(m,  [t in 1:p.Ntimesteps],
-                Sⱼ[t][j] .- sum( diag(Sᵢⱼ[t][string(j*"-"*k)]) for k in j_to_k(j, p) ) .== 0
+                Sⱼ[t][j] .- diag( sum( Sᵢⱼ[t][string(j*"-"*k)] for k in j_to_k(j, p) ) ) .== 0
             )
         elseif isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # unconnected nodes
             @warn "Bus $j has no edges, setting Sⱼ and Qⱼ to zero."
@@ -189,16 +192,22 @@ function constrain_power_balance(m, p::Inputs{MultiPhase})
             )
         elseif !isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # leaf nodes / sinks, flows in = draw out
             con = @constraint(m, [t in 1:p.Ntimesteps],
-                sum( diag(Sᵢⱼ[t][string(i*"-"*j)]) for i in i_to_j(j, p) ) .-
-                sum( diag(zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]) for i in i_to_j(j, p) ) 
+                diag(
+                    sum( 
+                        Sᵢⱼ[t][string(i*"-"*j)] .- zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]
+                    for i in i_to_j(j, p))
+                )
                 + Sⱼ[t][j] .== 0
             )
         else
             con =  @constraint(m, [t in 1:p.Ntimesteps],
-                sum( diag(Sᵢⱼ[t][string(i*"-"*j)]) for i in i_to_j(j, p) ) .- 
-                sum( diag(zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]) for i in i_to_j(j, p) ) .+
+                diag(
+                    sum( 
+                        Sᵢⱼ[t][string(i*"-"*j)] .- zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]
+                    for i in i_to_j(j, p))
+                ) .+
                 Sⱼ[t][j] .- 
-                sum( diag(Sᵢⱼ[t][string(j*"-"*k)]) for k in j_to_k(j, p) ) .== 0
+                diag( sum( Sᵢⱼ[t][string(j*"-"*k)] for k in j_to_k(j, p) ) ) .== 0
             )
         end
         m[:loadbalcons][j] = con
@@ -209,19 +218,36 @@ function constrain_power_balance(m, p::Inputs{MultiPhase})
 end
 
 
+function matrix_upper_triangle_to_vec(M::AbstractMatrix{T}, phases::AbstractVector{Int}) where T
+    v = T[]
+    for i in phases, j in phases 
+        if j >= i
+            push!(v, M[i,j])
+        end
+    end
+    return v
+end
+
+
 function constrain_KVL(m, p::Inputs{MultiPhase})
     w = m[:w]
     Sᵢⱼ = m[:Sij]
     lᵢⱼ = m[:l]
-    for j in p.busses
+
+    T = matrix_upper_triangle_to_vec
+    m[:kvl] = Dict{String, AbstractArray}()
+    for j in p.busses  # substation_bus in here but has empty i_to_j(j, p)
         for i in i_to_j(j, p)  # for radial network there is only one i in i_to_j
+            phs = p.phases_into_bus[j]
             i_j = string(i*"-"*j)
             z = zij(i,j,p)
-            @constraint(m, [t in 1:p.Ntimesteps],
-                w[t][j] .== w[t][i]
-                    - (Sᵢⱼ[t][i_j] * cj(z) + z * cj(Sᵢⱼ[t][i_j]))
-                    + z * lᵢⱼ[t][i_j] * cj(z)
+            # need to slice w[t][i] by phases in i_j
+            con = @constraint(m, [t in 1:p.Ntimesteps],
+                T(w[t][j], phs) .== T(w[t][i], phs)
+                    - T(Sᵢⱼ[t][i_j] * cj(z) + z * cj(Sᵢⱼ[t][i_j]), phs)
+                    + T(z * lᵢⱼ[t][i_j] * cj(z), phs)
             );
+            m[:kvl][j] = con
         end
     end
     nothing
