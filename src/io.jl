@@ -126,17 +126,19 @@ function dss_dict_to_arrays(d::Dict)
             end
 
             # scale the r/x matrices
-            rx_units = d["linecode"][v["linecode"]]["units"]  # "mi"
-            length_units = v["units"]  # "ft"
-            if length_units == "ft" && rx_units == "mi"
-                line_length_ft = v["length"]
-                line_length_miles = line_length_ft / 5280
-                push!(linelengths, line_length_miles) 
+            if "units" in keys(v) && "units" in keys(d["linecode"][v["linecode"]])
+                rx_units = d["linecode"][v["linecode"]]["units"]  # "mi"
+                length_units = v["units"]  # "ft"
+                if length_units == "ft" && rx_units == "mi"
+                    line_length_ft = v["length"]
+                    line_length_miles = line_length_ft / 5280
+                    push!(linelengths, line_length_miles) 
+                else
+                    throw(ArgumentError("Only accounting for ft and mi in R/X conversion."))
+                end
             else
-                throw(ArgumentError("Only accounting for ft and mi in R/X conversion."))
+                push!(linelengths, 1)
             end
-
-
         catch
             @warn("Unable to parse line $(k) when processing OpenDSS model.")
         end
@@ -145,7 +147,7 @@ function dss_dict_to_arrays(d::Dict)
     # make phases_into_bus to infer transformer phases
     phases_into_bus = Dict(k=>v for (k,v) in zip(tails(edges), phases))
 
-    for (k,v) in d["transformer"]  # Line dict includes switches
+    for (k,v) in get(d, "transformer", Dict())
         try
             # need to connect busses over transformers
             b1 = get(v, "bus", nothing)
@@ -175,7 +177,6 @@ function dss_dict_to_arrays(d::Dict)
             X = v["xhl"] / 100 * v["kv"]^2 / v["kva"]
             # TODO other reactance values XLT, XHT
 
-            
             linecode = v["name"]
             push!(edges, (b1, b2))
             push!(linecodes, linecode)
