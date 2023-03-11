@@ -6,6 +6,14 @@ using JuMP
 using OpenDSSDirect
 using SCS
 using LinearAlgebra
+using COSMO
+using CSDP
+
+# hack for local testing
+using Pkg
+Pkg.activate("..")
+using BranchFlowModel
+Pkg.activate(".")
 
 Random.seed!(42)
 
@@ -128,14 +136,14 @@ end
 @testset "ieee13 unbalanced MultiPhase" begin
 
     # make the dss solution to compare
-    # dss("Redirect data/ieee13/IEEE13Nodeckt.dss")
-    # @test(OpenDSSDirect.Solution.Converged() == true)
+    dss("Redirect data/ieee13/IEEE13Nodeckt.dss")
+    @test(OpenDSSDirect.Solution.Converged() == true)
 
-    # dss_voltages = Dict(
-    #     k => v for (k,v) in zip(
-    #         OpenDSSDirect.Circuit.AllBusNames(), OpenDSSDirect.Circuit.AllBusVMag()
-    #     )
-    # )
+    dss_voltages = Dict(
+        k => v for (k,v) in zip(
+            OpenDSSDirect.Circuit.AllBusNames(), OpenDSSDirect.Circuit.AllBusMagPu()
+        )
+    )
 
     p = Inputs(
         joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), 
@@ -155,18 +163,22 @@ end
     p.P_up_bound = 10
     p.Q_up_bound = 10
 
-    m = Model(SCS.Optimizer)
+    m = Model(CSDP.Optimizer)
+
+    # m = Model(COSMO.Optimizer)
+
+    # m = Model(SCS.Optimizer)
 
     build_model!(m,p)
 
-    ij_edges = [string(i*"-"*j) for j in p.busses for i in i_to_j(j, p)]
+    ij_edges = [string(i*"-"*j) for j in p.busses for i in i_to_j(j, p)];
 
     @objective(m, Min, 
         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:p.Ntimesteps, i_j in  ij_edges)
     )
 
     optimize!(m)
-
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
 
 end
 

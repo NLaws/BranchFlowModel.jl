@@ -32,6 +32,9 @@ Create complex variables:
 - `m[:Sj]` are 3x1 matrices of net power injections (at bus j)
 - `m[:Sij]` are 3x3 Complex matrices of line flow powers (from i to j)
 
+The positive semi-definite constraints are also defined and stored as
+- `m[:H][t][j]` where `t` is time step and `j` is the bus name.
+
 All of the variable containers have typeof `Dict{Int, Dict{String, AbstractVecOrMat}}``.
 - The first index is time step (integer)
 - The second index is bus or line (string)
