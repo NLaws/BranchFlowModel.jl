@@ -186,3 +186,22 @@ short cut for conj(transpose(A))
 function cj(A)
     conj(transpose(A))
 end
+
+
+"""
+    check_rank_one(m::JuMP.AbstractModel, p::Inputs{BranchFlowModel.MultiPhase}, tol=1e-3)
+
+Check the rank of the `m[:H]` matrices from the PSD cone constraints.
+Warnings express any values with rank greater than one.
+"""
+function check_rank_one(m::JuMP.AbstractModel, p::Inputs{BranchFlowModel.MultiPhase}, tol=1e-3)
+    for j in p.busses, t in 1:p.Ntimesteps
+        if j == p.substation_bus continue end
+        eigs = eigvals!(JuMP.value.(m[:H][t][j]))
+        eigs ./= maximum(eigs)
+        rank_H = sum(map(x-> x > tol ? 1 : 0, eigs))
+        if rank_H > 1
+            @warn("Bus $j in time step $t has H matrix of rank $rank_H")
+        end
+    end
+end
