@@ -30,7 +30,9 @@ export
     xij,
     zij,
     check_soc_inequalities,
-    get_load_bal_shadow_prices
+    get_load_bal_shadow_prices,
+    voltage_values_by_time_bus,
+    current_values_by_time_edge
 
 include("types.jl")
 include("io.jl")
@@ -38,5 +40,6 @@ include("inputs.jl")
 include("utils.jl")
 include("model_single_phase.jl")
 include("model_multi_phase.jl")
+include("results.jl")
 
 end
