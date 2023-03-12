@@ -149,11 +149,11 @@ function add_variables(m, p::Inputs{MultiPhase})
                 if phs1 <= phs2  # upper triangle of Hermitian matrices
 
                     if phs1 == phs2 # diagonal terms are real
-
+                        # TODO THE BOUNDS LEAD TO INFEASIBLE PROBLEMS
                         l[t][i_j][phs1, phs2] = @variable(m, 
                             base_name="l_" * string(t) *"_"* i_j *"_"*  string(phs1) * string(phs2), 
-                            lower_bound = 0.0,
-                            upper_bound = l_up_bound
+                            # lower_bound = 0.0,  # diagonal value are real, positive
+                            # upper_bound = l_up_bound
                         )
 
                         w[t][j][phs1, phs2] = @variable(m, 
@@ -166,14 +166,14 @@ function add_variables(m, p::Inputs{MultiPhase})
                     else
                         l[t][i_j][phs1, phs2] = @variable(m, 
                             set = ComplexPlane(), base_name="l_" * string(t) *"_"* i_j *"_"*  string(phs1) * string(phs2), 
-                            lower_bound = 0.0 + 0.0*im,
-                            upper_bound = l_up_bound + l_up_bound*im
+                            # lower_bound = 0.0 + 0.0*im,  # must have negative imaginary parts in Hermitian matrix
+                            # upper_bound = l_up_bound + l_up_bound*im
                         )
 
                         w[t][j][phs1, phs2] = @variable(m, 
                             set = ComplexPlane(), base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2), 
-                            lower_bound = p.v_lolim^2 + p.v_lolim^2*im,
-                            upper_bound = p.v_uplim^2 + p.v_uplim^2*im,
+                            # lower_bound = p.v_lolim^2 + p.v_lolim^2*im,  # must have negative imaginary parts in Hermitian matrix
+                            # upper_bound = p.v_uplim^2 + p.v_uplim^2*im,
                             start = 1.0 + 0.0im
                         )
                     end
@@ -285,7 +285,7 @@ function constrain_KVL(m, p::Inputs{MultiPhase})
     Sᵢⱼ = m[:Sij]
     lᵢⱼ = m[:l]
 
-    T = matrix_upper_triangle_to_vec
+    T = matrix_phases_to_vec  # "T" for transform
     m[:kvl] = Dict{String, AbstractArray}()
     for j in p.busses  # substation_bus in here but has empty i_to_j(j, p)
         for i in i_to_j(j, p)  # for radial network there is only one i in i_to_j

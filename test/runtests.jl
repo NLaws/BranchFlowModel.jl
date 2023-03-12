@@ -9,11 +9,11 @@ using LinearAlgebra
 using COSMO
 using CSDP
 
-# hack for local testing
-using Pkg
-Pkg.activate("..")
-using BranchFlowModel
-Pkg.activate(".")
+# # hack for local testing
+# using Pkg
+# Pkg.activate("..")
+# using BranchFlowModel
+# Pkg.activate(".")
 
 Random.seed!(42)
 
@@ -150,14 +150,14 @@ end
         "rg60";
         Sbase=5_000_000, 
         Vbase=4160, 
-        v0 = 1.00,
+        v0 = 1.05,
         v_uplim = 1.05,
         v_lolim = 0.95,
         Ntimesteps = 1
     );
-    p.Isqaured_up_bounds = Dict(
-        lc => 100 for lc in Set(p.linecodes)
-    )
+    # p.Isqaured_up_bounds = Dict(
+    #     lc => 100 for lc in Set(p.linecodes)
+    # )
     p.P_lo_bound = -10
     p.Q_lo_bound = -10
     p.P_up_bound = 10
@@ -178,7 +178,10 @@ end
     )
 
     optimize!(m)
+    
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
+
+    @test_nowarn(check_rank_one(m,p))
 
 end
 
