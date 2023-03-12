@@ -60,7 +60,7 @@ mutable struct Inputs{T<:Phases} <: AbstractInputs
     Vbase::Real
     Ibase::Real
     Zdict::Dict{String, Dict{String, Any}}
-    v0::Real  # TODO MultiPhase v0
+    v0::Union{Real, AbstractVecOrMat{<:Number}}  # TODO MultiPhase v0 
     v_lolim::Real
     v_uplim::Real
     Zbase::Real

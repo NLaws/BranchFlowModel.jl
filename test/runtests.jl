@@ -150,7 +150,7 @@ end
         "rg60";
         Sbase=5_000_000, 
         Vbase=4160, 
-        v0 = 1.05,
+        v0 = [1.0625, 1.05, 1.0687],  # published values @ rg60
         v_uplim = 1.05,
         v_lolim = 0.95,
         Ntimesteps = 1
