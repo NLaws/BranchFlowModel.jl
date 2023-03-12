@@ -259,17 +259,15 @@ end
 
 
 """
-    matrix_upper_triangle_to_vec(M::AbstractMatrix{T}, phases::AbstractVector{Int}) where T
+    matrix_phases_to_vec(M::AbstractMatrix{T}, phases::AbstractVector{Int}) where T
 
-Used in defining the KVL constraints, this method returns the upper triangle of `M` for only
+Used in defining the KVL constraints, this method returns `M` for only
 the indices in `phases`.
 """
-function matrix_upper_triangle_to_vec(M::AbstractMatrix{T}, phases::AbstractVector{Int}) where T
+function matrix_phases_to_vec(M::AbstractMatrix{T}, phases::AbstractVector{Int}) where T
     v = T[]
     for i in phases, j in phases 
-        if j >= i
-            push!(v, M[i,j])
-        end
+        push!(v, M[i,j])
     end
     return v
 end
