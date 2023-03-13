@@ -241,7 +241,7 @@ function constrain_power_balance(m, p::Inputs{MultiPhase})
     for j in p.busses
         if isempty(i_to_j(j, p)) && !isempty(j_to_k(j, p)) # source nodes, injection = flows out
             con = @constraint(m,  [t in 1:p.Ntimesteps],
-                Sⱼ[t][j] .- diag( sum( Sᵢⱼ[t][string(j*"-"*k)] for k in j_to_k(j, p) ) ) .== 0
+                Sⱼ[t][j] - sum( diag( Sᵢⱼ[t][string(j*"-"*k)] ) for k in j_to_k(j, p) ) .== 0
             )
         elseif isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # unconnected nodes
             @warn "Bus $j has no edges, setting Sⱼ and Qⱼ to zero."
@@ -250,22 +250,18 @@ function constrain_power_balance(m, p::Inputs{MultiPhase})
             )
         elseif !isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # leaf nodes / sinks, flows in = draw out
             con = @constraint(m, [t in 1:p.Ntimesteps],
-                diag(
-                    sum( 
-                        Sᵢⱼ[t][string(i*"-"*j)] .- zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]
-                    for i in i_to_j(j, p))
-                )
+                sum( diag( 
+                        Sᵢⱼ[t][string(i*"-"*j)] - zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]
+                    ) for i in i_to_j(j, p) )
                 + Sⱼ[t][j] .== 0
             )
         else
             con =  @constraint(m, [t in 1:p.Ntimesteps],
-                diag(
-                    sum( 
-                        Sᵢⱼ[t][string(i*"-"*j)] .- zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]
-                    for i in i_to_j(j, p))
-                ) .+
-                Sⱼ[t][j] .- 
-                diag( sum( Sᵢⱼ[t][string(j*"-"*k)] for k in j_to_k(j, p) ) ) .== 0
+                sum( diag( 
+                        Sᵢⱼ[t][string(i*"-"*j)] - zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]
+                    ) for i in i_to_j(j, p) )
+                + Sⱼ[t][j]
+                - sum( diag( Sᵢⱼ[t][string(j*"-"*k)] ) for k in j_to_k(j, p) ) .== 0
             )
         end
         m[:loadbalcons][j] = con
