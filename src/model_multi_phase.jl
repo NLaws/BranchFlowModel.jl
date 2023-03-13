@@ -106,7 +106,7 @@ function add_variables(m, p::Inputs{MultiPhase})
 
         # inner method to loop over
         function define_vars_downstream(i::String, t::Int, m::JuMP.AbstractModel, p::Inputs)
-            for j in j_to_k(i, p)
+            for j in j_to_k(i, p)  # i -> j -> k
                 i_j = string(i * "-" * j)  # for radial network there is only one i in i_to_j
 
                 # initialize line flows and injections as zeros that will remain for undefined phases
@@ -253,15 +253,15 @@ function constrain_power_balance(m, p::Inputs{MultiPhase})
         elseif !isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # leaf nodes / sinks, flows in = draw out
             con = @constraint(m, [t in 1:p.Ntimesteps],
                 sum( diag( 
-                        Sᵢⱼ[t][string(i*"-"*j)] - zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]
-                    ) for i in i_to_j(j, p) )
+                    Sᵢⱼ[t][string(i*"-"*j)] - zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]
+                ) for i in i_to_j(j, p) )
                 + Sⱼ[t][j] .== 0
             )
-        else
+        else  # node with lines in and out
             con =  @constraint(m, [t in 1:p.Ntimesteps],
                 sum( diag( 
-                        Sᵢⱼ[t][string(i*"-"*j)] - zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]
-                    ) for i in i_to_j(j, p) )
+                    Sᵢⱼ[t][string(i*"-"*j)] - zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]
+                ) for i in i_to_j(j, p) )
                 + Sⱼ[t][j]
                 - sum( diag( Sᵢⱼ[t][string(j*"-"*k)] ) for k in j_to_k(j, p) ) .== 0
             )
