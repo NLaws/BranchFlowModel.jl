@@ -68,32 +68,6 @@ New linecode.mtx605 nphases=1 BaseFreq=60
 ~ xmatrix = (1.3475 ) 
 ~ units=mi 
 
-/*********** Original 606 Linecode *********************
-
-You have to use this to match Kersting's results:
-
-New linecode.mtx606 nphases=3 BaseFreq=60 
-~ rmatrix = (0.7982 | 0.3192 0.7891 | 0.2849 0.3192 0.7982 ) 
-~ xmatrix = (0.4463 | 0.0328 0.4041 | -0.0143 0.0328 0.4463 ) 
-~ Cmatrix = [257 | 0 257 | 0 0 257]  ! <--- This is too low by 1.5
-~ units=mi 
-
-Corrected mtx606  Feb 3 2016 by RDugan
-
-The new LineCode.606 is computed using the following CN cable definition and 
-LineGeometry definition:
-
-New CNDATA.250_1/3 k=13 DiaStrand=0.064 Rstrand=2.816666667 epsR=2.3
-~ InsLayer=0.220 DiaIns=1.06 DiaCable=1.16 Rac=0.076705 GMRac=0.20568 diam=0.573
-~ Runits=kft Radunits=in GMRunits=in
-
-New LineGeometry.606 nconds=3 nphases=3 units=ft
-~ cond=1 cncable=250_1/3 x=-0.5 h= -4
-~ cond=2 cncable=250_1/3 x=0   h= -4
-~ cond=3 cncable=250_1/3 x=0.5  h= -4
-
-****End Comment******/ 
-
 New Linecode.mtx606 nphases=3  Units=mi
 ~ Rmatrix=[0.791721  |0.318476  0.781649  |0.28345  0.318476  0.791721  ]
 ~ Xmatrix=[0.438352  |0.0276838  0.396697  |-0.0184204  0.0276838  0.438352  ]
@@ -129,17 +103,17 @@ New Capacitor.Cap2 Bus1=611.3 phases=1 kVAR=100 kV=2.4
 !Bus 670 is the concentrated point load of the distributed load on line 632 to 671 located at 1/3 the distance from node 632
 
 !LINE DEFINITIONS 
-New Line.650632    Phases=3 Bus1=RG60.1.2.3   Bus2=632.1.2.3  LineCode=mtx601 Length=2000 units=ft 
-New Line.632670    Phases=3 Bus1=632.1.2.3    Bus2=670.1.2.3  LineCode=mtx601 Length=667  units=ft    
-New Line.670671    Phases=3 Bus1=670.1.2.3    Bus2=671.1.2.3  LineCode=mtx601 Length=1333 units=ft 
-New Line.671680    Phases=3 Bus1=671.1.2.3    Bus2=680.1.2.3  LineCode=mtx601 Length=1000 units=ft 
-New Line.632633    Phases=3 Bus1=632.1.2.3    Bus2=633.1.2.3  LineCode=mtx602 Length=500  units=ft 
-New Line.632645    Phases=2 Bus1=632.3.2      Bus2=645.3.2    LineCode=mtx603 Length=500  units=ft 
-New Line.645646    Phases=2 Bus1=645.3.2      Bus2=646.3.2    LineCode=mtx603 Length=300  units=ft 
-New Line.692675    Phases=3 Bus1=692.1.2.3    Bus2=675.1.2.3  LineCode=mtx606 Length=500  units=ft 
-New Line.671684    Phases=2 Bus1=671.1.3      Bus2=684.1.3    LineCode=mtx604 Length=300  units=ft 
-New Line.684611    Phases=1 Bus1=684.3        Bus2=611.3      LineCode=mtx605 Length=300  units=ft 
-New Line.684652    Phases=1 Bus1=684.1        Bus2=652.1      LineCode=mtx607 Length=800  units=ft 
+New Line.650632    Phases=3 Bus1=RG60.1.2.3   Bus2=632.1.2.3  LineCode=mtx601 Length=0.3787878787878788 units=mi
+New Line.632670    Phases=3 Bus1=632.1.2.3    Bus2=670.1.2.3  LineCode=mtx601 Length=0.12632575757575756  units=mi
+New Line.670671    Phases=3 Bus1=670.1.2.3    Bus2=671.1.2.3  LineCode=mtx601 Length=0.2524621212121212 units=mi
+New Line.671680    Phases=3 Bus1=671.1.2.3    Bus2=680.1.2.3  LineCode=mtx601 Length=0.1893939393939394 units=mi
+New Line.632633    Phases=3 Bus1=632.1.2.3    Bus2=633.1.2.3  LineCode=mtx602 Length=0.0946969696969697  units=mi
+New Line.632645    Phases=2 Bus1=632.3.2      Bus2=645.3.2    LineCode=mtx603 Length=0.0946969696969697  units=mi
+New Line.645646    Phases=2 Bus1=645.3.2      Bus2=646.3.2    LineCode=mtx603 Length=0.0568181818181818  units=mi
+New Line.692675    Phases=3 Bus1=692.1.2.3    Bus2=675.1.2.3  LineCode=mtx606 Length=0.0946969696969697  units=mi
+New Line.671684    Phases=2 Bus1=671.1.3      Bus2=684.1.3    LineCode=mtx604 Length=0.05681818181818181  units=mi 
+New Line.684611    Phases=1 Bus1=684.3        Bus2=611.3      LineCode=mtx605 Length=0.05681818181818181  units=mi 
+New Line.684652    Phases=1 Bus1=684.1        Bus2=652.1      LineCode=mtx607 Length=0.15151515151515152  units=mi 
 
 
 !SWITCH DEFINITIONS 

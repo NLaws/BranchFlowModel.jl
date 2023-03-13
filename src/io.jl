@@ -125,20 +125,10 @@ function dss_dict_to_arrays(d::Dict)
                 Isqaured_up_bounds[v["linecode"]] = DEFAULT_AMP_LIMIT^2
             end
 
-            # scale the r/x matrices
-            if "units" in keys(v) && "units" in keys(d["linecode"][v["linecode"]])
-                rx_units = d["linecode"][v["linecode"]]["units"]  # "mi"
-                length_units = v["units"]  # "ft"
-                if length_units == "ft" && rx_units == "mi"
-                    line_length_ft = v["length"]
-                    line_length_miles = line_length_ft / 5280
-                    push!(linelengths, line_length_miles) 
-                else
-                    throw(ArgumentError("Only accounting for ft and mi in R/X conversion."))
-                end
-            else
-                push!(linelengths, 1)
-            end
+            # TODO handle scaling of lengths and R/X values
+            # for now just make sure the linecode and line values are in consistent units
+            # and BEWARE PowerModelsDistribution will scale values from openDSS!
+            push!(linelengths, v["length"]) 
         catch
             @warn("Unable to parse line $(k) when processing OpenDSS model.")
         end
