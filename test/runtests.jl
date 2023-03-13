@@ -133,26 +133,32 @@ end
 end
 
 
+function dss_voltages_pu()
+    d = Dict()
+    for b in OpenDSSDirect.Circuit.AllBusNames() 
+        OpenDSSDirect.Circuit.SetActiveBus(b)
+        d[b] = OpenDSSDirect.Bus.puVmagAngle()[1:2:end]
+    end
+    return d
+end
+
+
 @testset "ieee13 unbalanced MultiPhase" begin
 
     # make the dss solution to compare
     dss("Redirect data/ieee13/IEEE13Nodeckt.dss")
     @test(OpenDSSDirect.Solution.Converged() == true)
 
-    dss_voltages = Dict(
-        k => v for (k,v) in zip(
-            OpenDSSDirect.Circuit.AllBusNames(), OpenDSSDirect.Circuit.AllBusMagPu()
-        )
-    )
+    dss_voltages = dss_voltages_pu()
 
     p = Inputs(
         joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), 
         "rg60";
         Sbase=5_000_000, 
         Vbase=4160, 
-        v0 = [1.0625, 1.05, 1.0687],  # published values @ rg60
-        v_uplim = 1.05,
-        v_lolim = 0.95,
+        v0 = [1.05603, 1.03739, 1.05605],  # openDSS rg60 values
+        v_uplim = 1.06,
+        v_lolim = 0.94,
         Ntimesteps = 1
     );
     # p.Isqaured_up_bounds = Dict(
@@ -183,6 +189,50 @@ end
 
     @test_nowarn(check_rank_one(m,p))
 
+    # vs = Dict(k => real.(diag(v)) for (k,v) in voltage_values_by_time_bus(m,p)[1])
+
+    # vs["632"]
+    # dss_voltages["632"]
+
+    # TODO why are BFM voltages so much higher than openDSS ? (need higher Z, or Sij ?)
+
+    #=
+        julia> vs = Dict(k => real.(diag(v)) for (k,v) in voltage_values_by_time_bus(m,p)[1])
+        Dict{String, Vector{Float64}} with 14 entries:
+        "671"  => [1.02746, 1.02239, 1.0332]
+        "680"  => [1.02746, 1.02239, 1.0332]
+        "652"  => [1.02421, 0.0, 0.0]
+        "634"  => [1.04153, 1.02472, 1.04205]
+        "675"  => [1.02545, 1.02258, 1.03169]
+        "rg60" => [1.05603, 1.03739, 1.05605]
+        "611"  => [0.0, 0.0, 1.031]
+        "645"  => [0.0, 1.02191, 1.04052]
+        "632"  => [1.04258, 1.02554, 1.04262]
+        "633"  => [1.04154, 1.02473, 1.04206]
+        "684"  => [1.02613, 0.0, 1.03208]
+        "692"  => [1.02746, 1.02239, 1.03319]
+        "670"  => [1.0374, 1.02425, 1.03881]
+        "646"  => [0.0, 1.02133, 1.03973]
+
+        julia> dss_voltages
+        Dict{Any, Any} with 16 entries:
+        "671"       => [0.982795, 1.04028, 0.964876]
+        "680"       => [0.982795, 1.04028, 0.964876]
+        "634"       => [0.987157, 1.00842, 0.982446]
+        "652"       => [0.975332]
+        "675"       => [0.97627, 1.04263, 0.962942]
+        "650"       => [0.999911, 0.999971, 0.999931]
+        "rg60"      => [1.05603, 1.03739, 1.05605]
+        "611"       => [0.96083]
+        "645"       => [1.01973, 1.00227]
+        "632"       => [1.01434, 1.02895, 1.00419]
+        "633"       => [1.0113, 1.02702, 1.00154]
+        "684"       => [0.980872, 0.962846]
+        "sourcebus" => [0.999974, 0.999994, 0.99995]
+        "692"       => [0.982795, 1.04028, 0.964876]
+        "670"       => [1.00402, 1.03187, 0.989743]
+        "646"       => [1.01801, 1.00024]
+    =#
 end
 
 end  # all tests
