@@ -42,9 +42,6 @@ New Transformer.XFM1  Phases=3   Windings=2  XHL=2
 ~ wdg=2 bus=634       conn=Wye kv=0.480    kva=500   %r=.55   XLT=1
 
 
-!LINE CODES
-redirect IEEELineCodes.dss
-
 // these are local matrix line codes
 // corrected 9-14-2011
 New linecode.mtx601 nphases=3 BaseFreq=60 
