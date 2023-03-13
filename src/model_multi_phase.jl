@@ -60,157 +60,161 @@ fix(variable_by_name(m, "real(Sj_1_645_3)"), 0.0, force=true)
 ```
 """
 function add_variables(m, p::Inputs{MultiPhase})
-    T = 1:p.Ntimesteps
-
     # type for inner dicts of variable containers,
     # which are dicts with time and bus keys
     S = Dict{String, AbstractVecOrMat}
     # voltage squared is Hermitian
-    w = Dict{Int64, S}()
+    m[:w] = Dict{Int64, S}()
     # current squared is Hermitian
-    l = Dict{Int64, S}()
+    m[:l] = Dict{Int64, S}()
     # complex line powers (at the sending end)
-    Sij = Dict{Int64, S}()
+    m[:Sij] = Dict{Int64, S}()
     # complex powers injections 
-    Sj = Dict{Int64, S}()
+    m[:Sj] = Dict{Int64, S}()
 
     m[:H] = Dict{Int64, S}()  # to store PSD matrices
 
-    for t in T
-        # fix head voltage at p.v0; if real values provided we assume 120deg phase shift
-        if typeof(p.v0) <: Real
-            v0 = [p.v0 + 0im; -0.5*p.v0 + im*sqrt(3)/2*p.v0; -0.5*p.v0 - im*sqrt(3)/2*p.v0]
-            v0 =  v0*cj(v0)
-        elseif typeof(p.v0) <: AbstractVector{<:Real}
-            v0 = [
-                p.v0[1] + 0im; 
-                -0.5*p.v0[2] + im*sqrt(3)/2*p.v0[2]; 
-                -0.5*p.v0[3] - im*sqrt(3)/2*p.v0[3]
-            ]
-            v0 = v0*cj(v0)
-        elseif typeof(p.v0) <: AbstractVector{<:Complex}
-            v0 = p.v0*cj(p.v0)
-        else  # matrix provided
-            v0 = p.v0
-        end
-        w[t] = Dict(p.substation_bus => v0)
+    # fix head voltage at p.v0; if real values provided we assume 120deg phase shift
+    if typeof(p.v0) <: Real
+        v0 = [p.v0 + 0im; -0.5*p.v0 + im*sqrt(3)/2*p.v0; -0.5*p.v0 - im*sqrt(3)/2*p.v0]
+        v0 =  v0*cj(v0)
+    elseif typeof(p.v0) <: AbstractVector{<:Real}
+        v0 = [
+            p.v0[1] + 0im; 
+            -0.5*p.v0[2] + im*sqrt(3)/2*p.v0[2]; 
+            -0.5*p.v0[3] - im*sqrt(3)/2*p.v0[3]
+        ]
+        v0 = v0*cj(v0)
+    elseif typeof(p.v0) <: AbstractVector{<:Complex}
+        v0 = p.v0*cj(p.v0)
+    else  # matrix provided
+        v0 = p.v0
+    end
+
+    for t in 1:p.Ntimesteps
+        m[:w][t] = Dict(p.substation_bus => v0)
         # empty dicts for line values in each time step to fill
-        l[t] = Dict()
-        Sij[t] = Dict()
+        m[:l][t] = Dict()
+        m[:Sij][t] = Dict()
         # slack bus power injection
-        Sj[t] = Dict(p.substation_bus =>  @variable(m, [1:3] in ComplexPlane(), 
+        m[:Sj][t] = Dict(p.substation_bus =>  @variable(m, [1:3] in ComplexPlane(), 
             base_name="Sj_" * string(t) *"_"* p.substation_bus,
             lower_bound = p.P_lo_bound + p.Q_lo_bound*im, 
             upper_bound = p.P_up_bound + p.Q_up_bound*im
         ))
         m[:H][t] = Dict()
-        
-        for j in keys(p.phases_into_bus)
-            if j == p.substation_bus
-                # already filled Sj and w and there are no lines into substation_bus
-                continue
-            end
 
-            i = i_to_j(j, p)[1]
-            i_j = string(i * "-" * j)  # for radial network there is only one i in i_to_j
+        # inner method to loop over
+        function define_vars_downstream(i::String, t::Int, m::JuMP.AbstractModel, p::Inputs)
+            for j in j_to_k(i, p)
+                i_j = string(i * "-" * j)  # for radial network there is only one i in i_to_j
 
-            # initialize line flows and injections as zeros that will remain for undefined phases
-
-            # Sij is 3x3
-            Sij[t][i_j] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
-            for phs1 in p.phases_into_bus[j], phs2 in p.phases_into_bus[j]
-                Sij[t][i_j][phs1, phs2] = @variable(m, 
-                    set = ComplexPlane(), base_name="Sij_" * string(t) *"_"* i_j *"_"*  string(phs1) * string(phs2), 
-                    lower_bound = p.P_lo_bound + p.Q_lo_bound*im,
-                    upper_bound = p.P_up_bound + p.Q_up_bound*im,
-                )
-            end
-
-            # Sj is 3x1
-            Sj[t][j] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, reshape([0.0im; 0im; 0im], 3, 1))
-            for phs in p.phases_into_bus[j]  # fill in Sj vector with variables for phases going into bus j
-                real_load = 0.0
-                if j in keys(p.Pload)
-                    if phs in keys(p.Pload[j])
-                        real_load = p.Pload[j][phs][t]
-                    end
+                # initialize line flows and injections as zeros that will remain for undefined phases
+                # Sij is 3x3
+                m[:Sij][t][i_j] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
+                for phs1 in p.phases_into_bus[j], phs2 in p.phases_into_bus[j]
+                    m[:Sij][t][i_j][phs1, phs2] = @variable(m, 
+                        set = ComplexPlane(), base_name="Sij_" * string(t) *"_"* i_j *"_"*  string(phs1) * string(phs2), 
+                        lower_bound = p.P_lo_bound + p.Q_lo_bound*im,
+                        upper_bound = p.P_up_bound + p.Q_up_bound*im,
+                    )
                 end
-        
-                reactive_load = 0.0
-                if j in keys(p.Qload)
-                    if phs in keys(p.Qload[j])
-                        reactive_load = p.Qload[j][phs][t]
+
+                # Sj is 3x1
+                m[:Sj][t][j] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, reshape([0.0im; 0im; 0im], 3, 1))
+                for phs in p.phases_into_bus[j]  # fill in Sj vector with variables for phases going into bus j
+                    real_load = 0.0
+                    if j in keys(p.Pload)
+                        if phs in keys(p.Pload[j])
+                            real_load = p.Pload[j][phs][t]
+                        end
                     end
-                end
-                Sj[t][j][phs] = @variable(m, 
-                    set = ComplexPlane(), base_name="Sj_" * string(t) *"_"* j *"_"* string(phs), 
-                    lower_bound = p.P_lo_bound + p.Q_lo_bound*im,
-                    upper_bound = p.P_up_bound + p.Q_up_bound*im,
-                    start = -real_load - reactive_load*im
-                )
-            end
-
-            # Hermitian variables
-            l[t][i_j] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
-            w[t][j]   = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
-
-            # fill in variables for all combinations of phases
-            # TODO better bounds
-            for phs1 in p.phases_into_bus[j], phs2 in p.phases_into_bus[j]
-
-                l_up_bound = p.Isqaured_up_bounds[get_ijlinecode(i,j,p)]
-
-                if phs1 <= phs2  # upper triangle of Hermitian matrices
-
-                    if phs1 == phs2 # diagonal terms are real
-                        # TODO THE BOUNDS LEAD TO INFEASIBLE PROBLEMS
-                        l[t][i_j][phs1, phs2] = @variable(m, 
-                            base_name="l_" * string(t) *"_"* i_j *"_"*  string(phs1) * string(phs2), 
-                            # lower_bound = 0.0,  # diagonal value are real, positive
-                            # upper_bound = l_up_bound
-                        )
-
-                        w[t][j][phs1, phs2] = @variable(m, 
-                            base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2), 
-                            lower_bound = p.v_lolim^2,
-                            upper_bound = p.v_uplim^2,
-                            start = 1.0
-                        )
-
-                    else
-                        l[t][i_j][phs1, phs2] = @variable(m, 
-                            set = ComplexPlane(), base_name="l_" * string(t) *"_"* i_j *"_"*  string(phs1) * string(phs2), 
-                            # lower_bound = 0.0 + 0.0*im,  # must have negative imaginary parts in Hermitian matrix
-                            # upper_bound = l_up_bound + l_up_bound*im
-                        )
-
-                        w[t][j][phs1, phs2] = @variable(m, 
-                            set = ComplexPlane(), base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2), 
-                            # lower_bound = p.v_lolim^2 + p.v_lolim^2*im,  # must have negative imaginary parts in Hermitian matrix
-                            # upper_bound = p.v_uplim^2 + p.v_uplim^2*im,
-                            start = 1.0 + 0.0im
-                        )
-                    end
-                end
-            end
-            # TODO line limit inputs
             
-            l[t][i_j] = Hermitian(l[t][i_j])
-            w[t][j]   = Hermitian(w[t][j])
+                    reactive_load = 0.0
+                    if j in keys(p.Qload)
+                        if phs in keys(p.Qload[j])
+                            reactive_load = p.Qload[j][phs][t]
+                        end
+                    end
+                    m[:Sj][t][j][phs] = @variable(m, 
+                        set = ComplexPlane(), base_name="Sj_" * string(t) *"_"* j *"_"* string(phs), 
+                        lower_bound = p.P_lo_bound + p.Q_lo_bound*im,
+                        upper_bound = p.P_up_bound + p.Q_up_bound*im,
+                        start = -real_load - reactive_load*im
+                    )
+                end
 
-            M = Hermitian([
-                w[t][j]          Sij[t][i_j];
-                cj(Sij[t][i_j])  l[t][i_j]
-            ])
-            m[:H][t][j] = M
+                # Hermitian variables
+                m[:l][t][i_j] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
+                m[:w][t][j]   = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
 
-            @constraint(m, M in HermitianPSDCone())
+                # fill in variables for all combinations of phases
+                # TODO better bounds
+                for phs1 in p.phases_into_bus[j], phs2 in p.phases_into_bus[j]
+
+                    l_up_bound = p.Isqaured_up_bounds[get_ijlinecode(i,j,p)]
+
+                    if phs1 <= phs2  # upper triangle of Hermitian matrices
+
+                        if phs1 == phs2 # diagonal terms are real
+                            # TODO THE BOUNDS LEAD TO INFEASIBLE PROBLEMS
+                            m[:l][t][i_j][phs1, phs2] = @variable(m, 
+                                base_name="l_" * string(t) *"_"* i_j *"_"*  string(phs1) * string(phs2), 
+                                # lower_bound = 0.0,  # diagonal value are real, positive
+                                # upper_bound = l_up_bound
+                            )
+
+                            m[:w][t][j][phs1, phs2] = @variable(m, 
+                                base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2), 
+                                lower_bound = p.v_lolim^2,
+                                upper_bound = p.v_uplim^2,
+                                start = 1.0
+                            )
+
+                        else
+                            m[:l][t][i_j][phs1, phs2] = @variable(m, 
+                                set = ComplexPlane(), base_name="l_" * string(t) *"_"* i_j *"_"*  string(phs1) * string(phs2), 
+                                # lower_bound = 0.0 + 0.0*im,  # must have negative imaginary parts in Hermitian matrix
+                                # upper_bound = l_up_bound + l_up_bound*im
+                            )
+
+                            m[:w][t][j][phs1, phs2] = @variable(m, 
+                                set = ComplexPlane(), base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2), 
+                                # lower_bound = p.v_lolim^2 + p.v_lolim^2*im,  # must have negative imaginary parts in Hermitian matrix
+                                # upper_bound = p.v_uplim^2 + p.v_uplim^2*im,
+                                start = 1.0 + 0.0im
+                            )
+                        end
+                    end
+                end
+                # TODO line limit inputs
+                
+                m[:l][t][i_j] = Hermitian(m[:l][t][i_j])
+                m[:w][t][j]   = Hermitian(m[:w][t][j])
+
+                M = Hermitian([
+                    m[:w][t][i]              m[:Sij][t][i_j];
+                    cj(m[:Sij][t][i_j])  m[:l][t][i_j]
+                ])
+                m[:H][t][j] = M
+
+                @constraint(m, M in HermitianPSDCone())
+            end
+            nothing
         end
+        
+        # have to traverse down the tree in order b/c the semi-definite constraints have i and i_j variables
+        i = p.substation_bus
+        define_vars_downstream(i, t, m, p)
+
+        function recursive_variables(i::String, t::Int, m::JuMP.AbstractModel, p::Inputs)
+            for j in j_to_k(i, p)
+                define_vars_downstream(j, t, m, p)
+                recursive_variables(j, t, m, p)
+            end
+        end
+        recursive_variables(i, t, m, p)
     end
-    m[:w] = w
-    m[:l] = l
-    m[:Sij] = Sij
-    m[:Sj] = Sj
     
     nothing
 end
@@ -266,7 +270,7 @@ function constrain_power_balance(m, p::Inputs{MultiPhase})
         end
         m[:loadbalcons][j] = con
     end
-    # TODO Farivar and Low have b*v and q*v in these equations for shunts? neglected for now
+    # TODO add shunts, diag( openDSS-cmatrix * m[:w][t][j] ) ?
 
     nothing
 end
