@@ -8,6 +8,7 @@ using SCS
 using LinearAlgebra
 using COSMO
 using CSDP
+using Ipopt
 
 # # hack for local testing
 # using Pkg
@@ -303,6 +304,47 @@ end
         
         what is up with openDSS X values so high?
     =#
+end
+
+@testset "ieee13 balanced SinglePhase" begin
+
+    # make the dss solution to compare
+    dss("Redirect data/ieee13_makePosSeq/Master.dss")
+    dss("Solve")
+    @test(OpenDSSDirect.Solution.Converged() == true)
+
+    dss_voltages = dss_voltages_pu()
+
+    vbase = 4160/sqrt(3)
+    p = Inputs(
+        joinpath("data", "ieee13_makePosSeq", "Master.dss"), 
+        "rg60";
+        Sbase=1_000_000, 
+        Vbase=vbase, 
+        v0 = dss_voltages["rg60"][1],  # openDSS rg60 values
+        v_uplim = 1.10,
+        v_lolim = 0.05,
+        Ntimesteps = 1
+    );
+    p.relaxed = false  # NLP
+
+    m = Model(Ipopt.Optimizer)
+
+    build_model!(m,p)
+
+    ij_edges = [string(i*"-"*j) for j in p.busses for i in i_to_j(j, p)];
+
+    @objective(m, Min, 
+        sum( m[:lᵢⱼ][i_j,t] for t in 1:p.Ntimesteps, i_j in  ij_edges)
+    )
+
+    optimize!(m)
+    
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
+
+    vs = get_bus_values(:vsqrd, m, p)
+    # TODO validate with openDSS results (need to settle on Sbase and Vbase)
+
 end
 
 end  # all tests
