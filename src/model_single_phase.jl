@@ -37,18 +37,16 @@ function add_variables(m, p::Inputs)
     # voltage squared
     @variable(m, p.v_lolim^2 <= vsqrd[p.busses, T] <= p.v_uplim^2 ) 
     
-    ij_edges = [string(i*"-"*j) for j in p.busses for i in i_to_j(j, p)]
-
     # line flows, power sent from i to j
-    @variable(m, p.P_lo_bound <= Pij[ij_edges, T] <= p.P_up_bound )
+    @variable(m, p.P_lo_bound <= Pij[p.edge_keys, T] <= p.P_up_bound )
     
-    @variable(m, p.Q_lo_bound <= Qij[ij_edges, T] <= p.Q_up_bound )
+    @variable(m, p.Q_lo_bound <= Qij[p.edge_keys, T] <= p.Q_up_bound )
 
     # current squared (non-negative)
-    @variable(m, 0 <= lij[ij_edges, T])
+    @variable(m, 0 <= lij[p.edge_keys, T])
 
     # TODO better indexing for lines and attributes
-    @constraint(m, [((i,j), edge) in zip(p.edges, ij_edges), t in T],
+    @constraint(m, [((i,j), edge) in zip(p.edges, p.edge_keys), t in T],
         lij[edge, t] <= p.Isqaured_up_bounds[get_ijlinecode(i,j,p)]
     )
 

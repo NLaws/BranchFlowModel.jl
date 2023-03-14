@@ -74,6 +74,7 @@ mutable struct Inputs{T<:Phases} <: AbstractInputs
     Isqaured_up_bounds::Dict{String, <:Real}  # index on ij_edges = [string(i*"-"*j) for j in p.busses for i in i_to_j(j, p)]
     phases_into_bus::Dict{String, Vector{Int}}
     relaxed::Bool
+    edge_keys::Vector{String}
 end
 # TODO line flow limits
 
@@ -155,6 +156,8 @@ function Inputs(
         input_type = MultiPhase
     end
 
+    edge_keys = [string(i*"-"*j) for (i,j) in edges]
+
     Inputs{input_type}(
         edges,
         linecodes,
@@ -181,7 +184,8 @@ function Inputs(
         Q_lo_bound,
         Isqaured_up_bounds,
         phases_into_bus,
-        relaxed
+        relaxed,
+        edge_keys
     )
 end
 
