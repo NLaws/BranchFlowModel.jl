@@ -108,8 +108,8 @@ function dss_dict_to_arrays(d::Dict)
                 # TODO handle missing r1 or x1
                 d["linecode"][linecode] = Dict(
                     "nphases" => length(phs),
-                    "rmatrix" => Diagonal(ones(3)) * v["r1"],
-                    "xmatrix" => Diagonal(ones(3)) * v["x1"],
+                    "rmatrix" => Diagonal(1e-3*ones(3)) * v["r1"],
+                    "xmatrix" => Diagonal(zeros(3)) * v["x1"],
                 )
             catch e
                 @warn("Unable to parse switch $(k) when processing OpenDSS model.")
