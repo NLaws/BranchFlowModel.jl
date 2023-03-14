@@ -237,7 +237,7 @@ function constrain_power_balance(m, p::Inputs{MultiPhase})
     Sᵢⱼ = m[:Sij]
     lij = m[:l]
     m[:loadbalcons] = Dict()
-    # TODO change Pⱼ and Qⱼ to expressions, make P₀ and Q₀ dv's, which will reduce # of variables
+    # TODO change Pj and Qj to expressions, make P₀ and Q₀ dv's, which will reduce # of variables
     # by (Nnodes - 1)*8760 and number of constraints by 6*(Nnodes - 1)*8760
     for j in p.busses
         if isempty(i_to_j(j, p)) && !isempty(j_to_k(j, p)) # source nodes, injection = flows out
@@ -245,7 +245,7 @@ function constrain_power_balance(m, p::Inputs{MultiPhase})
                 Sⱼ[t][j] - sum( diag( Sᵢⱼ[t][string(j*"-"*k)] ) for k in j_to_k(j, p) ) .== 0
             )
         elseif isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # unconnected nodes
-            @warn "Bus $j has no edges, setting Sⱼ and Qⱼ to zero."
+            @warn "Bus $j has no edges, setting Sⱼ and Qj to zero."
             con = @constraint(m, [t in 1:p.Ntimesteps],
                 diag(Sⱼ[t][j]) .== 0
             )

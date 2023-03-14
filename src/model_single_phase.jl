@@ -30,8 +30,8 @@ function add_variables(m, p::Inputs)
     T = 1:p.Ntimesteps
     # bus injections
     @variables m begin
-        p.P_lo_bound <= Pⱼ[p.busses, T] <= p.P_up_bound
-        p.Q_lo_bound <= Qⱼ[p.busses, T] <= p.Q_up_bound
+        p.P_lo_bound <= Pj[p.busses, T] <= p.P_up_bound
+        p.Q_lo_bound <= Qj[p.busses, T] <= p.Q_up_bound
     end
 
     # voltage squared
@@ -62,51 +62,51 @@ NOTE: using sum over Pij for future expansion to mesh grids
 i -> j -> k
 """
 function constrain_power_balance(m, p::Inputs)
-    Pⱼ = m[:Pⱼ]
-    Qⱼ = m[:Qⱼ]
+    Pj = m[:Pj]
+    Qj = m[:Qj]
     Pij = m[:Pij]
     Qij = m[:Qij]
     lij = m[:lij]
     m[:loadbalcons] = Dict()
-    # TODO change Pⱼ and Qⱼ to expressions, make P₀ and Q₀ dv's, which will reduce # of variables
+    # TODO change Pj and Qj to expressions, make P₀ and Q₀ dv's, which will reduce # of variables
     # by (Nnodes - 1)*8760 and number of constraints by 6*(Nnodes - 1)*8760
     for j in p.busses
         if isempty(i_to_j(j, p)) && !isempty(j_to_k(j, p)) # source nodes, injection = flows out
             pcon = @constraint(m,  [t in 1:p.Ntimesteps],
-                Pⱼ[j,t] - sum( Pij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
+                Pj[j,t] - sum( Pij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
             )
             qcon = @constraint(m, [t in 1:p.Ntimesteps],
-                Qⱼ[j,t] - sum( Qij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
+                Qj[j,t] - sum( Qij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
             )
         elseif isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # unconnected nodes
-            @warn "Bus $j has no edges, setting Pⱼ and Qⱼ to zero."
+            @warn "Bus $j has no edges, setting Pj and Qj to zero."
             pcon = @constraint(m, [t in 1:p.Ntimesteps],
-                Pⱼ[j,t] == 0
+                Pj[j,t] == 0
             )
             qcon = @constraint(m, [t in 1:p.Ntimesteps],
-                Qⱼ[j,t] == 0
+                Qj[j,t] == 0
             )
         elseif !isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # leaf nodes / sinks, flows in = draw out
             pcon = @constraint(m, [t in 1:p.Ntimesteps],
                 sum( Pij[string(i*"-"*j), t] for i in i_to_j(j, p) ) -
                 sum( lij[string(i*"-"*j), t] * rij(i,j,p) for i in i_to_j(j, p) ) 
-                + Pⱼ[j, t] == 0
+                + Pj[j, t] == 0
             )
             qcon = @constraint(m, [t in 1:p.Ntimesteps],
                 sum( Qij[string(i*"-"*j), t] for i in i_to_j(j, p) ) -
                 sum( lij[string(i*"-"*j), t] * xij(i,j,p) for i in i_to_j(j, p) ) + 
-                Qⱼ[j, t] == 0
+                Qj[j, t] == 0
             )
         else
             pcon =  @constraint(m, [t in 1:p.Ntimesteps],
                 sum( Pij[string(i*"-"*j), t] for i in i_to_j(j, p) ) - 
                 sum( lij[string(i*"-"*j), t] * rij(i,j,p) for i in i_to_j(j, p) ) +
-                Pⱼ[j,t] - sum( Pij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
+                Pj[j,t] - sum( Pij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
             )
             qcon = @constraint(m, [t in 1:p.Ntimesteps],
                 sum( Qij[string(i*"-"*j), t] for i in i_to_j(j, p) ) 
                 - sum( lij[string(i*"-"*j), t] * xij(i,j,p) for i in i_to_j(j, p) ) +
-                Qⱼ[j,t] - sum( Qij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
+                Qj[j,t] - sum( Qij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
             )
         end
         m[:loadbalcons][j] = Dict("p" => pcon, "q" => qcon)
@@ -192,28 +192,28 @@ end
 - Inputs.substation_bus is unconstrained, slack bus
 """
 function constrain_loads(m, p::Inputs)
-    Pⱼ = m[:Pⱼ]
-    Qⱼ = m[:Qⱼ]
+    Pj = m[:Pj]
+    Qj = m[:Qj]
     m[:injectioncons] = Dict()
     for j in setdiff(p.busses, [p.substation_bus])
         m[:injectioncons][j] = Dict()
         if j in keys(p.Pload)
             con = @constraint(m, [t in 1:p.Ntimesteps],
-                Pⱼ[j,t] == -p.Pload[j][t] / p.Sbase
+                Pj[j,t] == -p.Pload[j][t] / p.Sbase
             )
         else
             con = @constraint(m, [t in 1:p.Ntimesteps],
-                Pⱼ[j,t] == 0
+                Pj[j,t] == 0
             )
         end
         m[:injectioncons][j]["p"] = con
         if j in keys(p.Qload)
             con = @constraint(m, [t in 1:p.Ntimesteps],
-                Qⱼ[j,t] == -p.Qload[j][t] / p.Sbase
+                Qj[j,t] == -p.Qload[j][t] / p.Sbase
             )
         else
             con = @constraint(m, [t in 1:p.Ntimesteps],
-                Qⱼ[j,t] == 0
+                Qj[j,t] == 0
             )
         end
         m[:injectioncons][j]["q"] = con

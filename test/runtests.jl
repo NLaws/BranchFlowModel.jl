@@ -126,7 +126,7 @@ end
     verbose        # verbosity bool for PRINTLEVEL < 3
     =#
     # can add objective here
-    @objective(m, Min, sum(m[:Pⱼ]["0", t] for t=1:T))
+    @objective(m, Min, sum(m[:Pj]["0", t] for t=1:T))
     optimize!(m)
 
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]

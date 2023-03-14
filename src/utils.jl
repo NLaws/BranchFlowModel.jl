@@ -143,8 +143,8 @@ function check_soc_inequalities(m::JuMP.AbstractModel, p::Inputs)
     @assert termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
     w = value.(m[:vsqrd])
     lij = value.(m[:lij])
-    Pj = value.(m[:Pⱼ])
-    Qj = value.(m[:Qⱼ])
+    Pj = value.(m[:Pj])
+    Qj = value.(m[:Qj])
     gaps = Vector{Float64}()  # todo size empty array based on number of SOC cons
 
     # TODO mesh accounting
