@@ -139,7 +139,7 @@ create and return a vector of the gaps in the second order cone constraints
 function check_soc_inequalities(m::JuMP.AbstractModel, p::Inputs)
     @assert termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
     w = value.(m[:vsqrd])
-    lij = value.(m[:lᵢⱼ])
+    lij = value.(m[:lij])
     Pj = value.(m[:Pⱼ])
     Qj = value.(m[:Qⱼ])
     gaps = Vector{Float64}()  # todo size empty array based on number of SOC cons

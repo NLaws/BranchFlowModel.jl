@@ -40,16 +40,16 @@ function add_variables(m, p::Inputs)
     ij_edges = [string(i*"-"*j) for j in p.busses for i in i_to_j(j, p)]
 
     # line flows, power sent from i to j
-    @variable(m, p.P_lo_bound <= Pᵢⱼ[ij_edges, T] <= p.P_up_bound )
+    @variable(m, p.P_lo_bound <= Pij[ij_edges, T] <= p.P_up_bound )
     
-    @variable(m, p.Q_lo_bound <= Qᵢⱼ[ij_edges, T] <= p.Q_up_bound )
+    @variable(m, p.Q_lo_bound <= Qij[ij_edges, T] <= p.Q_up_bound )
 
     # current squared (non-negative)
-    @variable(m, 0 <= lᵢⱼ[ij_edges, T])
+    @variable(m, 0 <= lij[ij_edges, T])
 
     # TODO better indexing for lines and attributes
     @constraint(m, [((i,j), edge) in zip(p.edges, ij_edges), t in T],
-        lᵢⱼ[edge, t] <= p.Isqaured_up_bounds[get_ijlinecode(i,j,p)]
+        lij[edge, t] <= p.Isqaured_up_bounds[get_ijlinecode(i,j,p)]
     )
 
     nothing
@@ -66,19 +66,19 @@ i -> j -> k
 function constrain_power_balance(m, p::Inputs)
     Pⱼ = m[:Pⱼ]
     Qⱼ = m[:Qⱼ]
-    Pᵢⱼ = m[:Pᵢⱼ]
-    Qᵢⱼ = m[:Qᵢⱼ]
-    lᵢⱼ = m[:lᵢⱼ]
+    Pij = m[:Pij]
+    Qij = m[:Qij]
+    lij = m[:lij]
     m[:loadbalcons] = Dict()
     # TODO change Pⱼ and Qⱼ to expressions, make P₀ and Q₀ dv's, which will reduce # of variables
     # by (Nnodes - 1)*8760 and number of constraints by 6*(Nnodes - 1)*8760
     for j in p.busses
         if isempty(i_to_j(j, p)) && !isempty(j_to_k(j, p)) # source nodes, injection = flows out
             pcon = @constraint(m,  [t in 1:p.Ntimesteps],
-                Pⱼ[j,t] - sum( Pᵢⱼ[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
+                Pⱼ[j,t] - sum( Pij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
             )
             qcon = @constraint(m, [t in 1:p.Ntimesteps],
-                Qⱼ[j,t] - sum( Qᵢⱼ[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
+                Qⱼ[j,t] - sum( Qij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
             )
         elseif isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # unconnected nodes
             @warn "Bus $j has no edges, setting Pⱼ and Qⱼ to zero."
@@ -90,25 +90,25 @@ function constrain_power_balance(m, p::Inputs)
             )
         elseif !isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # leaf nodes / sinks, flows in = draw out
             pcon = @constraint(m, [t in 1:p.Ntimesteps],
-                sum( Pᵢⱼ[string(i*"-"*j), t] for i in i_to_j(j, p) ) -
-                sum( lᵢⱼ[string(i*"-"*j), t] * rij(i,j,p) for i in i_to_j(j, p) ) 
+                sum( Pij[string(i*"-"*j), t] for i in i_to_j(j, p) ) -
+                sum( lij[string(i*"-"*j), t] * rij(i,j,p) for i in i_to_j(j, p) ) 
                 + Pⱼ[j, t] == 0
             )
             qcon = @constraint(m, [t in 1:p.Ntimesteps],
-                sum( Qᵢⱼ[string(i*"-"*j), t] for i in i_to_j(j, p) ) -
-                sum( lᵢⱼ[string(i*"-"*j), t] * xij(i,j,p) for i in i_to_j(j, p) ) + 
+                sum( Qij[string(i*"-"*j), t] for i in i_to_j(j, p) ) -
+                sum( lij[string(i*"-"*j), t] * xij(i,j,p) for i in i_to_j(j, p) ) + 
                 Qⱼ[j, t] == 0
             )
         else
             pcon =  @constraint(m, [t in 1:p.Ntimesteps],
-                sum( Pᵢⱼ[string(i*"-"*j), t] for i in i_to_j(j, p) ) - 
-                sum( lᵢⱼ[string(i*"-"*j), t] * rij(i,j,p) for i in i_to_j(j, p) ) +
-                Pⱼ[j,t] - sum( Pᵢⱼ[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
+                sum( Pij[string(i*"-"*j), t] for i in i_to_j(j, p) ) - 
+                sum( lij[string(i*"-"*j), t] * rij(i,j,p) for i in i_to_j(j, p) ) +
+                Pⱼ[j,t] - sum( Pij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
             )
             qcon = @constraint(m, [t in 1:p.Ntimesteps],
-                sum( Qᵢⱼ[string(i*"-"*j), t] for i in i_to_j(j, p) ) 
-                - sum( lᵢⱼ[string(i*"-"*j), t] * xij(i,j,p) for i in i_to_j(j, p) ) +
-                Qⱼ[j,t] - sum( Qᵢⱼ[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
+                sum( Qij[string(i*"-"*j), t] for i in i_to_j(j, p) ) 
+                - sum( lij[string(i*"-"*j), t] * xij(i,j,p) for i in i_to_j(j, p) ) +
+                Qⱼ[j,t] - sum( Qij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
             )
         end
         m[:loadbalcons][j] = Dict("p" => pcon, "q" => qcon)
@@ -130,9 +130,9 @@ end
 
 function constrain_KVL(m, p::Inputs)
     w = m[:vsqrd]
-    P = m[:Pᵢⱼ]
-    Q = m[:Qᵢⱼ]
-    l = m[:lᵢⱼ]
+    P = m[:Pij]
+    Q = m[:Qij]
+    l = m[:lij]
     for j in p.busses
         for i in i_to_j(j, p)  # for radial network there is only one i in i_to_j
             i_j = string(i*"-"*j)
@@ -151,9 +151,9 @@ end
 
 function constrain_cone(m, p::Inputs)
     w = m[:vsqrd]
-    P = m[:Pᵢⱼ]
-    Q = m[:Qᵢⱼ]
-    l = m[:lᵢⱼ]
+    P = m[:Pij]
+    Q = m[:Qij]
+    l = m[:lij]
     for j in p.busses
         for i in i_to_j(j, p)  # for radial network there is only one i in i_to_j
             i_j = string(i*"-"*j)
@@ -171,9 +171,9 @@ end
 
 function constrain_psd(m, p::Inputs)
     w = m[:vsqrd]
-    P = m[:Pᵢⱼ]
-    Q = m[:Qᵢⱼ]
-    l = m[:lᵢⱼ]
+    P = m[:Pij]
+    Q = m[:Qij]
+    l = m[:lij]
     for j in p.busses
         for i in i_to_j(j, p)  # for radial network there is only one i in i_to_j
             i_j = string(i*"-"*j)

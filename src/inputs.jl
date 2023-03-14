@@ -130,7 +130,7 @@ function Inputs(
         relaxed=true
     )
     Ibase = Sbase / (Vbase * sqrt(3))
-    # Ibase^2 should be used to recover amperage from lᵢⱼ ?
+    # Ibase^2 should be used to recover amperage from lij ?
     Zbase = Vbase^2 / Sbase
     @info "Zbase: ", Zbase
     busses = String[]

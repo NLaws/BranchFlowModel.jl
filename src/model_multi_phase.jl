@@ -236,7 +236,7 @@ from JuMP for all time steps.
 function constrain_power_balance(m, p::Inputs{MultiPhase})
     Sⱼ = m[:Sj]
     Sᵢⱼ = m[:Sij]
-    lᵢⱼ = m[:l]
+    lij = m[:l]
     m[:loadbalcons] = Dict()
     # TODO change Pⱼ and Qⱼ to expressions, make P₀ and Q₀ dv's, which will reduce # of variables
     # by (Nnodes - 1)*8760 and number of constraints by 6*(Nnodes - 1)*8760
@@ -253,14 +253,14 @@ function constrain_power_balance(m, p::Inputs{MultiPhase})
         elseif !isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # leaf nodes / sinks, flows in = draw out
             con = @constraint(m, [t in 1:p.Ntimesteps],
                 sum( diag( 
-                    Sᵢⱼ[t][string(i*"-"*j)] - zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]
+                    Sᵢⱼ[t][string(i*"-"*j)] - zij(i,j,p) * lij[t][string(i*"-"*j)]
                 ) for i in i_to_j(j, p) )
                 + Sⱼ[t][j] .== 0
             )
         else  # node with lines in and out
             con =  @constraint(m, [t in 1:p.Ntimesteps],
                 sum( diag( 
-                    Sᵢⱼ[t][string(i*"-"*j)] - zij(i,j,p) * lᵢⱼ[t][string(i*"-"*j)]
+                    Sᵢⱼ[t][string(i*"-"*j)] - zij(i,j,p) * lij[t][string(i*"-"*j)]
                 ) for i in i_to_j(j, p) )
                 + Sⱼ[t][j]
                 - sum( diag( Sᵢⱼ[t][string(j*"-"*k)] ) for k in j_to_k(j, p) ) .== 0
@@ -297,7 +297,7 @@ Add the voltage drop definintions between busses.
 function constrain_KVL(m, p::Inputs{MultiPhase})
     w = m[:w]
     Sᵢⱼ = m[:Sij]
-    lᵢⱼ = m[:l]
+    lij = m[:l]
 
     T = matrix_phases_to_vec  # "T" for transform
     m[:kvl] = Dict{String, AbstractArray}()
@@ -310,7 +310,7 @@ function constrain_KVL(m, p::Inputs{MultiPhase})
             con = @constraint(m, [t in 1:p.Ntimesteps],
                 T(w[t][j], phs) .== T(w[t][i], phs)
                     - T(Sᵢⱼ[t][i_j] * cj(z) + z * cj(Sᵢⱼ[t][i_j]), phs)
-                    + T(z * lᵢⱼ[t][i_j] * cj(z), phs)
+                    + T(z * lij[t][i_j] * cj(z), phs)
             );
             m[:kvl][j] = con
         end

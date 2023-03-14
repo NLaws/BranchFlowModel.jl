@@ -335,7 +335,7 @@ end
     ij_edges = [string(i*"-"*j) for j in p.busses for i in i_to_j(j, p)];
 
     @objective(m, Min, 
-        sum( m[:lᵢⱼ][i_j,t] for t in 1:p.Ntimesteps, i_j in  ij_edges)
+        sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  ij_edges)
     )
 
     optimize!(m)
