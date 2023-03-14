@@ -112,21 +112,13 @@ function get_edge_values(var_prefix::AbstractString, m::JuMP.AbstractModel, p::I
 end
 
 
-function get_bus_values(var_prefix::AbstractString, m::JuMP.AbstractModel, p::Inputs)
-    vals = Float64[]
+function get_bus_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{SinglePhase})
+    vals = value.(m[var])
+    d = Dict()
     for b in p.busses
-        var = string(var_prefix,  "[", b, "]")
-        try
-            val = value(variable_by_name(m, var))
-            if startswith(var_prefix, "v")
-                val = sqrt(val)
-            end
-            push!(vals, round(val; digits=7))
-        catch e
-            println(var, " failed: ", e)
-        end
+        d[b] = vals[b,:].data
     end
-    return vals
+    return d
 end
 
 
