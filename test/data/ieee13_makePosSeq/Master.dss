@@ -1,0 +1,21 @@
+Clear
+Set DefaultBaseFreq=60
+New Circuit.ieee13nodeckt
+
+Set Cktmodel=Positive
+
+Redirect Vsource.dss
+Redirect LineCode.dss
+Redirect LoadShape.dss
+Redirect GrowthShape.dss
+Redirect TCC_Curve.dss
+Redirect Spectrum.dss
+Redirect Line.dss
+Redirect Load.dss
+Redirect Transformer.dss
+Redirect RegControl.dss
+Redirect Capacitor.dss
+MakeBusList
+Redirect BusVoltageBases.dss  ! set voltage bases
+BusCoords BusCoords.dss
+calcv
