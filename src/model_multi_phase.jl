@@ -60,8 +60,7 @@ fix(variable_by_name(m, "real(Sj_1_645_3)"), 0.0, force=true)
 ```
 """
 function add_variables(m, p::Inputs{MultiPhase})
-    # type for inner dicts of variable containers,
-    # which are dicts with time and bus keys
+    # type for inner dicts of variable containers, which are dicts with time and bus keys
     S = Dict{String, AbstractVecOrMat}
     # voltage squared is Hermitian
     m[:w] = Dict{Int64, S}()
@@ -69,10 +68,10 @@ function add_variables(m, p::Inputs{MultiPhase})
     m[:l] = Dict{Int64, S}()
     # complex line powers (at the sending end)
     m[:Sij] = Dict{Int64, S}()
-    # complex powers injections 
+    # complex net powers injections 
     m[:Sj] = Dict{Int64, S}()
-
-    m[:H] = Dict{Int64, S}()  # to store PSD matrices
+    # Hermitian PSD matrices
+    m[:H] = Dict{Int64, S}()
 
     # fix head voltage at p.v0; if real values provided we assume 120deg phase shift
     if typeof(p.v0) <: Real

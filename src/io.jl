@@ -186,6 +186,7 @@ function dss_dict_to_arrays(d::Dict)
             R = R1 + R2
             X = v["xhl"] / 100 * v["kv"]^2 / v["kva"]
             # TODO other reactance values XLT, XHT
+            # TODO need new Vbase for secondary sides of transformers (Sbase stays the same in all zones)
 
             linecode = v["name"]
             push!(edges, (b1, b2))
@@ -230,7 +231,7 @@ then time (integer)
 - TODO LoadXfmrs.dss in 8500 Node ntwk: all loads are put on phases 1 or 2, 
     but actual MV phase could be 1, 2, or 3 -> have to map load phases through transformers?
 """
-function dss_loads(d::Dict; add_caps=false)
+function dss_loads(d::Dict)
     P, Q = Dict{String, Dict{Int, Array{Real}}}(), Dict{String, Dict{Int, Array{Real}}}()
     for v in values(d["load"])
 

@@ -19,9 +19,20 @@ function current_values_by_time_edge(m::JuMP.AbstractModel, p::Inputs{BranchFlow
     d = Dict{Int, Dict{String, AbstractMatrix}}()
     for t in 1:p.Ntimesteps
         d[t] = Dict()
-        for e in p.edges
-            e = string(e[1]*"-"*e[2])
+        for e in p.edge_keys
             d[t][e] = sqrt.(value.(m[:l][t][e]))
+        end
+    end
+    return d
+end
+
+
+function line_flow_values_by_time_edge(m::JuMP.AbstractModel, p::Inputs{BranchFlowModel.MultiPhase})
+    d = Dict{Int, Dict{String, AbstractMatrix}}()
+    for t in 1:p.Ntimesteps
+        d[t] = Dict()
+        for e in p.edge_keys
+            d[t][e] = value.(m[:Sij][t][e])
         end
     end
     return d

@@ -32,7 +32,8 @@ export
     check_soc_inequalities,
     get_load_bal_shadow_prices,
     voltage_values_by_time_bus,
-    current_values_by_time_edge
+    current_values_by_time_edge,
+    line_flow_values_by_time_edge
 
 include("types.jl")
 include("io.jl")

@@ -234,7 +234,7 @@ function Inputs(
     edges, linecodes, linelengths, linecodes_dict, phases, Isqaured_up_bounds = dss_dict_to_arrays(d)
 
     if isempty(Pload) && isempty(Qload)
-        Pload, Qload = dss_loads(d; add_caps=add_caps)
+        Pload, Qload = dss_loads(d)
         # hack for single phase models
         if all(v == [1] for v in phases)
             # strip phase index out of loads
