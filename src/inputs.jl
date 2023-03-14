@@ -230,7 +230,21 @@ function Inputs(
     edges, linecodes, linelengths, linecodes_dict, phases, Isqaured_up_bounds = dss_dict_to_arrays(d)
 
     if isempty(Pload) && isempty(Qload)
-        Pload, Qload = dss_loads(d)
+        Pload, Qload = dss_loads(d; add_caps=add_caps)
+        # hack for single phase models
+        if all(v == [1] for v in phases)
+            # strip phase index out of loads
+            newP = Dict{String, Any}()
+            for (b,v) in Pload
+                newP[b] = v[1]
+            end
+            Pload = newP
+            newQ = Dict{String, Any}()
+            for (b,v) in Qload
+                newQ[b] = v[1]
+            end
+            Qload = newQ
+        end
     end
 
     # TODO line limits from OpenDSS ?

@@ -61,6 +61,10 @@ function dss_dict_to_arrays(d::Dict)
     linelengths = Float64[]
     Isqaured_up_bounds = Dict{String, Float64}()
 
+    if !("linecode" in keys(d))
+        d["linecode"] = Dict{String, Any}()  # we add it b/c we use it for storing R/X values
+    end
+
     # some reuseable stuff
     function get_b1_b2_phs(v::Dict)
         if occursin(".", v["bus1"])  # have to account for .1.2 phases for example
@@ -68,7 +72,11 @@ function dss_dict_to_arrays(d::Dict)
             phs = sort!(collect(parse(Int,ph) for ph in split(v["bus1"][findfirst('.', v["bus1"])+1:end], ".")))
         else  # default to 3 phases
             b1 = v["bus1"]
-            phs = [1,2,3]
+            if v["phases"] == 1
+                phs = [1]
+            else
+                phs = [1,2,3]
+            end
         end
 
         if occursin(".", v["bus2"])
@@ -112,8 +120,20 @@ function dss_dict_to_arrays(d::Dict)
         try
             b1, b2, phs = get_b1_b2_phs(v)
             push!(edges, (b1, b2))
-            push!(linecodes, v["linecode"])
             push!(phases, phs)
+
+            if "linecode" in keys(v)
+                push!(linecodes, v["linecode"])
+            else  # assume positive sequence
+                v["linecode"] = v["name"]
+                push!(linecodes, v["linecode"])
+                d["linecode"][v["name"]] = Dict{String, Any}(
+                    "rmatrix" => [v["r1"]],
+                    "xmatrix" => [v["x1"]],
+                    "nphases" => 1,
+                    "name" => v["name"]
+                )
+            end
 
             # TODO ratings could be in linecode dict too
             # TODO assuming that there are linecodes, should converge on consistent keys for lines
@@ -210,11 +230,17 @@ then time (integer)
 - TODO LoadXfmrs.dss in 8500 Node ntwk: all loads are put on phases 1 or 2, 
     but actual MV phase could be 1, 2, or 3 -> have to map load phases through transformers?
 """
-function dss_loads(d::Dict)
+function dss_loads(d::Dict; add_caps=false)
     P, Q = Dict{String, Dict{Int, Array{Real}}}(), Dict{String, Dict{Int, Array{Real}}}()
     for v in values(d["load"])
-        bus = chop(v["bus1"], tail=length(v["bus1"])-findfirst('.', v["bus1"])+1)
-        phases = collect(parse(Int,ph) for ph in split(v["bus1"][findfirst('.', v["bus1"])+1:end], "."))
+
+        if occursin(".", v["bus1"])
+            bus = chop(v["bus1"], tail=length(v["bus1"])-findfirst('.', v["bus1"])+1)
+            phases = collect(parse(Int,ph) for ph in split(v["bus1"][findfirst('.', v["bus1"])+1:end], "."))
+        else
+            bus = v["bus1"]
+            phases = [1]
+        end
         if !(bus in keys(P))
             P[bus] = Dict{Int, Array{Real}}()
             Q[bus] = Dict{Int, Array{Real}}()
