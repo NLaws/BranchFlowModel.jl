@@ -155,9 +155,9 @@ end
     p = Inputs(
         joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), 
         "rg60";
-        Sbase=5_000_000, 
+        Sbase=1_000_000, 
         Vbase=4160, 
-        v0 = [1.05603, 1.03739, 1.05605],  # openDSS rg60 values
+        v0 = dss_voltages["rg60"],  # openDSS rg60 values
         v_uplim = 1.06,
         v_lolim = 0.94,
         Ntimesteps = 1
@@ -190,7 +190,7 @@ end
 
     @test_nowarn(check_rank_one(m,p))
 
-    # vs = Dict(k => real.(diag(v)) for (k,v) in voltage_values_by_time_bus(m,p)[1])
+    vs = Dict(k => real.(diag(v)) for (k,v) in voltage_values_by_time_bus(m,p)[1])
 
     # vs["632"]
     # dss_voltages["632"]
@@ -322,8 +322,8 @@ end
         Sbase=1_000_000, 
         Vbase=vbase, 
         v0 = dss_voltages["rg60"][1],  # openDSS rg60 values
-        v_uplim = 1.10,
-        v_lolim = 0.05,
+        v_uplim = 1.05,
+        v_lolim = 0.95,
         Ntimesteps = 1
     );
     p.relaxed = false  # NLP
@@ -343,7 +343,13 @@ end
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
 
     vs = get_bus_values(:vsqrd, m, p)
-    # TODO validate with openDSS results (need to settle on Sbase and Vbase)
+    
+    for b in keys(vs)
+        @test abs(vs[b][1] - dss_voltages[b][1]) < 0.01
+    end
+    #=
+    All BFM vs are slightly higher, which could be explained by not modeling shunts
+    =#
 
 end
 
