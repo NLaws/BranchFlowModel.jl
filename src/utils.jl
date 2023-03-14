@@ -117,6 +117,9 @@ function get_bus_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{SinglePhas
     d = Dict()
     for b in p.busses
         d[b] = vals[b,:].data
+        if var == :vsqrd || var == :lij
+            d[b] = sqrt.(d[b])
+        end
     end
     return d
 end
