@@ -194,26 +194,29 @@ end
 function constrain_loads(m, p::Inputs)
     Pⱼ = m[:Pⱼ]
     Qⱼ = m[:Qⱼ]
-    
-    for j in p.busses
+    m[:injectioncons] = Dict()
+    for j in setdiff(p.busses, [p.substation_bus])
+        m[:injectioncons][j] = Dict()
         if j in keys(p.Pload)
-            @constraint(m, [t in 1:p.Ntimesteps],
+            con = @constraint(m, [t in 1:p.Ntimesteps],
                 Pⱼ[j,t] == -p.Pload[j][t] / p.Sbase
             )
-        elseif j != p.substation_bus
-            @constraint(m, [t in 1:p.Ntimesteps],
+        else
+            con = @constraint(m, [t in 1:p.Ntimesteps],
                 Pⱼ[j,t] == 0
             )
         end
+        m[:injectioncons][j]["p"] = con
         if j in keys(p.Qload)
-            @constraint(m, [t in 1:p.Ntimesteps],
+            con = @constraint(m, [t in 1:p.Ntimesteps],
                 Qⱼ[j,t] == -p.Qload[j][t] / p.Sbase
             )
-        elseif j != p.substation_bus
-            @constraint(m, [t in 1:p.Ntimesteps],
+        else
+            con = @constraint(m, [t in 1:p.Ntimesteps],
                 Qⱼ[j,t] == 0
             )
         end
+        m[:injectioncons][j]["q"] = con
     end
     nothing
 end
