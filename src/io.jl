@@ -167,7 +167,7 @@ function dss_dict_to_arrays(d::Dict)
             b2 = get(v, "bus_2", nothing)
 
             if isnothing(b1) && isnothing(b2)
-                b1, b2 = get(v, "busses", [nothing, nothing])
+                b1, b2 = get(v, "buses", [nothing, nothing])
             end
 
             if !(b1 in tails(edges)) && !(b2 in heads(edges))
