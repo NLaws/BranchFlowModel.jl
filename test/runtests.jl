@@ -324,9 +324,10 @@ end
         v0 = dss_voltages["rg60"][1],  # openDSS rg60 values
         v_uplim = 1.05,
         v_lolim = 0.95,
-        Ntimesteps = 1
+        Ntimesteps = 1,
+        relaxed = false  # NLP
     );
-    p.relaxed = false  # NLP
+    @test check_connected_graph(p) == true
 
     m = Model(Ipopt.Optimizer)
 

@@ -2,6 +2,7 @@ module BranchFlowModel
 
 using JuMP
 using LinearAlgebra
+using Graphs
 import SparseArrays: sparse
 import PowerModelsDistribution: parse_dss, DELTA
 
@@ -30,6 +31,7 @@ export
     xij,
     zij,
     check_soc_inequalities,
+    check_connected_graph,
     get_load_bal_shadow_prices,
     voltage_values_by_time_bus,
     current_values_by_time_edge,
@@ -39,6 +41,7 @@ include("types.jl")
 include("io.jl")
 include("inputs.jl")
 include("utils.jl")
+include("checks.jl")
 include("model_single_phase.jl")
 include("model_multi_phase.jl")
 include("results.jl")
