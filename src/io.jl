@@ -105,11 +105,10 @@ function dss_dict_to_arrays(d::Dict)
                     Isqaured_up_bounds[linecode] = v["normamps"]^2
                 end
 
-                # TODO handle missing r1 or x1
                 d["linecode"][linecode] = Dict(
                     "nphases" => length(phs),
-                    "rmatrix" => Diagonal(1e-3*ones(3)) * v["r1"],
-                    "xmatrix" => Diagonal(zeros(3)) * v["x1"],
+                    "rmatrix" => Diagonal(1e-3*ones(3)) * get(v, "r1", 0.00001),
+                    "xmatrix" => Diagonal(zeros(3)) *  get(v, "x1", 0.00001),
                 )
             catch e
                 @warn("Unable to parse switch $(k) when processing OpenDSS model.")
