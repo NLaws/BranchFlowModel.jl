@@ -51,6 +51,10 @@ end
     dss_dict_to_arrays(d::Dict)
 
 Parse the dict from PowerModelsDistribution.parse_dss into values needed for LinDistFlow
+
+TODO need a standardize format for the output of parse_dss rather than following all the ways
+    of defining things in openDSS (for example busses can be defined as an array or individual 
+    call outs for some objects).
 """
 function dss_dict_to_arrays(d::Dict)
     # TODO allocate empty arrays with number of lines
@@ -161,6 +165,10 @@ function dss_dict_to_arrays(d::Dict)
             # need to connect busses over transformers
             b1 = get(v, "bus", nothing)
             b2 = get(v, "bus_2", nothing)
+
+            if isnothing(b1) && isnothing(b2)
+                b1, b2 = get(v, "busses", [nothing, nothing])
+            end
 
             if !(b1 in tails(edges)) && !(b2 in heads(edges))
                 # this transformer does not connect anything so we ignore it
