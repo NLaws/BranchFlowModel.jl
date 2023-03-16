@@ -47,6 +47,43 @@ function tails(edges:: Vector{Tuple})
     return collect(e[2] for e in edges)
 end
 
+
+"""
+    fill_transformer_vals!(d::Dict, p::Inputs)
+
+Fill in necessary values for parsing transformers in the dict from parse_dss
+"""
+function fill_transformer_vals!(d::Dict, Sbase::Real, Vbase::Real)
+    d["%r"]   = get(d, "%r",   0.01)
+    d["%r_2"] = get(d, "%r_2", 0.01)
+
+    if "kvs" in keys(d)
+        d["kv"], d["kv_2"] = d["kvs"]
+    else
+        d["kv"]   = get(d, "kv", Vbase / 1000)
+        d["kv_2"] = get(d, "kv_2", Vbase / 1000)
+    end
+
+    if "buses" in keys(d)
+        d["bus"], d["bus_2"] = d["buses"]
+    else
+        d["bus"]   = get(d, "bus", nothing)
+        d["bus_2"] = get(d, "bus_2", nothing)
+    end
+
+    if "kvas" in keys(d)
+        d["kva"], d["kva_2"] = d["kvas"]
+    else
+        d["kva"]   = get(d, "kva", Sbase / 1000)
+        d["kva_2"] = get(d, "kva_2", Sbase / 1000)
+    end
+
+    d["xlt"] = get(d, "xlt", 1)
+    d["xht"] = get(d, "xlt", 1)
+    d["xhl"] = get(d, "xlt", 1)
+end
+
+
 """
     dss_dict_to_arrays(d::Dict)
 
@@ -56,7 +93,7 @@ TODO need a standardize format for the output of parse_dss rather than following
     of defining things in openDSS (for example busses can be defined as an array or individual 
     call outs for some objects).
 """
-function dss_dict_to_arrays(d::Dict)
+function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
     # TODO allocate empty arrays with number of lines
     # TODO separate this method into sub-methods, generally parse components separately, add transformers
     edges = Tuple[]
@@ -99,7 +136,7 @@ function dss_dict_to_arrays(d::Dict)
                 linecode = "switch" * v["name"]
                 push!(edges, (b1, b2))
                 push!(linecodes, linecode)
-                push!(linelengths, 1.0)
+                push!(linelengths, get(v, "length", 1.0))
                 push!(phases, phs)
 
                 Isqaured_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
@@ -163,15 +200,13 @@ function dss_dict_to_arrays(d::Dict)
     for (k,v) in get(d, "transformer", Dict())
         try
             # need to connect busses over transformers
-            b1 = get(v, "bus", nothing)
-            b2 = get(v, "bus_2", nothing)
-
-            if isnothing(b1) && isnothing(b2)
-                b1, b2 = get(v, "buses", [nothing, nothing])
-            end
+            fill_transformer_vals!(v, Sbase, Vbase)  # need Sbase, Vbase
+            b1, b2 = v["bus"], v["bus_2"]
 
             if !(b1 in tails(edges)) && !(b2 in heads(edges))
                 # this transformer does not connect anything so we ignore it
+                @warn("Not parsing transformer $k between $b1 and $b2
+                    because it does not have a line nor switch in to or out of it.")
                 continue
             end
 
@@ -188,12 +223,12 @@ function dss_dict_to_arrays(d::Dict)
                 @warn("Parsing a $nwindings winding transformer as a 2 winding transformer.")
             end
 
-            R1 = v["%r"] / 100 * v["kv"]^2 / v["kva"]
-            R2 = v["%r_2"] / 100 * v["kv_2"]^2 / v["kva_2"]
+            R1 = v["%r"] / 100 * v["kv"]^2 * 1000 / v["kva"]
+            R2 = v["%r_2"] / 100 * v["kv"]^2 * 1000 / v["kva"]
             R = R1 + R2
-            X = v["xhl"] / 100 * v["kv"]^2 / v["kva"]
-            # TODO other reactance values XLT, XHT
-            # TODO need new Vbase for secondary sides of transformers (Sbase stays the same in all zones)
+            X = (v["xhl"] + v["xlt"] + v["xht"]) / 100 * v["kv"]^2 * 1000 / v["kva"]
+            # openDSS Manual says "Always use the kVA base of the first winding for entering impedances. 
+            # Impedance values are entered in percent."
 
             linecode = v["name"]
             push!(edges, (b1, b2))

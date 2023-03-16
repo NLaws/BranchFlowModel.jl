@@ -333,10 +333,8 @@ end
 
     build_model!(m,p)
 
-    ij_edges = [string(i*"-"*j) for j in p.busses for i in i_to_j(j, p)];
-
     @objective(m, Min, 
-        sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  ij_edges)
+        sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
     )
 
     optimize!(m)
@@ -348,9 +346,6 @@ end
     for b in keys(vs)
         @test abs(vs[b][1] - dss_voltages[b][1]) < 0.01
     end
-    #=
-    All BFM vs are slightly higher, which could be explained by not modeling shunts
-    =#
 
 end
 

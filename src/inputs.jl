@@ -231,7 +231,7 @@ function Inputs(
     d = open(dssfilepath) do io  # 
         parse_dss(io)  # method from PowerModelsDistribution
     end
-    edges, linecodes, linelengths, linecodes_dict, phases, Isqaured_up_bounds = dss_dict_to_arrays(d)
+    edges, linecodes, linelengths, linecodes_dict, phases, Isqaured_up_bounds = dss_dict_to_arrays(d, Sbase, Vbase)
 
     if isempty(Pload) && isempty(Qload)
         Pload, Qload = dss_loads(d)
