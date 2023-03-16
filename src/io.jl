@@ -148,8 +148,8 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
 
                 d["linecode"][linecode] = Dict(
                     "nphases" => length(phs),
-                    "rmatrix" => Diagonal(1e-3*ones(3)) * get(v, "r1", 0.00001),
-                    "xmatrix" => Diagonal(zeros(3)) *  get(v, "x1", 0.00001),
+                    "rmatrix" => Diagonal(ones(3)) * get(v, "r1", 0.00001),
+                    "xmatrix" => Diagonal(ones(3)) *  get(v, "x1", 0.00001),
                 )
             catch e
                 @warn("Unable to parse switch $(k) when processing OpenDSS model.")
