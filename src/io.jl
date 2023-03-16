@@ -285,18 +285,29 @@ function dss_loads(d::Dict)
             phases = [1]
         end
         if !(bus in keys(P))
-            P[bus] = Dict{Int, Array{Real}}()
-            Q[bus] = Dict{Int, Array{Real}}()
+            P[bus] = Dict{Int, Array{Real}}(phases[1] => [0.0])
+            Q[bus] = Dict{Int, Array{Real}}(phases[1] => [0.0])
         end
         if v["phases"] == 1 && get(v, "conn", "") != DELTA  # DELTA is a PMD Enum
-            P[bus][phases[1]] = [v["kw"] * 1000]  
-            if "kvar" in keys(v)
-                Q[bus][phases[1]] = [v["kvar"] * 1000]
-            elseif "pf" in keys(v)
-                p = P[bus][phases[1]]
-                Q[bus][phases[1]] = sqrt( (p/v["pf"])^2 - p^2 )
+            phs = phases[1]
+            if phs in keys(P[bus])
+                P[bus][phs][1] += v["kw"] * 1000
             else
-                Q[bus][phases[1]] = 0.0
+                P[bus][phs] = [v["kw"] * 1000]
+            end
+            if "kvar" in keys(v)
+                if phs in keys(Q[bus])
+                    Q[bus][phs][1] += v["kvar"] * 1000
+                else
+                    Q[bus][phs] = [v["kvar"] * 1000]
+                end
+            elseif "pf" in keys(v)
+                p = P[bus][phs][1]
+                if phs in keys(Q[bus])
+                    Q[bus][phs][1] += sqrt( (p/v["pf"])^2 - p^2 )
+                else
+                    Q[bus][phs] = [sqrt( (p/v["pf"])^2 - p^2 )]
+                end
             end
         else  # split the load evenly across phases
             p = v["kw"] / length(phases) * 1000
@@ -309,8 +320,16 @@ function dss_loads(d::Dict)
                 q = 0.0
             end
             for phs in phases
-                P[bus][phs] = [p]
-                Q[bus][phs] = [q]
+                if phs in keys(P[bus])
+                    P[bus][phs][1] += p
+                else
+                    P[bus][phs] = [p]
+                end
+                if phs in keys(Q[bus])
+                    Q[bus][phs][1] += q
+                else
+                    Q[bus][phs] = [q]
+                end
             end
         end
     end
