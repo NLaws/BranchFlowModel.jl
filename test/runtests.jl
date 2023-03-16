@@ -152,11 +152,12 @@ end
 
     dss_voltages = dss_voltages_pu()
 
+    vbase = 4160/sqrt(3)
     p = Inputs(
         joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), 
         "rg60";
         Sbase=1_000_000, 
-        Vbase=4160, 
+        Vbase=vbase, 
         v0 = dss_voltages["rg60"],  # openDSS rg60 values
         v_uplim = 1.06,
         v_lolim = 0.94,
@@ -178,10 +179,8 @@ end
 
     build_model!(m,p)
 
-    ij_edges = [string(i*"-"*j) for j in p.busses for i in i_to_j(j, p)];
-
     @objective(m, Min, 
-        sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:p.Ntimesteps, i_j in  ij_edges)
+        sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
     )
 
     optimize!(m)
@@ -191,6 +190,12 @@ end
     @test_nowarn(check_rank_one(m,p))
 
     vs = Dict(k => real.(diag(v)) for (k,v) in voltage_values_by_time_bus(m,p)[1])
+
+    # for b in keys(vs)
+    #     for (i,phsv) in enumerate(vs[b])
+    #         @assert abs(phsv - dss_voltages[b][i]) < 1e-2 "bus $b phase $i failed"
+    #     end
+    # end
 
     # vs["632"]
     # dss_voltages["632"]
