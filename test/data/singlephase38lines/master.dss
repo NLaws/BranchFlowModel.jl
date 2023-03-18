@@ -1,2 +1,33 @@
+new circuit.test_circuit basekv=7.2 pu=1.000 phases=1 bus1=0
+~ MVAsc3=20000 MVASC1=20000  baseMVA=1  ! stiffen the source to approximate inf source
+
 redirect singlephase38linecodes.dss
 redirect singlephase38lines.dss
+
+New Load.3  Bus1=3  Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.5  Bus1=5  Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.9  Bus1=9  Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.10 Bus1=10 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.11 Bus1=11 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.12 Bus1=12 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.13 Bus1=13 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.15 Bus1=15 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.17 Bus1=17 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.18 Bus1=18 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.19 Bus1=19 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.22 Bus1=22 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.25 Bus1=25 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.27 Bus1=27 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.28 Bus1=28 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.30 Bus1=30 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.31 Bus1=31 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.32 Bus1=32 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.33 Bus1=33 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.34 Bus1=34 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.35 Bus1=35 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.36 Bus1=36 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+
+Set Voltagebases=[12.47]
+
+calcv
+solve

@@ -1,150 +1,147 @@
-New object=circuit.car38
-~ basekv=1 Bus1=0 pu=1.00 phases=1 R1=0 X1=0.0001
-
 New linecode.0_1 nphases=1 BaseFreq=60
-~ rmatrix = [24.2]
-~ xmatrix = [48.2]
+~ rmatrix = [0.0242]
+~ xmatrix = [0.0482]
 
 New linecode.1_2 nphases=1 BaseFreq=60
-~ rmatrix = [227.3]
-~ xmatrix = [743.5]
+~ rmatrix = [0.2273]
+~ xmatrix = [0.7435]
 
 New linecode.2_3 nphases=1 BaseFreq=60
-~ rmatrix = [76.3]
-~ xmatrix = [18.2]
+~ rmatrix = [0.0763]
+~ xmatrix = [0.0182]
 
 New linecode.2_4 nphases=1 BaseFreq=60
-~ rmatrix = [43.6]
-~ xmatrix = [142.7]
+~ rmatrix = [0.0436]
+~ xmatrix = [0.1427]
 
 New linecode.4_5 nphases=1 BaseFreq=60
-~ rmatrix = [25.8]
-~ xmatrix = [84.4]
+~ rmatrix = [0.0258]
+~ xmatrix = [0.0844]
 
 New linecode.5_6 nphases=1 BaseFreq=60
-~ rmatrix = [10.5]
-~ xmatrix = [10.7]
+~ rmatrix = [0.0105]
+~ xmatrix = [0.0107]
 
 New linecode.6_7 nphases=1 BaseFreq=60
-~ rmatrix = [23.2]
-~ xmatrix = [23.6]
+~ rmatrix = [0.0232]
+~ xmatrix = [0.0236]
 
 New linecode.7_8 nphases=1 BaseFreq=60
-~ rmatrix = [75.1]
-~ xmatrix = [26.7]
+~ rmatrix = [0.0751]
+~ xmatrix = [0.0267]
 
 New linecode.8_9 nphases=1 BaseFreq=60
-~ rmatrix = [114.4]
-~ xmatrix = [27.3]
+~ rmatrix = [0.1144]
+~ xmatrix = [0.0273]
 
 New linecode.9_10 nphases=1 BaseFreq=60
-~ rmatrix = [190.3]
-~ xmatrix = [67.7]
+~ rmatrix = [0.1903]
+~ xmatrix = [0.0677]
 
 New linecode.7_11 nphases=1 BaseFreq=60
-~ rmatrix = [63.7]
-~ xmatrix = [22.7]
+~ rmatrix = [0.0637]
+~ xmatrix = [0.0227]
 
 New linecode.11_12 nphases=1 BaseFreq=60
-~ rmatrix = [278.7]
-~ xmatrix = [99.2]
+~ rmatrix = [0.2787]
+~ xmatrix = [0.0992]
 
 New linecode.12_13 nphases=1 BaseFreq=60
-~ rmatrix = [254.2]
-~ xmatrix = [90.5]
+~ rmatrix = [0.2542]
+~ xmatrix = [0.0905]
 
 New linecode.13_14 nphases=1 BaseFreq=60
-~ rmatrix = [21.8]
-~ xmatrix = [5.2]
+~ rmatrix = [0.0218]
+~ xmatrix = [0.0052]
 
 New linecode.14_15 nphases=1 BaseFreq=60
-~ rmatrix = [57.3]
-~ xmatrix = [20.4]
+~ rmatrix = [0.0573]
+~ xmatrix = [0.0204]
 
 New linecode.15_16 nphases=1 BaseFreq=60
-~ rmatrix = [126.7]
-~ xmatrix = [45.1]
+~ rmatrix = [0.1267]
+~ xmatrix = [0.0451]
 
 New linecode.16_17 nphases=1 BaseFreq=60
-~ rmatrix = [48.6]
-~ xmatrix = [11.6]
+~ rmatrix = [0.0486]
+~ xmatrix = [0.0116]
 
 New linecode.17_18 nphases=1 BaseFreq=60
-~ rmatrix = [95.1]
-~ xmatrix = [22.7]
+~ rmatrix = [0.0951]
+~ xmatrix = [0.0227]
 
 New linecode.18_19 nphases=1 BaseFreq=60
-~ rmatrix = [137.3]
-~ xmatrix = [32.8]
+~ rmatrix = [0.1373]
+~ xmatrix = [0.0328]
 
 New linecode.19_20 nphases=1 BaseFreq=60
-~ rmatrix = [129.5]
-~ xmatrix = [30.9]
+~ rmatrix = [0.1295]
+~ xmatrix = [0.0309]
 
 New linecode.20_21 nphases=1 BaseFreq=60
-~ rmatrix = [15.1]
-~ xmatrix = [5.4]
+~ rmatrix = [0.0151]
+~ xmatrix = [0.0054]
 
 New linecode.21_22 nphases=1 BaseFreq=60
-~ rmatrix = [50.8]
-~ xmatrix = [12.1]
+~ rmatrix = [0.0508]
+~ xmatrix = [0.0121]
 
 New linecode.22_23 nphases=1 BaseFreq=60
-~ rmatrix = [69.1]
-~ xmatrix = [16.5]
+~ rmatrix = [0.0691]
+~ xmatrix = [0.0165]
 
 New linecode.23_24 nphases=1 BaseFreq=60
-~ rmatrix = [31.6]
-~ xmatrix = [11.2]
+~ rmatrix = [0.0316]
+~ xmatrix = [0.0112]
 
 New linecode.24_25 nphases=1 BaseFreq=60
-~ rmatrix = [96.3]
-~ xmatrix = [23]
+~ rmatrix = [0.0963]
+~ xmatrix = [0.023]
 
 New linecode.7_26 nphases=1 BaseFreq=60
-~ rmatrix = [110.7]
-~ xmatrix = [112.6]
+~ rmatrix = [0.1107]
+~ xmatrix = [0.1126]
 
 New linecode.26_27 nphases=1 BaseFreq=60
-~ rmatrix = [2.1]
-~ xmatrix = [0.7]
+~ rmatrix = [0.0021]
+~ xmatrix = [0.0007]
 
 New linecode.7_28 nphases=1 BaseFreq=60
-~ rmatrix = [242.1]
-~ xmatrix = [86.2]
+~ rmatrix = [0.2421]
+~ xmatrix = [0.0862]
 
 New linecode.7_29 nphases=1 BaseFreq=60
-~ rmatrix = [27.3]
-~ xmatrix = [27.8]
+~ rmatrix = [0.0273]
+~ xmatrix = [0.0278]
 
 New linecode.29_30 nphases=1 BaseFreq=60
-~ rmatrix = [174.6]
-~ xmatrix = [62.1]
+~ rmatrix = [0.1746]
+~ xmatrix = [0.0621]
 
 New linecode.30_31 nphases=1 BaseFreq=60
-~ rmatrix = [43]
-~ xmatrix = [15.3]
+~ rmatrix = [0.043]
+~ xmatrix = [0.0153]
 
 New linecode.31_32 nphases=1 BaseFreq=60
-~ rmatrix = [207.8]
-~ xmatrix = [74]
+~ rmatrix = [0.2078]
+~ xmatrix = [0.074]
 
 New linecode.32_33 nphases=1 BaseFreq=60
-~ rmatrix = [109.4]
-~ xmatrix = [38.9]
+~ rmatrix = [0.1094]
+~ xmatrix = [0.0389]
 
 New linecode.33_34 nphases=1 BaseFreq=60
-~ rmatrix = [50.5]
-~ xmatrix = [18]
+~ rmatrix = [0.0505]
+~ xmatrix = [0.018]
 
 New linecode.34_35 nphases=1 BaseFreq=60
-~ rmatrix = [165.2]
-~ xmatrix = [58.8]
+~ rmatrix = [0.1652]
+~ xmatrix = [0.0588]
 
 New linecode.6_36 nphases=1 BaseFreq=60
-~ rmatrix = [49.5]
-~ xmatrix = [17.6]
+~ rmatrix = [0.0495]
+~ xmatrix = [0.0176]
 
 New linecode.6_37 nphases=1 BaseFreq=60
-~ rmatrix = [5.8]
-~ xmatrix = [2.1]
+~ rmatrix = [0.0058]
+~ xmatrix = [0.0021]
