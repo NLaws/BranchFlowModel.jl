@@ -314,6 +314,7 @@ end
 @testset "ieee13 balanced SinglePhase" begin
 
     # make the dss solution to compare
+    dss("clear")
     dss("Redirect data/ieee13_makePosSeq/Master.dss")
     dss("Solve")
     @test(OpenDSSDirect.Solution.Converged() == true)
@@ -351,6 +352,42 @@ end
     for b in keys(vs)
         @test abs(vs[b][1] - dss_voltages[b][1]) < 0.01
     end
+
+end
+
+@testset "SinglePhase network reduction" begin
+    # 1 validate BFM against OpenDSS
+    Sbase = 1e6
+    Vbase = 12.47e3
+    p = Inputs(
+        joinpath("data", "singlephase38lines", "master.dss"), 
+        "0";
+        Sbase=Sbase, 
+        Vbase=Vbase, 
+        v0 = 1.00,
+        v_uplim = 1.05,
+        v_lolim = 0.95,
+        relaxed = false,
+    );
+    m = Model(Ipopt.Optimizer)
+    build_model!(m,p)
+    @objective(m, Min, 
+        sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
+    )
+    optimize!(m)
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
+    vs = get_bus_values(:vsqrd, m, p)
+    # make the dss solution to compare
+    dss("clear")
+    dss("Redirect data/singlephase38lines/master.dss")
+    dss("Solve")
+    @test(OpenDSSDirect.Solution.Converged() == true)
+    dss_voltages = dss_voltages_pu()
+    for b in keys(vs)
+        @test abs(vs[b][1] - dss_voltages[b][1]) < 0.001
+    end
+
+    # 2 validate BFM results stay the same after reduction
 
 end
 
