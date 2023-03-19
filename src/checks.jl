@@ -49,12 +49,7 @@ this is a good check to do before attempting to solve a model because
 if there is more than one sub-graph then it is likely the model will be infeasible
 """
 function check_connected_graph(p::Inputs{BranchFlowModel.SinglePhase})
-    bus_int_map = Dict(b => i for (i,b) in enumerate(p.busses))
-    g = SimpleGraph(length(p.busses))
-    for e in p.edges
-        add_edge!(g, Edge(bus_int_map[e[1]], bus_int_map[e[2]]))
-    end
-
+    g, bus_int_map, int_bus_map = make_graph(p.busses, p.edges)
     if length(connected_components(g)) == 1
         return true
     end

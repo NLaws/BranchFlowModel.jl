@@ -334,6 +334,24 @@ end
 
 
 """
+    make_graph(busses::AbstractVector{String}, edges::AbstractVector{Tuple})
+
+return DiGraph, Dict, Dict 
+with the dicts for bus => int and int => bus
+(because Graphs.jl only works with integer nodes)
+"""
+function make_graph(busses::AbstractVector{String}, edges::AbstractVector{Tuple})
+    bus_int_map = Dict(b => i for (i,b) in enumerate(busses))
+    int_bus_map = Dict(i => b for (b, i) in bus_int_map)
+    g = DiGraph(length(busses))
+    for e in edges
+        add_edge!(g, Edge(bus_int_map[e[1]], bus_int_map[e[2]]))
+    end
+    return g, bus_int_map, int_bus_map
+end
+
+
+"""
     reduce_tree!(p::Inputs{SinglePhase})
 
 combine any line sets with intermediate busses that have indegree == outdegree == 1
@@ -341,12 +359,7 @@ and is not a load bus into a single line
 """
 function reduce_tree!(p::Inputs{BranchFlowModel.SinglePhase})
     # TODO make graph once in Inputs ?
-    bus_int_map = Dict(b => i for (i,b) in enumerate(p.busses))
-    int_bus_map = Dict(i => b for (b, i) in bus_int_map)
-    g = DiGraph(length(p.busses))
-    for e in p.edges
-        add_edge!(g, Edge(bus_int_map[e[1]], bus_int_map[e[2]]))
-    end
+    g, bus_int_map, int_bus_map = make_graph(p.busses, p.edges)
 
     reducable_buses = String[]
     load_buses = Set(vcat(collect(keys(p.Pload)), collect(keys(p.Qload))))
