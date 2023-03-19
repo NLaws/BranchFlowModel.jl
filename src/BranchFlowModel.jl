@@ -24,6 +24,7 @@ export
     get_bus_values, 
     get_edge_values, 
     get_ijlinecode,
+    get_ij_idx,
     # recover_voltage_current,  # TODO validate this method
     i_to_j, 
     j_to_k, 
@@ -35,7 +36,8 @@ export
     get_load_bal_shadow_prices,
     voltage_values_by_time_bus,
     current_values_by_time_edge,
-    line_flow_values_by_time_edge
+    line_flow_values_by_time_edge,
+    reduce_tree!
 
 include("types.jl")
 include("io.jl")

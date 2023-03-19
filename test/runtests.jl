@@ -388,6 +388,18 @@ end
     end
 
     # 2 validate BFM results stay the same after reduction
+    reduce_tree!(p)
+    m = Model(Ipopt.Optimizer)
+    build_model!(m,p)
+    @objective(m, Min, 
+        sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
+    )
+    optimize!(m)
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
+    vs_reduced = get_bus_values(:vsqrd, m, p)
+    for b in keys(vs_reduced)
+        @test abs(vs[b][1] - vs_reduced[b][1]) < 0.001
+    end
 
 end
 

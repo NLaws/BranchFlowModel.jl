@@ -45,7 +45,7 @@ TODO Zdict example
 TODO test against simple model to make sure scaling is done right
 
 !!! NOTE
-    The `edges`, `linecodes`, `phases`, and `linelengths` are in mutual order (e.g. the i-th value in each list corresponds to the same line)
+    The `edges`, `linecodes`, `phases`, `edge_keys`, and `linelengths` are in mutual order (e.g. the i-th value in each list corresponds to the same line)
 """
 mutable struct Inputs{T<:Phases} <: AbstractInputs
     edges::Array{Tuple, 1}
@@ -330,4 +330,70 @@ function singlephase38linesInputs(;
         v_lolim = v_lolim,
         Ntimesteps = T
     )
+end
+
+
+"""
+    reduce_tree!(p::Inputs{SinglePhase})
+
+combine any line sets with intermediate busses that have indegree == outdegree == 1
+and is not a load bus into a single line
+"""
+function reduce_tree!(p::Inputs{BranchFlowModel.SinglePhase})
+    # TODO make graph once in Inputs ?
+    bus_int_map = Dict(b => i for (i,b) in enumerate(p.busses))
+    int_bus_map = Dict(i => b for (b, i) in bus_int_map)
+    g = DiGraph(length(p.busses))
+    for e in p.edges
+        add_edge!(g, Edge(bus_int_map[e[1]], bus_int_map[e[2]]))
+    end
+
+    reducable_buses = String[]
+    load_buses = Set(vcat(collect(keys(p.Pload)), collect(keys(p.Qload))))
+    for v in vertices(g)
+        if indegree(g, v) == outdegree(g, v) == 1 && !(int_bus_map[v] in load_buses)
+            push!(reducable_buses, int_bus_map[v])
+        end
+    end
+
+    # replace two lines with one
+    for j in reducable_buses
+        # get all the old values
+        i, k = i_to_j(j, p)[1], j_to_k(j, p)[1]
+        ij_idx, jk_idx = get_ij_idx(i, j, p), get_ij_idx(j, k, p)
+        ij_len, jk_len = p.linelengths[ij_idx], p.linelengths[jk_idx]
+        ij_linecode, jk_linecode = get_ijlinecode(i,j,p), get_ijlinecode(j,k,p)
+        r_ij, x_ij, r_jk, x_jk = rij(i,j,p)*p.Zbase, xij(i,j,p)*p.Zbase, rij(j,k,p)*p.Zbase, xij(j,k,p)*p.Zbase
+        # make the new values
+        r_ik = r_ij + r_jk
+        x_ik = x_ij + x_jk
+        ik_len = ij_len + jk_len
+        ik_linecode = ik_key = i * "-" * k
+        ik_amps = minimum([p.Isqaured_up_bounds[ij_linecode], p.Isqaured_up_bounds[jk_linecode]])
+        # delete the old values
+        idxs = sort([ij_idx, jk_idx])
+        deleteat!(p.edges,       idxs)
+        deleteat!(p.linecodes,   idxs)
+        deleteat!(p.phases,      idxs)
+        deleteat!(p.linelengths, idxs)
+        deleteat!(p.edge_keys,   idxs)
+        p.busses = setdiff(p.busses, [j])
+        delete!(p.Zdict, ij_linecode)
+        delete!(p.Zdict, jk_linecode)
+        delete!(p.Isqaured_up_bounds, ij_linecode)
+        delete!(p.Isqaured_up_bounds, jk_linecode)
+        # add the new values
+        push!(p.edges, (i, k))
+        push!(p.linecodes, ik_linecode)
+        push!(p.phases, [1])
+        push!(p.linelengths, ik_len)
+        push!(p.edge_keys, ik_key)
+        p.Zdict[ik_linecode] = Dict(
+            "nphases" => 1,
+            "name" => ik_linecode,
+            "rmatrix" => [r_ik / ik_len],
+            "xmatrix" => [x_ik / ik_len],
+        )
+        p.Isqaured_up_bounds[ik_linecode] = ik_amps
+    end
 end
