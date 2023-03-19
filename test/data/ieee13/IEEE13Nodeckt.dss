@@ -1,15 +1,8 @@
 Clear 
 
-!
-! This script is based on a script developed by Tennessee Tech Univ students
-! Tyler Patton, Jon Wood, and David Woods, April 2009
-!
-
 new circuit.IEEE13Nodeckt 
 ~ basekv=115 pu=1.0001 phases=3 bus1=SourceBus  
-~ Angle=30                                                         ! advance angle 30 deg so result agree with published angle
-~ MVAsc3=20000 MVASC1=21000    ! stiffen the source to approximate inf source
-
+~ MVAsc3=20000 MVASC1=20000    ! stiffen the source to approximate inf source
 
 
 !SUB TRANSFORMER DEFINITION 
@@ -38,7 +31,7 @@ new regcontrol.Reg3  transformer=Reg3 winding=2  vreg=122  band=2  ptratio=20 ct
 
 !TRANSFORMER DEFINITION 
 New Transformer.XFM1  Phases=3   Windings=2  XHL=2
-~ wdg=1 bus=633       conn=Wye kv=4.16    kva=500    %r=.55     XHT=1
+~ wdg=1 bus=633       conn=Wye kv=4.16    kva=500    %r=.55   XHT=1
 ~ wdg=2 bus=634       conn=Wye kv=0.480    kva=500   %r=.55   XLT=1
 
 
@@ -119,7 +112,7 @@ New Line.671692    Phases=3 Bus1=671   Bus2=692  Switch=y  r1=1e-4 r0=1e-4 x1=0.
 Set Voltagebases=[115, 4.16, .48]
 calcv
 Solve
-BusCoords IEEE13Node_BusXY.csv
+!BusCoords IEEE13Node_BusXY.csv
 
 !---------------------------------------------------------------------------------------------------------------------------------------------------
 !----------------Show some Results -----------------------------------------------------------------------------------------------------------------
@@ -131,17 +124,3 @@ BusCoords IEEE13Node_BusXY.csv
 // Show Powers kVA Elem
 // Show Losses
 // Show Taps
-
-!---------------------------------------------------------------------------------------------------------------------------------------------------
-!---------------------------------------------------------------------------------------------------------------------------------------------------
-! Alternate Solution Script
-! To force the taps to be same as published results, set the transformer taps manually and disable the controls
-!---------------------------------------------------------------------------------------------------------------------------------------------------
-/*
-Transformer.Reg1.Taps=[1.0 1.0625]
-Transformer.Reg2.Taps=[1.0 1.0500]
-Transformer.Reg3.Taps=[1.0 1.06875]
-Set Controlmode=OFF
-
-Solve
-*/
