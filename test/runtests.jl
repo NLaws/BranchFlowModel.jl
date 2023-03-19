@@ -386,6 +386,7 @@ end
     for b in keys(vs)
         @test abs(vs[b][1] - dss_voltages[b][1]) < 0.001
     end
+    nvar_original = JuMP.num_variables(m)
 
     # 2 validate BFM results stay the same after reduction
     reduce_tree!(p)
@@ -400,6 +401,8 @@ end
     for b in keys(vs_reduced)
         @test abs(vs[b][1] - vs_reduced[b][1]) < 0.001
     end
+    nvar_reduced = JuMP.num_variables(m)
+    @test nvar_original > nvar_reduced  # 225 > 159
 
 end
 
