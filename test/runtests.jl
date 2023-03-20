@@ -360,6 +360,17 @@ end
 end
 
 @testset "SinglePhase network reduction" begin
+
+    function make_solve_min_loss_model(p)
+        m = Model(Ipopt.Optimizer)
+        build_model!(m,p)
+        @objective(m, Min, 
+            sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
+        )
+        optimize!(m)
+        return m
+    end
+
     # 1 validate BFM against OpenDSS
     Sbase = 1e6
     Vbase = 12.47e3
@@ -373,12 +384,7 @@ end
         v_lolim = 0.95,
         relaxed = false,
     );
-    m = Model(Ipopt.Optimizer)
-    build_model!(m,p)
-    @objective(m, Min, 
-        sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
-    )
-    optimize!(m)
+    m = make_solve_min_loss_model(p)
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
     vs = get_bus_values(:vsqrd, m, p)
     # make the dss solution to compare
@@ -400,12 +406,7 @@ end
         @test !(b in p.busses)
     end
     @test nbusses_before - length(removed_busses) == length(p.busses)
-    m = Model(Ipopt.Optimizer)
-    build_model!(m,p)
-    @objective(m, Min, 
-        sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
-    )
-    optimize!(m)
+    m = make_solve_min_loss_model(p)
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
     vs_reduced = get_bus_values(:vsqrd, m, p)
     for b in keys(vs_reduced)
@@ -417,14 +418,14 @@ end
     # NEXT split and solve the reduced model, compare v
     g = BranchFlowModel.make_graph(p.busses, p.edges)
     p_above, p_below = BranchFlowModel.split_inputs(p, "12", g);
+    @test intersect(p_above.busses, p_below.busses) == ["12"]
     @test length(p.busses) == length(p_below.busses) + length(p_above.busses) - 1
+    @test isempty(intersect(p_above.edges, p_below.edges))
     @test length(p.edges) == length(p_below.edges) + length(p_above.edges)
-    # splitting at 12 should put 12-25 in p_below
+    # splitting at 12 should put 12-25 in p_below (except for the removed busses)
     for b in setdiff!(string.(12:25), removed_busses)
         @test b in p_below.busses
     end
-    @test intersect(p_above.busses, p_below.busses) == ["12"]
-    @test isempty(intersect(p_above.edges, p_below.edges))
     # solve above first with sum of p_below loads, then set p_below.v0, solve p_below, set p_above.P/Qload to p_below.substation_bus values
     # later solve in parallel
 

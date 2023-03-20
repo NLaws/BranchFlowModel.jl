@@ -72,11 +72,19 @@ function constrain_power_balance(m, p::Inputs)
     # by (Nnodes - 1)*8760 and number of constraints by 6*(Nnodes - 1)*8760
     for j in p.busses
         if isempty(i_to_j(j, p)) && !isempty(j_to_k(j, p)) # source nodes, injection = flows out
+            substation_Pload = zeros(p.Ntimesteps)
+            if j in keys(p.Pload)
+                substation_Pload = p.Pload[j] / p.Sbase
+            end
             pcon = @constraint(m,  [t in 1:p.Ntimesteps],
-                Pj[j,t] - sum( Pij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
+                Pj[j,t] - substation_Pload[t] - sum( Pij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
             )
+            substation_Qload = zeros(p.Ntimesteps)
+            if j in keys(p.Qload)
+                substation_Qload = p.Qload[j] / p.Sbase
+            end
             qcon = @constraint(m, [t in 1:p.Ntimesteps],
-                Qj[j,t] - sum( Qij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
+                Qj[j,t] - substation_Qload[t] - sum( Qij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
             )
         elseif isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # unconnected nodes
             @warn "Bus $j has no edges, setting Pj and Qj to zero."
@@ -187,8 +195,8 @@ end
 """
     constrain_loads(m, p::Inputs)
 
-- set loads to negative of Inputs.Pload, which are normalized by Sbase when creating Inputs
-- keys of Pload must match Inputs.busses. Any missing keys have load set to zero.
+- set net injections Pj/Qj to negative of Inputs.Pload/Qload, which are normalized by Sbase when creating Inputs
+- keys of P/Qload must match Inputs.busses. Any missing keys have load set to zero.
 - Inputs.substation_bus is unconstrained, slack bus
 """
 function constrain_loads(m, p::Inputs)
