@@ -2,9 +2,10 @@ module BranchFlowModel
 
 using JuMP
 using LinearAlgebra
-using Graphs
+using Graphs, MetaGraphs
 import SparseArrays: sparse
 import PowerModelsDistribution: parse_dss, DELTA
+import MetaGraphs: inneighbors, outneighbors, induced_subgraph
 
 const DEFAULT_AMP_LIMIT = 1000.0
 

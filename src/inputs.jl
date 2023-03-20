@@ -28,17 +28,17 @@
     end
 
 # Inputs
-- `edges` e.g. [("0", "1"), ("1", "2")]
+- `edges` Vector{Tuple} e.g. `[("0", "1"), ("1", "2")]`
 - `linecodes` vector of string keys for the Zdict (impedance values for lines). When using an OpenDSS model a `linecode` is the `name` in `New linecode.name`
 - `linelengths` vector of floats to scale impedance values
 - `busses` vector of bus names
-- `phases` vector of vectors for the line phases (for now just [[1], [1], ...])
-- `Pload` dict with `busses` for keys and uncontrolled real power loads (positive is load)
-- `Qload` dict with `busses` for keys and uncontrolled reactive power loads (positive is load)
-- `Sbase` base apparent power for network, typ. feeder capacity. Used to normalize all powers
-- `Vbase` base voltage for network, used to determine `Zbase`` = `Vbase`^2 / Sbase
-- `Ibase` = `Sbase` / (`Vbase` * sqrt(3))
-- `Zdict` dict with `linecodes` for keys and subdicts with "xmatrix" and "zmatrix" keys. Values are scaled by `Zbase`.
+- `phases` vector of vectors with ints for the line phases (e.g. `[[1,2,3], [1,3], ...]`)
+- `Pload` dict with `busses` for keys and uncontrolled real power loads (positive is load) by phase and time
+- `Qload` dict with `busses` for keys and uncontrolled reactive power loads (positive is load) by phase and time
+- `Sbase` base apparent power for network, typ. feeder capacity. Used to normalize all powers in model
+- `Vbase` base voltage for network, used to determine `Zbase = Vbase^2 / Sbase`
+- `Ibase` = `Sbase / (Vbase * sqrt(3))`
+- `Zdict` dict with `linecodes` for keys and subdicts with "xmatrix" and "zmatrix" keys with per unit length values. Values are divided by `Zbase` and multiplied by linelength in mathematical model.
 - `v0` slack bus reference voltage
 
 TODO Zdict example
@@ -336,18 +336,116 @@ end
 """
     make_graph(busses::AbstractVector{String}, edges::AbstractVector{Tuple})
 
-return DiGraph, Dict, Dict 
+return SimpleDiGraph, Dict, Dict 
 with the dicts for bus => int and int => bus
 (because Graphs.jl only works with integer nodes)
 """
 function make_graph(busses::AbstractVector{String}, edges::AbstractVector{Tuple})
     bus_int_map = Dict(b => i for (i,b) in enumerate(busses))
     int_bus_map = Dict(i => b for (b, i) in bus_int_map)
-    g = DiGraph(length(busses))
+    g = MetaDiGraph(length(busses))
     for e in edges
         add_edge!(g, Edge(bus_int_map[e[1]], bus_int_map[e[2]]))
     end
-    return g, bus_int_map, int_bus_map
+    g = MetaDiGraph(g)
+    set_prop!(g, :bus_int_map, bus_int_map)
+    set_prop!(g, :int_bus_map, int_bus_map)
+    for (bus, i) in bus_int_map
+        set_indexing_prop!(g, i, :bus, bus)
+        # this allows g[:bus][bus_string] -> bus_int
+        # to reverse use get_prop(g, i, :bus)
+    end
+    return g
+end
+
+
+function outneighbors(g::MetaGraphs.MetaDiGraph, j::String)
+    ks = outneighbors(g, g[:bus][j])
+    return [get_prop(g, k, :bus) for k in ks]
+end
+
+
+function all_outneighbors(g::MetaGraphs.MetaDiGraph, j::String, outies::Vector{String})
+    bs = outneighbors(g, j)
+    for b in bs
+        push!(outies, b)
+        all_outneighbors(g, b, outies)
+    end
+    return outies
+end
+
+
+function inneighbors(g::MetaGraphs.MetaDiGraph, j::String)
+    ks = inneighbors(g, g[:bus][j])
+    return [get_prop(g, k, :bus) for k in ks]
+end
+
+
+function all_inneighbors(g::MetaGraphs.MetaDiGraph, j::String, innies::Vector{String})
+    bs = inneighbors(g, j)
+    for b in bs
+        push!(innies, b)
+        all_inneighbors(g, b, innies)
+    end
+    return innies
+end
+
+
+function induced_subgraph(g::MetaGraphs.MetaDiGraph, vlist::Vector{String})
+    ivlist = [collect(filter_vertices(g, :bus, b))[1] for b in vlist]
+    subg, vmap = induced_subgraph(g, ivlist)
+    # vmap is Vector{Int} where vmap[int_in_subg] -> int_in_g
+    # but we want the string busses as well as the edge tuples with strings
+    sub_busses = [get_prop(g, vmap[i], :bus) for i in 1:length(vmap)]
+    sub_edges = [
+        ( get_prop(g, vmap[e.src], :bus), get_prop(g, vmap[e.dst], :bus) ) 
+        for e in edges(sg)
+    ]
+    return sub_busses, sub_edges
+end
+
+
+"""
+    delete_edge_ij!(i::String, j::String, p::Inputs{BranchFlowModel.SinglePhase})
+
+delete edge `(i, j)` from
+- p.edges
+- p.linecodes
+- p.phases
+- p.linelengths
+- p.edge_keys
+- p.Zdict
+- p.Isqaured_up_bounds
+"""
+function delete_edge_ij!(i::String, j::String, p::Inputs{BranchFlowModel.SinglePhase})
+    idx = get_ij_idx(i, j, p)
+    ij_linecode = get_ijlinecode(i,j,p)
+    deleteat!(p.edges,       idx)
+    deleteat!(p.linecodes,   idx)
+    deleteat!(p.phases,      idx)
+    deleteat!(p.linelengths, idx)
+    deleteat!(p.edge_keys,   idx)
+    # p.busses = setdiff(p.busses, [j])
+    delete!(p.Zdict, ij_linecode)
+    delete!(p.Isqaured_up_bounds, ij_linecode)
+    true
+end
+
+
+"""
+    delete_bus_j!(j::String, p::Inputs{BranchFlowModel.SinglePhase})
+
+Remove bus `j` from `p.busses`
+"""
+function delete_bus_j!(j::String, p::Inputs{BranchFlowModel.SinglePhase})
+    p.busses = setdiff(p.busses, [j])
+    if j in keys(p.Pload)
+        delete!(p.Pload, j)
+    end
+    if j in keys(p.Qload)
+        delete!(p.Qload, j)
+    end
+    true
 end
 
 
@@ -359,8 +457,8 @@ and is not a load bus into a single line
 """
 function reduce_tree!(p::Inputs{BranchFlowModel.SinglePhase})
     # TODO make graph once in Inputs ?
-    g, bus_int_map, int_bus_map = make_graph(p.busses, p.edges)
-
+    g = make_graph(p.busses, p.edges)
+    int_bus_map = get_prop(g, :int_bus_map)
     reducable_buses = String[]
     load_buses = Set(vcat(collect(keys(p.Pload)), collect(keys(p.Qload))))
     for v in vertices(g)
@@ -384,17 +482,9 @@ function reduce_tree!(p::Inputs{BranchFlowModel.SinglePhase})
         ik_linecode = ik_key = i * "-" * k
         ik_amps = minimum([p.Isqaured_up_bounds[ij_linecode], p.Isqaured_up_bounds[jk_linecode]])
         # delete the old values
-        idxs = sort([ij_idx, jk_idx])
-        deleteat!(p.edges,       idxs)
-        deleteat!(p.linecodes,   idxs)
-        deleteat!(p.phases,      idxs)
-        deleteat!(p.linelengths, idxs)
-        deleteat!(p.edge_keys,   idxs)
-        p.busses = setdiff(p.busses, [j])
-        delete!(p.Zdict, ij_linecode)
-        delete!(p.Zdict, jk_linecode)
-        delete!(p.Isqaured_up_bounds, ij_linecode)
-        delete!(p.Isqaured_up_bounds, jk_linecode)
+        delete_edge_ij!(i, j, p)
+        delete_edge_ij!(j, k, p)
+        delete_bus_j!(j, p)
         # add the new values
         push!(p.edges, (i, k))
         push!(p.linecodes, ik_linecode)
@@ -409,4 +499,59 @@ function reduce_tree!(p::Inputs{BranchFlowModel.SinglePhase})
         )
         p.Isqaured_up_bounds[ik_linecode] = ik_amps
     end
+end
+
+
+function make_sub_inputs(p::Inputs{BranchFlowModel.SinglePhase}, edges_to_delete::Vector{Tuple}, busses_to_delete::Vector{String})
+    pc = deepcopy(p)
+    for e in edges_to_delete
+        delete_edge_ij!(e[1], e[2], pc)
+    end
+    for b in busses_to_delete
+        delete_bus_j!(b, pc)
+    end
+    return pc
+end
+
+
+"""
+    split_inputs(p::Inputs{BranchFlowModel.SinglePhase}, bus::String, g::SimpleDiGraph)
+
+Split inputs into one graph for everything above `bus` and one graph for everything
+    below `bus`.
+"""
+function split_inputs(p::Inputs{BranchFlowModel.SinglePhase}, bus::String, g::SimpleDiGraph)
+
+    in_buses = collect(all_inneighbors(g, bus, String[]))
+    out_buses = collect(all_outneighbors(g, bus, String[]))
+
+    sub_busses, sub_edges = induced_subgraph(g, out_buses)
+    p_above = make_sub_inputs(p, sub_edges, sub_busses)
+
+    sub_busses, sub_edges = induced_subgraph(g, in_buses)
+    p_below = make_sub_inputs(p, sub_edges, sub_busses)
+
+    return p_above, p_below
+end
+
+
+"""
+
+Split Inputs graph at all nodes with outdegree > 1
+
+TODO? maybe add a `mode` for how to split, and a `max_vars` parameter
+
+returns Vector{Inputs}
+"""
+function split_tree(p::Inputs{BranchFlowModel.SinglePhase})
+    g = make_graph(p.busses, p.edges)
+    split_buses = String[]
+    int_bus_map = get_prop(g, :int_bus_map)
+
+    for v in vertices(g)
+        if outdegree(g, v) > 1
+            push!(split_buses, int_bus_map[v])
+        end
+    end
+    # TODO construct Inputs for each sub-tree
 end
