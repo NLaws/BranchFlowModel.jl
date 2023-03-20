@@ -334,78 +334,6 @@ end
 
 
 """
-    make_graph(busses::AbstractVector{String}, edges::AbstractVector{Tuple})
-
-return SimpleDiGraph, Dict, Dict 
-with the dicts for bus => int and int => bus
-(because Graphs.jl only works with integer nodes)
-"""
-function make_graph(busses::AbstractVector{String}, edges::AbstractVector{Tuple})
-    bus_int_map = Dict(b => i for (i,b) in enumerate(busses))
-    int_bus_map = Dict(i => b for (b, i) in bus_int_map)
-    g = MetaDiGraph(length(busses))
-    for e in edges
-        add_edge!(g, Edge(bus_int_map[e[1]], bus_int_map[e[2]]))
-    end
-    g = MetaDiGraph(g)
-    set_prop!(g, :bus_int_map, bus_int_map)
-    set_prop!(g, :int_bus_map, int_bus_map)
-    for (bus, i) in bus_int_map
-        set_indexing_prop!(g, i, :bus, bus)
-        # this allows g[:bus][bus_string] -> bus_int
-        # to reverse use get_prop(g, i, :bus)
-    end
-    return g
-end
-
-
-function outneighbors(g::MetaGraphs.MetaDiGraph, j::String)
-    ks = outneighbors(g, g[:bus][j])
-    return [get_prop(g, k, :bus) for k in ks]
-end
-
-
-function all_outneighbors(g::MetaGraphs.MetaDiGraph, j::String, outies::Vector{String})
-    bs = outneighbors(g, j)
-    for b in bs
-        push!(outies, b)
-        all_outneighbors(g, b, outies)
-    end
-    return outies
-end
-
-
-function inneighbors(g::MetaGraphs.MetaDiGraph, j::String)
-    ks = inneighbors(g, g[:bus][j])
-    return [get_prop(g, k, :bus) for k in ks]
-end
-
-
-function all_inneighbors(g::MetaGraphs.MetaDiGraph, j::String, innies::Vector{String})
-    bs = inneighbors(g, j)
-    for b in bs
-        push!(innies, b)
-        all_inneighbors(g, b, innies)
-    end
-    return innies
-end
-
-
-function induced_subgraph(g::MetaGraphs.MetaDiGraph, vlist::Vector{String})
-    ivlist = [collect(filter_vertices(g, :bus, b))[1] for b in vlist]
-    subg, vmap = induced_subgraph(g, ivlist)
-    # vmap is Vector{Int} where vmap[int_in_subg] -> int_in_g
-    # but we want the string busses as well as the edge tuples with strings
-    sub_busses = [get_prop(g, vmap[i], :bus) for i in 1:length(vmap)]
-    sub_edges = [
-        ( get_prop(g, vmap[e.src], :bus), get_prop(g, vmap[e.dst], :bus) ) 
-        for e in edges(sg)
-    ]
-    return sub_busses, sub_edges
-end
-
-
-"""
     delete_edge_ij!(i::String, j::String, p::Inputs{BranchFlowModel.SinglePhase})
 
 delete edge `(i, j)` from
@@ -466,7 +394,7 @@ function reduce_tree!(p::Inputs{BranchFlowModel.SinglePhase})
             push!(reducable_buses, int_bus_map[v])
         end
     end
-
+    @debug("Removing the following busses: \n$reducable_buses")
     # replace two lines with one
     for j in reducable_buses
         # get all the old values
@@ -502,7 +430,11 @@ function reduce_tree!(p::Inputs{BranchFlowModel.SinglePhase})
 end
 
 
-function make_sub_inputs(p::Inputs{BranchFlowModel.SinglePhase}, edges_to_delete::Vector{Tuple}, busses_to_delete::Vector{String})
+function make_sub_inputs(
+    p::Inputs{BranchFlowModel.SinglePhase}, 
+    edges_to_delete::Vector{Tuple{String, String}}, 
+    busses_to_delete::Vector{String}
+    )
     pc = deepcopy(p)
     for e in edges_to_delete
         delete_edge_ij!(e[1], e[2], pc)
@@ -520,16 +452,19 @@ end
 Split inputs into one graph for everything above `bus` and one graph for everything
     below `bus`.
 """
-function split_inputs(p::Inputs{BranchFlowModel.SinglePhase}, bus::String, g::SimpleDiGraph)
+function split_inputs(p::Inputs{BranchFlowModel.SinglePhase}, bus::String, g::G) where {G <: Graphs.AbstractGraph}
 
     in_buses = collect(all_inneighbors(g, bus, String[]))
-    out_buses = collect(all_outneighbors(g, bus, String[]))
+    out_buses = collect(all_outneighbors(g, bus, String[], String[]))
+    # in/out_buses do not have bus, but sub_busses does have bus
+    # we want to keep bus in both Inputs
 
-    sub_busses, sub_edges = induced_subgraph(g, out_buses)
-    p_above = make_sub_inputs(p, sub_edges, sub_busses)
+    sub_busses, sub_edges = induced_subgraph(g, vcat(out_buses, bus))
+    p_above = make_sub_inputs(p, sub_edges, out_buses)
 
-    sub_busses, sub_edges = induced_subgraph(g, in_buses)
-    p_below = make_sub_inputs(p, sub_edges, sub_busses)
+    sub_busses, sub_edges = induced_subgraph(g, vcat(in_buses, bus))
+    p_below = make_sub_inputs(p, sub_edges, in_buses)
+    p_below.substation_bus = bus
 
     return p_above, p_below
 end

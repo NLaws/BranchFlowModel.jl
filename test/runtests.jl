@@ -192,10 +192,14 @@ end
     vs = Dict(k => real.(diag(v)) for (k,v) in voltage_values_by_time_bus(m,p)[1])
 
     # for b in keys(vs)
-    #     for (i,phsv) in enumerate(vs[b])
-    #         @assert abs(phsv - dss_voltages[b][i]) < 1e-2 "bus $b phase $i failed"
+    #     for (i,phsv) in enumerate(filter(v -> v != 0, vs[b]))
+    #         # @assert abs(phsv - dss_voltages[b][i]) < 1e-2 "bus $b phase $i failed"
+    #         println("$b - $i  $(phsv - dss_voltages[b][i])")
     #     end
     # end
+    # all the phase 3 values are higher than openDSS
+    # all the phase 1 values are lower than openDSS except 611
+    # phase 2 is mixed
 
     # vs["632"]
     # dss_voltages["632"]
@@ -389,7 +393,13 @@ end
     nvar_original = JuMP.num_variables(m)
 
     # 2 validate BFM results stay the same after reduction
+    nbusses_before = length(p.busses)
     reduce_tree!(p)
+    removed_busses = ["1", "4", "8", "26", "29", "14", "16", "20", "21", "23", "24"]
+    for b in removed_busses
+        @test !(b in p.busses)
+    end
+    @test nbusses_before - length(removed_busses) == length(p.busses)
     m = Model(Ipopt.Optimizer)
     build_model!(m,p)
     @objective(m, Min, 
@@ -403,6 +413,20 @@ end
     end
     nvar_reduced = JuMP.num_variables(m)
     @test nvar_original > nvar_reduced  # 225 > 159
+
+    # NEXT split and solve the reduced model, compare v
+    g = BranchFlowModel.make_graph(p.busses, p.edges)
+    p_above, p_below = BranchFlowModel.split_inputs(p, "12", g);
+    @test length(p.busses) == length(p_below.busses) + length(p_above.busses) - 1
+    @test length(p.edges) == length(p_below.edges) + length(p_above.edges)
+    # splitting at 12 should put 12-25 in p_below
+    for b in setdiff!(string.(12:25), removed_busses)
+        @test b in p_below.busses
+    end
+    @test intersect(p_above.busses, p_below.busses) == ["12"]
+    @test isempty(intersect(p_above.edges, p_below.edges))
+    # solve above first with sum of p_below loads, then set p_below.v0, solve p_below, set p_above.P/Qload to p_below.substation_bus values
+    # later solve in parallel
 
 end
 

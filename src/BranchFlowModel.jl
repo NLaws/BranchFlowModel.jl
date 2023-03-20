@@ -38,10 +38,12 @@ export
     voltage_values_by_time_bus,
     current_values_by_time_edge,
     line_flow_values_by_time_edge,
-    reduce_tree!
+    reduce_tree!,
+    make_graph
 
 include("types.jl")
 include("io.jl")
+include("graphs.jl")
 include("inputs.jl")
 include("utils.jl")
 include("checks.jl")
