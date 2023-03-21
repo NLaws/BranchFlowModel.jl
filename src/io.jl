@@ -140,10 +140,10 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
                 push!(phases, phs)
 
                 Isqaured_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
-                if "emergamps" in keys(v)  # assuming lowercase keys
-                    Isqaured_up_bounds[linecode] = v["emergamps"]^2
-                elseif "normamps" in keys(v)
+                if "normamps" in keys(v) && !(v["normamps"] ≈ 0)  # assuming lowercase keys
                     Isqaured_up_bounds[linecode] = v["normamps"]^2
+                elseif "emergamps" in keys(v) && !(v["emergamps"] ≈ 0)
+                    Isqaured_up_bounds[linecode] = v["emergamps"]^2
                 end
 
                 d["linecode"][linecode] = Dict(
