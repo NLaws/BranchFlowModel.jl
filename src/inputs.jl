@@ -430,7 +430,7 @@ end
 
 function make_sub_inputs(
     p::Inputs{BranchFlowModel.SinglePhase}, 
-    edges_to_delete::Vector{Tuple{String, String}}, 
+    edges_to_delete::Vector, 
     busses_to_delete::Vector{String}
     )
     pc = deepcopy(p)
