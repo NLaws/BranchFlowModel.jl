@@ -415,7 +415,7 @@ end
     nvar_reduced = JuMP.num_variables(m)
     @test nvar_original > nvar_reduced  # 225 > 159
 
-    # NEXT split and solve the reduced model, compare v
+    # 3 split and solve the reduced model, compare v
     g = BranchFlowModel.make_graph(p.busses, p.edges)
     p_above, p_below = BranchFlowModel.split_inputs(p, "12", g);
     @test intersect(p_above.busses, p_below.busses) == ["12"]
@@ -429,7 +429,7 @@ end
     # solve above first with sum of p_below loads, then set p_below.v0, solve p_below, set p_above.P/Qload to p_below.substation_bus values
     # later solve in parallel
     # p_above.Pload and Qload exist already for bus "12"; we need to add p_below's loads to it
-    init_inputs!([p_above, p_below])  # set p_above loads at p_below.substation_bus
+    init_inputs!([p_below, p_above])  # set p_above loads at p_below.substation_bus
     # NOTE only one time step so all load vectors have one value
     @test p_above.Pload["12"][1] == sum( v[1] for v in values(p_below.Pload) )
     @test p_above.Qload["12"][1] == sum( v[1] for v in values(p_below.Qload) )
@@ -445,31 +445,40 @@ end
 
     # at this point the v's at bus 12 agree by design
     # but the loads do not b/c we did not account for losses in first iteration
-    # so we seek little change in loads
     # the plus sign is not a minus because the P/Q values should be equal and _opposite_
     pdiff = value(m_below[:Pj]["12",1]) + value(m_above[:Pj]["12",1])  # 0.001606
     qdiff = value(m_below[:Qj]["12",1]) + value(m_above[:Qj]["12",1])  # 0.000526
+    vdiff = 1.0
 
-    # TODO CREATE set_inputs! to do the below tasks, using models stored in mg from split_at_busses
-    p_above.Pload["12"][1] = value(m_below[:Pj]["12",1]) * p_above.Sbase
-    p_above.Qload["12"][1] = value(m_below[:Qj]["12",1]) * p_above.Sbase
-    m_above = make_solve_min_loss_model(p_above)
+    tol = 1e-6
+    while pdiff > tol || qdiff > tol || vdiff > tol
+        p_above.Pload["12"][1] = value(m_below[:Pj]["12",1]) * p_above.Sbase
+        p_above.Qload["12"][1] = value(m_below[:Qj]["12",1]) * p_above.Sbase
+        m_above = make_solve_min_loss_model(p_above)
+        v_above = sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
+        vdiff = abs(p_below.v0 - v_above)
+        p_below.v0 = v_above
+        m_below = make_solve_min_loss_model(p_below)
+        pdiff = value(m_below[:Pj]["12",1]) + value(m_above[:Pj]["12",1])  # 3.758466e-8
+        qdiff = value(m_below[:Qj]["12",1]) + value(m_above[:Qj]["12",1])  # 1.231675e-8
+    end
 
-    p_below.v0 = sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
-    m_below = make_solve_min_loss_model(p_below)
+    vs_decomposed = get_bus_values(:vsqrd, m_above, p_above)
+    merge!(vs_decomposed, get_bus_values(:vsqrd, m_below, p_below))
+    for b in keys(vs_decomposed)
+        @test abs(vs[b][1] - vs_decomposed[b][1]) < 0.001
+    end
 
-    pdiff = value(m_below[:Pj]["12",1]) + value(m_above[:Pj]["12",1])  # 3.758466e-8
-    qdiff = value(m_below[:Qj]["12",1]) + value(m_above[:Qj]["12",1])  # 1.231675e-8
+    # # TODO CREATE set_inputs! to do the below tasks, using models stored in mg from split_at_busses
+    # p_above.Pload["12"][1] = value(m_below[:Pj]["12",1]) * p_above.Sbase
+    # p_above.Qload["12"][1] = value(m_below[:Qj]["12",1]) * p_above.Sbase
+    # m_above = make_solve_min_loss_model(p_above)
 
-    p_above.Pload["12"][1] = value(m_below[:Pj]["12",1]) * p_above.Sbase
-    p_above.Qload["12"][1] = value(m_below[:Qj]["12",1]) * p_above.Sbase
-    m_above = make_solve_min_loss_model(p_above)
+    # p_below.v0 = sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
+    # m_below = make_solve_min_loss_model(p_below)
 
-    p_below.v0 = sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
-    m_below = make_solve_min_loss_model(p_below)
-
-    pdiff = value(m_below[:Pj]["12",1]) + value(m_above[:Pj]["12",1])  # 8.796297e-13
-    qdiff = value(m_below[:Qj]["12",1]) + value(m_above[:Qj]["12",1])  # 2.881583e-13
+    # pdiff = value(m_below[:Pj]["12",1]) + value(m_above[:Pj]["12",1])  # 8.796297e-13
+    # qdiff = value(m_below[:Qj]["12",1]) + value(m_above[:Qj]["12",1])  # 2.881583e-13
 
 
 
