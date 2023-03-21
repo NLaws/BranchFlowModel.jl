@@ -39,7 +39,10 @@ export
     current_values_by_time_edge,
     line_flow_values_by_time_edge,
     reduce_tree!,
-    make_graph
+    make_graph,
+    leaf_busses,
+    init_inputs!,
+    split_at_busses
 
 include("types.jl")
 include("io.jl")
@@ -49,6 +52,7 @@ include("utils.jl")
 include("checks.jl")
 include("model_single_phase.jl")
 include("model_multi_phase.jl")
+include("decomposition.jl")
 include("results.jl")
 
 end

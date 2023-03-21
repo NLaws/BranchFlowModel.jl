@@ -161,11 +161,11 @@ end
 
 
 """
-    phi_ij(i::String, j::String, p::Inputs, M::AbstractMatrix)
+    phi_ij(j::String, p::Inputs, M::AbstractMatrix)
 
 Down-select the matrix M by the phase from i -> j
 """
-function phi_ij(i::String, j::String, p::Inputs, M::AbstractMatrix)
+function phi_ij(j::String, p::Inputs, M::AbstractMatrix)
     N = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
     for x in p.phases_into_bus[j], y in p.phases_into_bus[j]
         N[x,y] = M[x,y]

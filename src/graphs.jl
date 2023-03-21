@@ -4,6 +4,19 @@
 return SimpleDiGraph, Dict, Dict 
 with the dicts for bus => int and int => bus
 (because Graphs.jl only works with integer nodes)
+```julia
+julia> g["13", :bus]
+10
+
+julia> get_prop(g, :bus_int_map)["13"]
+10
+
+julia> g[13, :bus]
+"24"
+
+julia> get_prop(g, :int_bus_map)[13]
+"24"
+```
 """
 function make_graph(busses::AbstractVector{String}, edges::AbstractVector{Tuple})
     bus_int_map = Dict(b => i for (i,b) in enumerate(busses))
@@ -18,6 +31,8 @@ function make_graph(busses::AbstractVector{String}, edges::AbstractVector{Tuple}
     for (bus, i) in bus_int_map
         set_indexing_prop!(g, i, :bus, bus)
         # this allows g[:bus][bus_string] -> bus_int
+        # and g[bus_int, :bus] -> bus_string
+        # and g[bus_string, :bus] -> bus_int
         # to reverse use get_prop(g, i, :bus)
     end
     return g
@@ -25,8 +40,8 @@ end
 
 
 function outneighbors(g::MetaGraphs.MetaDiGraph, j::String)
-    ks = outneighbors(g, g[:bus][j])
-    return [get_prop(g, k, :bus) for k in ks]
+    ks = outneighbors(g, g[:bus][j])  # ks::Vector{Int64}
+    return [g[k, :bus] for k in ks]
 end
 
 
@@ -41,8 +56,8 @@ end
 
 
 function inneighbors(g::MetaGraphs.MetaDiGraph, j::String)
-    ks = inneighbors(g, g[:bus][j])
-    return [get_prop(g, k, :bus) for k in ks]
+    ks = inneighbors(g, g[:bus][j])  # ks::Vector{Int64}
+    return [g[k, :bus] for k in ks]
 end
 
 
@@ -63,9 +78,9 @@ function induced_subgraph(g::MetaGraphs.MetaDiGraph, vlist::Vector{String})
     subg, vmap = induced_subgraph(g, ivlist)
     # vmap is Vector{Int} where vmap[int_in_subg] -> int_in_g
     # but we want the string busses as well as the edge tuples with strings
-    sub_busses = [get_prop(g, vmap[i], :bus) for i in 1:length(vmap)]
+    sub_busses = [g[vmap[i], :bus] for i in 1:length(vmap)]
     sub_edges = [
-        ( get_prop(g, vmap[e.src], :bus), get_prop(g, vmap[e.dst], :bus) ) 
+        ( g[vmap[e.src], :bus], g[vmap[e.dst], :bus] ) 
         for e in edges(subg)
     ]
     return sub_busses, sub_edges

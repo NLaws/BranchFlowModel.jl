@@ -191,7 +191,7 @@ function add_variables(m, p::Inputs{MultiPhase})
                 m[:l][t][i_j] = Hermitian(m[:l][t][i_j])
                 m[:w][t][j]   = Hermitian(m[:w][t][j])
 
-                w_i =  phi_ij(i, j, p, m[:w][t][i])
+                w_i =  phi_ij(j, p, m[:w][t][i])
 
                 M = Hermitian([
                     w_i                  m[:Sij][t][i_j];

@@ -468,25 +468,3 @@ function split_inputs(p::Inputs{BranchFlowModel.SinglePhase}, bus::String, g::G)
 
     return p_above, p_below
 end
-
-
-"""
-
-Split Inputs graph at all nodes with outdegree > 1
-
-TODO? maybe add a `mode` for how to split, and a `max_vars` parameter
-
-returns Vector{Inputs}
-"""
-function split_tree(p::Inputs{BranchFlowModel.SinglePhase})
-    g = make_graph(p.busses, p.edges)
-    split_buses = String[]
-    int_bus_map = get_prop(g, :int_bus_map)
-
-    for v in vertices(g)
-        if outdegree(g, v) > 1
-            push!(split_buses, int_bus_map[v])
-        end
-    end
-    # TODO construct Inputs for each sub-tree
-end
