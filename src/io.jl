@@ -177,11 +177,11 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
 
             # TODO ratings could be in linecode dict too
             # TODO assuming that there are linecodes, should converge on consistent keys for lines
-            Isqaured_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
+            Isqaured_up_bounds[v["linecode"]] = DEFAULT_AMP_LIMIT^2
             if "normamps" in keys(v) && !(v["normamps"] ≈ 0)  # assuming lowercase keys
-                Isqaured_up_bounds[linecode] = v["normamps"]^2
+                Isqaured_up_bounds[v["linecode"]] = v["normamps"]^2
             elseif "emergamps" in keys(v) && !(v["emergamps"] ≈ 0)
-                Isqaured_up_bounds[linecode] = v["emergamps"]^2
+                Isqaured_up_bounds[v["linecode"]] = v["emergamps"]^2
             end
 
             # TODO handle scaling of lengths and R/X values
