@@ -452,8 +452,8 @@ end
 Split inputs into one graph for everything above `bus` and one graph for everything
     below `bus`.
 """
-function split_inputs(p::Inputs{BranchFlowModel.SinglePhase}, bus::String, g::G) where {G <: Graphs.AbstractGraph}
-
+function split_inputs(p::Inputs{BranchFlowModel.SinglePhase}, bus::String)
+    g = make_graph(p.busses, p.edges)
     in_buses = collect(all_inneighbors(g, bus, String[]))
     out_buses = collect(all_outneighbors(g, bus, String[], String[]))
     # in/out_buses do not have bus, but sub_busses does have bus

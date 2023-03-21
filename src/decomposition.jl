@@ -61,6 +61,44 @@ end
 
 
 """
+    init_inputs!(mg::MetaDiGraph; init_vs::Dict = Dict())
+
+Use the `:load_sum_order` in `mg` to `init_inputs!` in the correct order, i.e. set the loads
+at the leaf - substation connections as sums of all the loads (and the voltages at substations)
+"""
+function init_inputs!(mg::MetaDiGraph; init_vs::Dict = Dict())
+    lso = get_prop(mg, :load_sum_order)
+    ps = [mg[v, :p] for v in lso]
+    init_inputs!(ps; init_vs = init_vs)
+end
+
+
+function set_inputs!(mg::MetaDiGraph)
+    for v in get_prop(mg, :load_sum_order) # ~breadth first search of vertices
+        if !(has_prop(mg, v, :m))
+            throw(@error "MetaDiGraph must have model properties :m for all vertices to use set_inputs!")
+        end
+        # if v has inneighbors use their voltages at connections
+        p_below = get_prop(mg, v, :p)
+        for v_above in inneighbors(mg, v)
+            m_above = get_prop(mg, v_above, :m)
+            p_below.v0 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data  # vector of time
+        end
+        # if v has outneighbors then use v_below's m[:Pj][p_below.substation_bus,:] * p_above.Sbase as v's Pload at the same bus
+        p_above = get_prop(mg, v, :p)
+        for v_below in outneighbors(mg, v)
+            m_below = get_prop(mg, v_below, :m)
+            p_below = get_prop(mg, v_below, :p)
+            p_above.Pload[p_below.substation_bus] = value.(m_below[:Pj][p_below.substation_bus, :]).data * p_above.Sbase
+            p_above.Qload[p_below.substation_bus] = value.(m_below[:Qj][p_below.substation_bus, :]).data * p_above.Sbase
+        end
+    end
+    true
+end
+
+
+
+"""
     split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String})
 
 Split `Inputs` using the `at_busses`
@@ -72,18 +110,17 @@ For example `mg[2, :p]` is the `Input` at the second vertex of the graph created
 the network via the `at_busses`.
 """
 function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String})
+    unique!(at_busses)
     mg = MetaDiGraph()
-    g = make_graph(p.busses, p.edges)
     # initial split
-    p_above, p_below = BranchFlowModel.split_inputs(p, at_busses[1], g);
+    p_above, p_below = BranchFlowModel.split_inputs(p, at_busses[1]);
     add_vertex!(mg, :p, p_above)
     add_vertex!(mg, :p, p_below)
     add_edge!(mg, 1, 2)
     set_indexing_prop!(mg, :p)
 
     for (i,b) in enumerate(at_busses[2:end])
-        p_above, p_below = BranchFlowModel.split_inputs(p, b, g);
-        # find the vertex that was just split
+        # find the vertex to split
         vertex = 0
         for v in vertices(mg)
             if b in mg[v, :p].busses
@@ -91,6 +128,7 @@ function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vect
                 break
             end
         end
+        p_above, p_below = BranchFlowModel.split_inputs(mg[vertex, :p], b);
         set_prop!(mg, vertex, :p, p_above)  # replace the already set :p
         add_vertex!(mg, :p, p_below)
         add_edge!(mg, vertex, i+2)
@@ -101,6 +139,7 @@ function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vect
         for v in vs
             union!(ins, inneighbors(mg, v))
         end
+        # do not combine these for loops (to keep order of `ins`)
         for v in vs
             invs = inneighbors(mg, v)
             return recur_inneighbors(mg, invs, ins)
@@ -109,18 +148,35 @@ function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vect
     end
     leafvs = leaf_vertices(mg)
     set_prop!(mg, :load_sum_order, recur_inneighbors(mg, leafvs, leafvs))
+    init_inputs!(mg)
+
     return mg
 end
 
 
-"""
-    init_inputs!(mg::MetaDiGraph; init_vs::Dict = Dict())
 
-Use the `:load_sum_order` in `mg` to `init_inputs!` in the correct order, i.e. set the loads
-at the leaf - substation connections as sums of all the loads
-"""
-function init_inputs!(mg::MetaDiGraph; init_vs::Dict = Dict())
-    lso = get_prop(mg, :load_sum_order)
-    ps = [mg[v, :p] for v in lso]
-    init_inputs!(ps; init_vs = init_vs)
+function get_diffs(mg::MetaDiGraph)
+    pdiffs, qdiffs, vdiffs = Float64[], Float64[], Float64[]
+    for v in get_prop(mg, :load_sum_order) # ~breadth first search of vertices
+        # if v has inneighbors use their voltages at connections
+        p_below = get_prop(mg, v, :p)
+        for v_above in inneighbors(mg, v)
+            m_above = get_prop(mg, v_above, :m)
+            v_above = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :]))  # vector of time
+            push!(vdiffs, sum(abs.(p_below.v0 .- v_above)) / p_below.Ntimesteps)
+        end
+
+        m_above = get_prop(mg, v, :m)
+        for v_below in outneighbors(mg, v)
+            m_below = get_prop(mg, v_below, :m)
+            b = get_prop(mg, v_below, :p).substation_bus
+            push!(pdiffs, 
+                sum(abs.(value.(m_below[:Pj][b,:]).data + value.(m_above[:Pj][b,:]).data)) / p_below.Ntimesteps
+            )
+            push!(qdiffs, 
+                sum(abs.(value.(m_below[:Qj][b,:]).data + value.(m_above[:Qj][b,:]).data)) / p_below.Ntimesteps
+            )
+        end
+    end
+    return pdiffs, qdiffs, vdiffs
 end

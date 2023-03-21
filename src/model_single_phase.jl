@@ -126,10 +126,15 @@ end
 
 
 function constrain_substation_voltage(m, p::Inputs)
-    # @info "constrain_substation_voltage"
-    @constraint(m, con_substationV[t in 1:p.Ntimesteps],
-       m[:vsqrd][p.substation_bus, t] == p.v0^2
-    )
+    if typeof(p.v0) <: Real
+        @constraint(m, con_substationV[t in 1:p.Ntimesteps],
+            m[:vsqrd][p.substation_bus, t] == p.v0^2
+        )
+    else  # vector of time
+        @constraint(m, con_substationV[t in 1:p.Ntimesteps],
+            m[:vsqrd][p.substation_bus, t] == p.v0[t]^2
+        )
+    end
     nothing
 end
 

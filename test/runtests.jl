@@ -9,6 +9,7 @@ using LinearAlgebra
 using COSMO
 using CSDP
 using Ipopt
+using MetaGraphs  # maybe export what is needed from MetaGraphs in BranchFlowModel ?
 
 # # hack for local testing
 # using Pkg
@@ -21,62 +22,6 @@ Random.seed!(42)
 
 @testset "BranchFlowModel.jl" begin
 
-
-@testset "input construction" begin
-    # then try test Inputs
-    # IEEE 4 bus model for first tests?
-    # need to test convergence using this module in UL with LL DER
-
-    # lines
-    edges = [("0", "1"), ("1", "2")]
-    linecodes = ["0_1", "1_2"]
-    linelengths = [100.0, 200.0]
-    phases = repeat([[1]], length(edges))
-    Zdict = Dict{String, Dict{String, Any}}(
-        lc => Dict("rmatrix" => 0.001, "xmatrix" => 0.001)
-        for lc in linecodes
-    )
-
-    # busses and loads
-    busses = ["0", "1", "2"]
-    substation_bus = "0"
-    load_busses = setdiff(busses, [substation_bus])
-    Pload = Dict(b => [10] for b in load_busses)
-    Qload = Dict(b => [1]  for b in load_busses)
-
-    # network
-    Sbase = 1
-    Vbase = 1
-
-    Ntimesteps = 1
-
-    # p = Inputs(
-    #     edges,
-    #     linecodes,
-    #     linelengths,
-    #     busses,
-    #     phases,
-    #     substation_bus,
-    #     Pload,
-    #     Qload,
-    #     Sbase,
-    #     Vbase,
-    #     Ibase,
-    #     Zdict,
-    #     v0,
-    #     v_lolim, 
-    #     v_uplim,
-    #     Zbase,
-    #     Ntimesteps,
-    #     0.1,  # power factor
-    #     length(busses),  # Nnodes
-    # )
-
-
-    d = open(joinpath("data", "singlephase38lines", "master.dss")) do io  # 
-        parse_dss(io)  # method from PowerModelsDistribution
-    end
-end
 
 # using data taken from Andrianesis, Caramanis LMV paper 2019
 # TODO don't use random loads
@@ -367,6 +312,7 @@ end
         @objective(m, Min, 
             sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
         )
+        set_optimizer_attribute(m, "print_level", 0)
         optimize!(m)
         return m
     end
@@ -410,14 +356,14 @@ end
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
     vs_reduced = get_bus_values(:vsqrd, m, p)
     for b in keys(vs_reduced)
-        @test abs(vs[b][1] - vs_reduced[b][1]) < 0.001
+        @test abs(dss_voltages[b][1] - vs_reduced[b][1]) < 0.001
     end
     nvar_reduced = JuMP.num_variables(m)
     @test nvar_original > nvar_reduced  # 225 > 159
 
     # 3 split and solve the reduced model, compare v
     g = BranchFlowModel.make_graph(p.busses, p.edges)
-    p_above, p_below = BranchFlowModel.split_inputs(p, "12", g);
+    p_above, p_below = BranchFlowModel.split_inputs(p, "12");
     @test intersect(p_above.busses, p_below.busses) == ["12"]
     @test length(p.busses) == length(p_below.busses) + length(p_above.busses) - 1
     @test isempty(intersect(p_above.edges, p_below.edges))
@@ -466,21 +412,45 @@ end
     vs_decomposed = get_bus_values(:vsqrd, m_above, p_above)
     merge!(vs_decomposed, get_bus_values(:vsqrd, m_below, p_below))
     for b in keys(vs_decomposed)
-        @test abs(vs[b][1] - vs_decomposed[b][1]) < 0.001
+        @test abs(dss_voltages[b][1] - vs_decomposed[b][1]) < 0.001
     end
 
-    # # TODO CREATE set_inputs! to do the below tasks, using models stored in mg from split_at_busses
-    # p_above.Pload["12"][1] = value(m_below[:Pj]["12",1]) * p_above.Sbase
-    # p_above.Qload["12"][1] = value(m_below[:Qj]["12",1]) * p_above.Sbase
-    # m_above = make_solve_min_loss_model(p_above)
+    # split model into 3 models and solve
+    mg = split_at_busses(p, ["7", "13"])
+    @test mg[1, :p].substation_bus == "0"
+    @test mg[2, :p].substation_bus == "7"
+    @test mg[3, :p].substation_bus == "13"
+    init_inputs!(mg)
+    for v in get_prop(mg, :load_sum_order)
+        set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
+    end
+    set_indexing_prop!(mg, :m)
+    # every model solved once using load approximations
+    # now set better load approximations and connect voltages
+    set_inputs!(mg)
+    @test mg[2,:p].v0[1] ≈ sqrt(value(mg[1,:m][:vsqrd][mg[2,:p].substation_bus,1]))
+    @test mg[3,:p].v0[1] ≈ sqrt(value(mg[2,:m][:vsqrd][mg[3,:p].substation_bus,1]))
+    # run another solve
+    for v in get_prop(mg, :load_sum_order)
+        set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
+    end
+    pdiffs1, qdiffs1, vdiffs1 = get_diffs(mg)
+    # another round to compare:
+    set_inputs!(mg)
+    for v in get_prop(mg, :load_sum_order)
+        set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
+    end
+    pdiffs2, qdiffs2, vdiffs2 = get_diffs(mg)
+    @test sum(pdiffs2) < sum(pdiffs1) 
+    @test sum(qdiffs2) < sum(qdiffs1) 
+    @test sum(vdiffs2) < sum(vdiffs1) 
 
-    # p_below.v0 = sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
-    # m_below = make_solve_min_loss_model(p_below)
-
-    # pdiff = value(m_below[:Pj]["12",1]) + value(m_above[:Pj]["12",1])  # 8.796297e-13
-    # qdiff = value(m_below[:Qj]["12",1]) + value(m_above[:Qj]["12",1])  # 2.881583e-13
-
-
+    vs_decomposed = get_bus_values(:vsqrd, mg[1, :m], mg[1, :p])
+    merge!(vs_decomposed, get_bus_values(:vsqrd, mg[2, :m], mg[2, :p]))
+    merge!(vs_decomposed, get_bus_values(:vsqrd, mg[3, :m], mg[3, :p]))
+    for b in keys(vs_decomposed)
+        @test abs(dss_voltages[b][1] - vs_decomposed[b][1]) < 0.001
+    end
 
 
 

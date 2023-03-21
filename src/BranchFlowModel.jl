@@ -42,7 +42,9 @@ export
     make_graph,
     leaf_busses,
     init_inputs!,
-    split_at_busses
+    set_inputs!,
+    split_at_busses,
+    get_diffs
 
 include("types.jl")
 include("io.jl")
