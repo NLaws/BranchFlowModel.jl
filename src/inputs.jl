@@ -344,17 +344,16 @@ delete edge `(i, j)` from
 - p.edge_keys
 - p.Isqaured_up_bounds
 
-NOTE do not delete!(p.Zdict, ij_linecode) because Zdict values can be used for multiple lines
+NOTE do not delete!(p.Zdict, ij_linecode) nor delete!(p.Isqaured_up_bounds, ij_linecode) 
+because Zdict values can be used for multiple lines
 """
 function delete_edge_ij!(i::String, j::String, p::Inputs{BranchFlowModel.SinglePhase})
     idx = get_ij_idx(i, j, p)
-    ij_linecode = get_ijlinecode(i,j,p)
     deleteat!(p.edges,       idx)
     deleteat!(p.linecodes,   idx)
     deleteat!(p.phases,      idx)
     deleteat!(p.linelengths, idx)
     deleteat!(p.edge_keys,   idx)
-    delete!(p.Isqaured_up_bounds, ij_linecode)
     true
 end
 
