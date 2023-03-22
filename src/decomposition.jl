@@ -73,21 +73,36 @@ function init_inputs!(mg::MetaDiGraph; init_vs::Dict = Dict())
 end
 
 
-function set_inputs!(mg::MetaDiGraph)
+function set_inputs!(mg::MetaDiGraph; α::Float64=0.0)
     for v in get_prop(mg, :load_sum_order) # ~breadth first search of vertices
         # if v has inneighbors use their voltages at connections
         p_below = get_prop(mg, v, :p)
         for v_above in inneighbors(mg, v)
             m_above = get_prop(mg, v_above, :m)
-            p_below.v0 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data  # vector of time
+            if α == 0.0
+                p_below.v0 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data  # vector of time
+            else  # use weighted average of new and old values
+                v_kp1 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data
+                v_k = copy(p_below.v0)
+                p_below.v0 = (v_kp1 + α .* v_k) ./ (1 + α)
+            end
         end
         # if v has outneighbors then use v_below's m[:Pj][p_below.substation_bus,:] * p_above.Sbase as v's Pload at the same bus
         p_above = get_prop(mg, v, :p)
         for v_below in outneighbors(mg, v)
             m_below = get_prop(mg, v_below, :m)
             p_below = get_prop(mg, v_below, :p)
-            p_above.Pload[p_below.substation_bus] = value.(m_below[:Pj][p_below.substation_bus, :]).data * p_above.Sbase
-            p_above.Qload[p_below.substation_bus] = value.(m_below[:Qj][p_below.substation_bus, :]).data * p_above.Sbase
+            if α == 0.0
+                p_above.Pload[p_below.substation_bus] = value.(m_below[:Pj][p_below.substation_bus, :]).data * p_above.Sbase
+                p_above.Qload[p_below.substation_bus] = value.(m_below[:Qj][p_below.substation_bus, :]).data * p_above.Sbase
+            else
+                p_kp1 = value.(m_below[:Pj][p_below.substation_bus, :]).data * p_above.Sbase
+                q_kp1 = value.(m_below[:Qj][p_below.substation_bus, :]).data * p_above.Sbase
+                p_k = copy(p_above.Pload[p_below.substation_bus])
+                q_k = copy(p_above.Qload[p_below.substation_bus])
+                p_above.Pload[p_below.substation_bus] = (p_kp1 + α .* p_k) ./ (1 + α)
+                p_above.Qload[p_below.substation_bus] = (q_kp1 + α .* q_k) ./ (1 + α)
+            end
         end
     end
     true

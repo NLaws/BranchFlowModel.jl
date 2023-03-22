@@ -420,7 +420,7 @@ end
     @test mg[1, :p].substation_bus == "0"
     @test mg[2, :p].substation_bus == "7"
     @test mg[3, :p].substation_bus == "13"
-    init_inputs!(mg)
+    # init_inputs!(mg)  # done in split_at_busses
     for v in get_prop(mg, :load_sum_order)
         set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
     end
@@ -457,11 +457,11 @@ end
 
 
 @testset "split_at_busses" begin
-    #=     c -- e
-          /
-    a -- b 
-          \
-           d -- f
+    #=     c -- e                    c | c -- e
+          /                         /
+    a -- b           ->   a -- b | b
+          \                         \
+           d -- f                    d | d -- f
     =#
 
     edges = [("a", "b"), ("b", "c"), ("b", "d"), ("c", "e"), ("d", "f")]
