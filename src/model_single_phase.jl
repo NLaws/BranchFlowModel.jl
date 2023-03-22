@@ -47,7 +47,7 @@ function add_variables(m, p::Inputs)
 
     # TODO better indexing for lines and attributes
     @constraint(m, [((i,j), edge) in zip(p.edges, p.edge_keys), t in T],
-        lij[edge, t] <= p.Isqaured_up_bounds[get_ijlinecode(i,j,p)]
+        lij[edge, t] <= p.Isquared_up_bounds[get_ijlinecode(i,j,p)]
     )
 
     nothing

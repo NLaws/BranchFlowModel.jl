@@ -75,9 +75,6 @@ end
 
 function set_inputs!(mg::MetaDiGraph)
     for v in get_prop(mg, :load_sum_order) # ~breadth first search of vertices
-        if !(has_prop(mg, v, :m))
-            throw(@error "MetaDiGraph must have model properties :m for all vertices to use set_inputs!")
-        end
         # if v has inneighbors use their voltages at connections
         p_below = get_prop(mg, v, :p)
         for v_above in inneighbors(mg, v)

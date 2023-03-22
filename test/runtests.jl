@@ -108,7 +108,7 @@ end
         v_lolim = 0.94,
         Ntimesteps = 1
     );
-    # p.Isqaured_up_bounds = Dict(
+    # p.Isquared_up_bounds = Dict(
     #     lc => 100 for lc in Set(p.linecodes)
     # )
     p.P_lo_bound = -10
@@ -493,7 +493,7 @@ end
         Q_up_bound=1e4,
         P_lo_bound=-1e4,
         Q_lo_bound=-1e4,
-        Isqaured_up_bounds=Dict{String, Float64}(),
+        Isquared_up_bounds=Dict{String, Float64}(),
         relaxed=true
     )
 

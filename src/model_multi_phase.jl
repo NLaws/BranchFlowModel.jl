@@ -151,7 +151,7 @@ function add_variables(m, p::Inputs{MultiPhase})
                 # TODO better bounds
                 for phs1 in p.phases_into_bus[j], phs2 in p.phases_into_bus[j]
 
-                    l_up_bound = p.Isqaured_up_bounds[get_ijlinecode(i,j,p)]
+                    l_up_bound = p.Isquared_up_bounds[get_ijlinecode(i,j,p)]
 
                     if phs1 <= phs2  # upper triangle of Hermitian matrices
 

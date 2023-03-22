@@ -100,7 +100,7 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
     phases = Vector[]
     linecodes = String[]
     linelengths = Float64[]
-    Isqaured_up_bounds = Dict{String, Float64}()
+    Isquared_up_bounds = Dict{String, Float64}()
 
     if !("linecode" in keys(d))
         d["linecode"] = Dict{String, Any}()  # we add it b/c we use it for storing R/X values
@@ -139,11 +139,11 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
                 push!(linelengths, get(v, "length", 1.0))
                 push!(phases, phs)
 
-                Isqaured_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
+                Isquared_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
                 if "normamps" in keys(v) && !(v["normamps"] ≈ 0)  # assuming lowercase keys
-                    Isqaured_up_bounds[linecode] = v["normamps"]^2
+                    Isquared_up_bounds[linecode] = v["normamps"]^2
                 elseif "emergamps" in keys(v) && !(v["emergamps"] ≈ 0)
-                    Isqaured_up_bounds[linecode] = v["emergamps"]^2
+                    Isquared_up_bounds[linecode] = v["emergamps"]^2
                 end
 
                 d["linecode"][linecode] = Dict(
@@ -177,11 +177,11 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
 
             # TODO ratings could be in linecode dict too
             # TODO assuming that there are linecodes, should converge on consistent keys for lines
-            Isqaured_up_bounds[v["linecode"]] = DEFAULT_AMP_LIMIT^2
+            Isquared_up_bounds[v["linecode"]] = DEFAULT_AMP_LIMIT^2
             if "normamps" in keys(v) && !(v["normamps"] ≈ 0)  # assuming lowercase keys
-                Isqaured_up_bounds[v["linecode"]] = v["normamps"]^2
+                Isquared_up_bounds[v["linecode"]] = v["normamps"]^2
             elseif "emergamps" in keys(v) && !(v["emergamps"] ≈ 0)
-                Isqaured_up_bounds[v["linecode"]] = v["emergamps"]^2
+                Isquared_up_bounds[v["linecode"]] = v["emergamps"]^2
             end
 
             # TODO handle scaling of lengths and R/X values
@@ -235,7 +235,7 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
             push!(linelengths, 1.0)
             push!(phases, phs)
 
-            Isqaured_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
+            Isquared_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
 
             rmatrix = zeros(3,3)
             xmatrix = zeros(3,3)
@@ -257,7 +257,7 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
         end
     end
 
-    return edges, linecodes, linelengths, d["linecode"], phases, Isqaured_up_bounds
+    return edges, linecodes, linelengths, d["linecode"], phases, Isquared_up_bounds
 end
 
 
