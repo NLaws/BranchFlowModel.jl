@@ -97,6 +97,29 @@ function set_inputs!(mg::MetaDiGraph)
 end
 
 
+function breadth_first_nodes_from_leafs(mg::AbstractGraph)
+    order = leaf_vertices(mg)  # initialize with all leafs
+    nodes_left = Set(setdiff(vertices(mg), order))
+    while !isempty(nodes_left)
+        for n in order
+            inn = inneighbors(mg, n)  # only one per node except for trunk
+            if length(inn) == 1
+                inn = inn[1]
+                if all(outn in order for outn in outneighbors(mg, inn))
+                    # then inn can join the order b/c it has no nodes below it in nodes_left
+                    union!(order, [inn])
+                    delete!(nodes_left, inn)
+                elseif isempty(inn) && length(nodes_left) == 1
+                    # trunk is last
+                    union!(order, [inn])
+                    delete!(nodes_left, inn)
+                end
+            end
+        end
+    end
+    return order
+end
+
 
 """
     split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String})
@@ -146,20 +169,7 @@ function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vect
         add_edge!(mg, vertex, i+2)  # p_above -> p_below
     end
     # create the load_sum_order, a breadth first search from the leafs
-
-    function recur_inneighbors(mg, vs, ins)
-        for v in vs
-            union!(ins, inneighbors(mg, v))
-        end
-        # do not combine these for loops (to keep order of `ins`)
-        for v in vs
-            invs = inneighbors(mg, v)
-            return recur_inneighbors(mg, invs, ins)
-        end
-        return ins
-    end
-    leafvs = leaf_vertices(mg)
-    set_prop!(mg, :load_sum_order, recur_inneighbors(mg, leafvs, leafvs))
+    set_prop!(mg, :load_sum_order, breadth_first_nodes_from_leafs(mg))
     init_inputs!(mg)
 
     return mg
