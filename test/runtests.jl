@@ -453,7 +453,54 @@ end
     end
 
 
+end
 
+
+@testset "split_at_busses" begin
+    #=     c -- e
+          /
+    a -- b 
+          \
+           d -- f
+    =#
+
+    edges = [("a", "b"), ("b", "c"), ("b", "d"), ("c", "e"), ("d", "f")]
+    linecodes = repeat(["l1"], length(edges))
+    linelengths = repeat([1.0], length(edges))
+    phases = repeat([[1]], length(edges))
+    substation_bus = "a"
+    Pload = Dict("c" => [1.0], "d" => [1.0], "e" => [1.0], "f" => [1.0])
+    Qload = Dict("c" => [0.1], "d" => [0.1], "e" => [0.1], "f" => [0.1])
+    Zdict = Dict("l1" => Dict("rmatrix"=> [1.0], "zmatrix"=> [1.0], "nphases"=> 1))
+    v0 = 1.0
+
+    p = Inputs(
+        edges, 
+        linecodes, 
+        linelengths, 
+        phases,
+        substation_bus;
+        Pload=Pload, 
+        Qload=Qload, 
+        Sbase=1, 
+        Vbase=1, 
+        Zdict=Zdict, 
+        v0=v0, 
+        v_lolim=0.95, 
+        v_uplim=1.05,
+        Ntimesteps=1, 
+        P_up_bound=1e4,
+        Q_up_bound=1e4,
+        P_lo_bound=-1e4,
+        Q_lo_bound=-1e4,
+        Isqaured_up_bounds=Dict{String, Float64}(),
+        relaxed=true
+    )
+
+    mg = split_at_busses(p, ["c", "d", "b"])
+    @test MetaGraphs.outneighbors(mg, 1) == [4]
+    @test MetaGraphs.outneighbors(mg, 4) == [2, 3]
+    @test MetaGraphs.outneighbors(mg, 2) == MetaGraphs.outneighbors(mg, 3) == Int[]
 
 end
 

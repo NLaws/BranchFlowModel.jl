@@ -44,7 +44,9 @@ export
     init_inputs!,
     set_inputs!,
     split_at_busses,
-    get_diffs
+    get_diffs,
+    all_outneighbors,
+    all_inneighbors
 
 include("types.jl")
 include("io.jl")

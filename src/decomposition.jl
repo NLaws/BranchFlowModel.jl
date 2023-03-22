@@ -130,17 +130,20 @@ function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vect
         end
         p_above, p_below = BranchFlowModel.split_inputs(mg[vertex, :p], b);
         set_prop!(mg, vertex, :p, p_above)  # replace the already set :p, which preserves inneighbors
-        add_vertex!(mg, :p, p_below)
+        add_vertex!(mg, :p, p_below)  # vertex i+2
         if !isempty(outdegree(mg, vertex))
             # already have edge(s) for vertex -> outneighbors(mg, vertex)
-            # but now i+2 is the parent for the outneighbors(mg, vertex)
-            # because we put p_below in between vertex -> outneighbors(mg, vertex)
-            for neighb in outneighbors(mg, vertex)
-                rem_edge!(mg, vertex, neighb)
-                add_edge!(mg, i+2, neighb)
+            # but now i+2 could be the parent for some of the outneighbors(mg, vertex)
+            outns = copy(outneighbors(mg, vertex))
+            for neighb in outns
+                if !( mg[neighb, :p].substation_bus in mg[vertex, :p].busses )
+                    # mv the edge to the new intermediate node
+                    rem_edge!(mg, vertex, neighb)
+                    add_edge!(mg, i+2, neighb)
+                end
             end
         end
-        add_edge!(mg, vertex, i+2)
+        add_edge!(mg, vertex, i+2)  # p_above -> p_below
     end
     # create the load_sum_order, a breadth first search from the leafs
 

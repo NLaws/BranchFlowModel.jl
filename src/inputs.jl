@@ -109,10 +109,10 @@ Lowest level Inputs constructor (the only one that returns the Inputs struct).
     The real and reactive loads provided are normalized using `Sbase`.
 """
 function Inputs(
-        edges::Array{Tuple}, 
-        linecodes::Array{String}, 
-        linelengths::Array{Float64}, 
-        phases::Vector{Vector},
+        edges::AbstractVector{<:Tuple}, 
+        linecodes::AbstractVector{<:AbstractString}, 
+        linelengths::AbstractVector{<:Real}, 
+        phases::AbstractVector{<:AbstractVector},
         substation_bus::String;
         Pload, 
         Qload, 
@@ -338,14 +338,13 @@ end
 
 delete edge `(i, j)` from
 - p.edges
-- p.linecodes
 - p.phases
 - p.linelengths
 - p.edge_keys
 - p.Isqaured_up_bounds
 
 NOTE do not delete!(p.Zdict, ij_linecode) nor delete!(p.Isqaured_up_bounds, ij_linecode) 
-because Zdict values can be used for multiple lines
+because anything indexed on linecodes can be used for multiple lines
 """
 function delete_edge_ij!(i::String, j::String, p::Inputs{BranchFlowModel.SinglePhase})
     idx = get_ij_idx(i, j, p)
