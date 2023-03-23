@@ -12,6 +12,22 @@ function leaf_busses(p::Inputs)
 end
 
 
+"""
+    connecting_busses(mg::MetaDiGraph, v)
+
+return Dict with keys for out-vertices of `v` and values for their substation_bus
+"""
+function connecting_busses(mg::MetaDiGraph, v)
+    cbusses = Dict()
+    for neighb in  outneighbors(mg, v)
+        if mg[neighb, :p].substation_bus in mg[v, :p].busses
+            cbusses[neighb] = mg[neighb, :p].substation_bus
+        end
+    end
+    return cbusses
+end
+
+
 function leaf_vertices(mg::MetaDiGraph)
     leafs = Int64[]
     for v in vertices(mg)
