@@ -98,8 +98,9 @@ function set_inputs!(mg::MetaDiGraph; α::Float64=0.0)
             if α == 0.0
                 p_below.v0 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data  # vector of time
             else  # use weighted average of new and old values
+                m_below = get_prop(mg, v, :m)
                 v_kp1 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data
-                v_k = copy(p_below.v0)
+                v_k   = sqrt.(value.(m_below[:vsqrd][p_below.substation_bus, :])).data
                 p_below.v0 = (v_kp1 + α .* v_k) ./ (1 + α)
             end
         end
