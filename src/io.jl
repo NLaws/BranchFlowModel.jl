@@ -196,6 +196,10 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
     # make phases_into_bus to infer transformer phases
     phases_into_bus = Dict(k=>v for (k,v) in zip(tails(edges), phases))
 
+    # TODO it is possible to have a transformer -> transformer, which could lead to failed
+    # parsing
+    transformers_to_try_again = String[]
+    trfxs_with_regs = [innerd["transformer"] for (k, innerd) in get(d, "regcontrol", Dict())]
     for (k,v) in get(d, "transformer", Dict())
         try
             # need to connect busses over transformers
@@ -205,15 +209,14 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
             if !(b1 in tails(edges)) && !(b2 in heads(edges))
                 # this transformer does not connect anything so we ignore it
                 @warn("Not parsing transformer $k between $b1 and $b2
-                    because it does not have a line nor switch in to or out of it.")
+                    because it does not have an edge in to or out of it.")
                 continue
             end
 
             if b1 in tails(edges)
                 phs = phases_into_bus[b1]
             else
-                @warn("Not parsing transformer $k between $b1 and $b2
-                      because it does not have a line or switch into it.")
+                push!(transformers_to_try_again, k)
                 continue
             end
 
@@ -234,6 +237,7 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
             push!(linecodes, linecode)
             push!(linelengths, 1.0)
             push!(phases, phs)
+            phases_into_bus[b2] = phs
 
             Isquared_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
 
@@ -255,6 +259,54 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
             @warn("Unable to parse transformer $(k) when processing OpenDSS model.")
             println(e)
         end
+    end
+
+    for k in transformers_to_try_again
+        v = d["transformer"][k]
+        b1, b2 = v["bus"], v["bus_2"]
+
+        if b1 in tails(edges)
+            phs = phases_into_bus[b1]
+        else
+            @warn("Not parsing transformer $k between $b1 and $b2
+                   because it does not have an edge in to it.")
+            continue
+        end
+        nwindings = v["windings"]
+        if nwindings != 2
+            @warn("Parsing a $nwindings winding transformer as a 2 winding transformer.")
+        end
+
+        R1 = v["%r"] / 100 * v["kv"]^2 * 1000 / v["kva"]
+        R2 = v["%r_2"] / 100 * v["kv"]^2 * 1000 / v["kva"]
+        R = R1 + R2
+        X = (v["xhl"] + v["xlt"] + v["xht"]) / 100 * v["kv"]^2 * 1000 / v["kva"]
+        # openDSS Manual says "Always use the kVA base of the first winding for entering impedances. 
+        # Impedance values are entered in percent."
+
+        linecode = v["name"]
+        push!(edges, (b1, b2))
+        push!(linecodes, linecode)
+        push!(linelengths, 1.0)
+        push!(phases, phs)
+        phases_into_bus[b2] = phs
+
+        Isquared_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
+
+        rmatrix = zeros(3,3)
+        xmatrix = zeros(3,3)
+        # set the diagaonal values
+        for phs1 in phs
+            rmatrix[phs1, phs1] = R
+            xmatrix[phs1, phs1] = X
+        end
+
+        # TODO handle missing r1 or x1
+        d["linecode"][linecode] = Dict(
+            "nphases" => length(phs),
+            "rmatrix" => rmatrix,
+            "xmatrix" => xmatrix,
+        )
     end
 
     return edges, linecodes, linelengths, d["linecode"], phases, Isquared_up_bounds
