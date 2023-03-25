@@ -128,37 +128,18 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
         return b1, b2, phs
     end
 
+    switches_to_check = String[]  # only add switches if they are not in parallel with a line
     for (k,v) in d["line"]  # Line dict includes switches
         if "switch" in keys(v) && v["switch"] == true
-            try
-                # need to connect busses over switch
-                b1, b2, phs = get_b1_b2_phs(v)
-                linecode = "switch" * v["name"]
-                push!(edges, (b1, b2))
-                push!(linecodes, linecode)
-                push!(linelengths, get(v, "length", 1.0))
-                push!(phases, phs)
-
-                Isquared_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
-                if "normamps" in keys(v) && !(v["normamps"] ≈ 0)  # assuming lowercase keys
-                    Isquared_up_bounds[linecode] = v["normamps"]^2
-                elseif "emergamps" in keys(v) && !(v["emergamps"] ≈ 0)
-                    Isquared_up_bounds[linecode] = v["emergamps"]^2
-                end
-
-                d["linecode"][linecode] = Dict(
-                    "nphases" => length(phs),
-                    "rmatrix" => Diagonal(ones(3)) * get(v, "r1", 0.00001),
-                    "xmatrix" => Diagonal(ones(3)) *  get(v, "x1", 0.00001),
-                )
-            catch e
-                @warn("Unable to parse switch $(k) when processing OpenDSS model.")
-                println(e)
-            end
+            push!(switches_to_check, k)
             continue
         end
         try
             b1, b2, phs = get_b1_b2_phs(v)
+            if (b1,b2) in edges
+                @warn "Not adding line $k because there is already an edge from $b1 to $b2)"
+                continue
+            end
             push!(edges, (b1, b2))
             push!(phases, phs)
 
@@ -190,6 +171,38 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
             push!(linelengths, v["length"]) 
         catch
             @warn("Unable to parse line $(k) when processing OpenDSS model.")
+        end
+    end
+
+    for k in switches_to_check
+        v = d["line"][k]
+        try
+            # need to connect busses over switch
+            b1, b2, phs = get_b1_b2_phs(v)
+            if (b1,b2) in edges
+                continue
+            end
+            linecode = "switch" * v["name"]
+            push!(edges, (b1, b2))
+            push!(linecodes, linecode)
+            push!(linelengths, get(v, "length", 1.0))
+            push!(phases, phs)
+
+            Isquared_up_bounds[linecode] = DEFAULT_AMP_LIMIT^2
+            if "normamps" in keys(v) && !(v["normamps"] ≈ 0)  # assuming lowercase keys
+                Isquared_up_bounds[linecode] = v["normamps"]^2
+            elseif "emergamps" in keys(v) && !(v["emergamps"] ≈ 0)
+                Isquared_up_bounds[linecode] = v["emergamps"]^2
+            end
+
+            d["linecode"][linecode] = Dict(
+                "nphases" => length(phs),
+                "rmatrix" => Diagonal(ones(3)) * get(v, "r1", 0.00001),
+                "xmatrix" => Diagonal(ones(3)) *  get(v, "x1", 0.00001),
+            )
+        catch e
+            @warn("Unable to parse switch $(k) when processing OpenDSS model.")
+            println(e)
         end
     end
 
