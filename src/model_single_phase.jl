@@ -146,14 +146,20 @@ function constrain_KVL(m, p::Inputs)
     l = m[:lij]
     for j in p.busses
         for i in i_to_j(j, p)  # for radial network there is only one i in i_to_j
-            i_j = string(i*"-"*j)
-            rᵢⱼ = rij(i,j,p)
-            xᵢⱼ = xij(i,j,p)
-            vcon = @constraint(m, [t in 1:p.Ntimesteps],
-                w[j,t] == w[i,t]
-                    - 2*(rᵢⱼ * P[i_j,t] + xᵢⱼ * Q[i_j,t])
-                    + (rᵢⱼ^2 + xᵢⱼ^2) * l[i_j, t]
-            )
+            if !( (i,j) in keys(p.regulators) )
+                i_j = string(i*"-"*j)
+                rᵢⱼ = rij(i,j,p)
+                xᵢⱼ = xij(i,j,p)
+                vcon = @constraint(m, [t in 1:p.Ntimesteps],
+                    w[j,t] == w[i,t]
+                        - 2*(rᵢⱼ * P[i_j,t] + xᵢⱼ * Q[i_j,t])
+                        + (rᵢⱼ^2 + xᵢⱼ^2) * l[i_j, t]
+                )
+            else
+                vcon = @constraint(m, [t in 1:p.Ntimesteps],
+                    p.regulators[(i,j)][:turn_ratio]^2 * w[j,t] == w[i,t]
+                )
+            end
         end
     end
     nothing

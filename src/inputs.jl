@@ -75,6 +75,7 @@ mutable struct Inputs{T<:Phases} <: AbstractInputs
     phases_into_bus::Dict{String, Vector{Int}}
     relaxed::Bool
     edge_keys::Vector{String}
+    regulators::Dict
 end
 # TODO line flow limits
 
@@ -128,7 +129,8 @@ function Inputs(
         P_lo_bound=-1e4,
         Q_lo_bound=-1e4,
         Isquared_up_bounds=Dict{String, Float64}(),
-        relaxed=true
+        relaxed=true,
+        regulators=Dict()
     )
     Ibase = Sbase / (Vbase * sqrt(3))
     # Ibase^2 should be used to recover amperage from lij ?
@@ -185,7 +187,8 @@ function Inputs(
         Isquared_up_bounds,
         phases_into_bus,
         relaxed,
-        edge_keys
+        edge_keys,
+        regulators
     )
 end
 
@@ -231,7 +234,7 @@ function Inputs(
     d = open(dssfilepath) do io  # 
         parse_dss(io)  # method from PowerModelsDistribution
     end
-    edges, linecodes, linelengths, linecodes_dict, phases, Isquared_up_bounds = dss_dict_to_arrays(d, Sbase, Vbase)
+    edges, linecodes, linelengths, linecodes_dict, phases, Isquared_up_bounds, regulators = dss_dict_to_arrays(d, Sbase, Vbase)
 
     if isempty(Pload) && isempty(Qload)
         Pload, Qload = dss_loads(d)
@@ -273,7 +276,8 @@ function Inputs(
         P_lo_bound=P_lo_bound,
         Q_lo_bound=Q_lo_bound,
         Isquared_up_bounds=Isquared_up_bounds,
-        relaxed=relaxed
+        relaxed=relaxed,
+        regulators=regulators
     )
 end
 

@@ -95,7 +95,7 @@ TODO need a standardize format for the output of parse_dss rather than following
 """
 function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
     # TODO allocate empty arrays with number of lines
-    # TODO separate this method into sub-methods, generally parse components separately, add transformers
+    # TODO separate this method into sub-methods, generally parse components separately
     edges = Tuple[]
     phases = Vector[]
     linecodes = String[]
@@ -200,6 +200,7 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
     # parsing
     transformers_to_try_again = String[]
     trfxs_with_regs = [innerd["transformer"] for (k, innerd) in get(d, "regcontrol", Dict())]
+    regulators = Dict()
     for (k,v) in get(d, "transformer", Dict())
         try
             # need to connect busses over transformers
@@ -255,6 +256,11 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
                 "rmatrix" => rmatrix,
                 "xmatrix" => xmatrix,
             )
+            # TODO parse turn ratios
+            if linecode in trfxs_with_regs
+                regulators[(b1,b2)] = Dict(:turn_ratio => 1.0)
+            end
+
         catch e
             @warn("Unable to parse transformer $(k) when processing OpenDSS model.")
             println(e)
@@ -307,9 +313,13 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
             "rmatrix" => rmatrix,
             "xmatrix" => xmatrix,
         )
+        # TODO parse turn ratios
+        if linecode in trfxs_with_regs
+            regulators[(b1,b2)] = Dict(:turn_ratio => 1.0)
+        end
     end
 
-    return edges, linecodes, linelengths, d["linecode"], phases, Isquared_up_bounds
+    return edges, linecodes, linelengths, d["linecode"], phases, Isquared_up_bounds, regulators
 end
 
 
