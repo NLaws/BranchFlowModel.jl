@@ -286,12 +286,14 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
 
         if b1 in tails(edges)
             phs = phases_into_bus[b1]
-        else
-            @warn("Not parsing transformer $k between $b1 and $b2
-                   because it does not have an edge in to it.")
-            continue
+        else  # should be feeder head transformer but TODO add checks
+            if all(length(phz) == 1 for phz in phases)
+                phs = [1]
+            else
+                phs = [1,2,3]
+            end
         end
-        nwindings = v["windings"]
+        nwindings = get(v, "windings", 2)
         if nwindings != 2
             @warn("Parsing a $nwindings winding transformer as a 2 winding transformer.")
         end

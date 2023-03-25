@@ -157,7 +157,7 @@ function constrain_KVL(m, p::Inputs)
                 )
             else
                 vcon = @constraint(m, [t in 1:p.Ntimesteps],
-                    p.regulators[(i,j)][:turn_ratio]^2 * w[j,t] == w[i,t]
+                    w[j,t] == w[i,t] * p.regulators[(i,j)][:turn_ratio]^2 
                 )
             end
         end

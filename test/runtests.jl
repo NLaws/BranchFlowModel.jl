@@ -273,16 +273,17 @@ end
     vbase = 4160/sqrt(3)
     p = Inputs(
         joinpath("data", "ieee13_makePosSeq", "Master.dss"), 
-        "rg60";
+        "650";
         Sbase=1_000_000, 
         Vbase=vbase, 
-        v0 = dss_voltages["rg60"][1],  # openDSS rg60 values
+        v0 = 1.0,
         v_uplim = 1.05,
         v_lolim = 0.95,
         Ntimesteps = 1,
         relaxed = false  # NLP
     );
     @test check_connected_graph(p) == true
+    p.regulators[("650", "rg60")][:turn_ratio] = dss_voltages["rg60"][1]
 
     m = Model(Ipopt.Optimizer)
 
