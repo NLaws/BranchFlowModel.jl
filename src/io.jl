@@ -136,8 +136,8 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
         end
         try
             b1, b2, phs = get_b1_b2_phs(v)
-            if (b1,b2) in edges
-                @warn "Not adding line $k because there is already an edge from $b1 to $b2)"
+            if b2 in tails(edges)
+                @warn "Not adding line $k ($b1 to $b2) because there is already an edge into $b2"
                 continue
             end
             push!(edges, (b1, b2))
