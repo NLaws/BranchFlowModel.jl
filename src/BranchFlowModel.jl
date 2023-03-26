@@ -46,7 +46,9 @@ export
     split_at_busses,
     get_diffs,
     all_outneighbors,
-    all_inneighbors
+    all_inneighbors,
+    busses_from_deepest_to_source,
+    splitting_busses
 
 include("types.jl")
 include("io.jl")

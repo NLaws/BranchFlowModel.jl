@@ -231,3 +231,39 @@ function get_diffs(mg::MetaDiGraph)
     end
     return pdiffs, qdiffs, vdiffs
 end
+
+
+"""
+    splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String; threshold::Int64=10)
+
+Determine the busses to split a tree graph on by searching upward from the deepest leafs first
+and gathering the nearest busses until threshold is met for each subgraph.
+"""
+function splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String; threshold::Int64=10)
+    g = make_graph(p.busses, p.edges)
+    bs, depths = busses_from_deepest_to_source(g, source)
+    splitting_bs = String[]  # head nodes of all the subgraphs
+    # iterate until bs is empty, taking out busses as they are added to subgraphs
+    subg_bs = String[]
+    bs_parsed = String[]
+    while !isempty(bs)
+        b = popfirst!(bs)
+        ins = inneighbors(g, b)
+        while length(ins) == 1  # moving up tree from b in this loop
+            inb = ins[1]
+            outns = all_outneighbors(g, inb, String[], union([b], bs_parsed))  # want subg_bs in except_busses ?
+            setdiff!(outns, bs_parsed)
+            subg_bs = unique(vcat([b, inb], outns, subg_bs))
+            bs = setdiff(bs, subg_bs)
+            if length(subg_bs) >= threshold || isempty(bs)
+                push!(splitting_bs, inb)
+                push!(bs_parsed, subg_bs...)
+                subg_bs = String[]
+                break  # inner loop
+            end
+            ins = inneighbors(g, inb)  # go up another level
+            b = inb
+        end
+    end
+    return splitting_bs
+end

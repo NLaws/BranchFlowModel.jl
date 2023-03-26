@@ -87,3 +87,41 @@ function induced_subgraph(g::MetaGraphs.MetaDiGraph, vlist::Vector{String})
 end
 
 
+
+"""
+    busses_from_deepest_to_source(g::MetaDiGraph, source::String; max_depth=100)
+
+return the busses and their integer depths in order from deepest from shallowest
+"""
+function busses_from_deepest_to_source(g::MetaDiGraph, source::String; max_depth=100)
+    depths = Int64[0]  # 1:1 with nms
+    nms = String[source]
+    depth = 0
+    # first level
+    ons = outneighbors(g, source)
+    depths = vcat(depths, repeat([depth+1], length(ons)))  # [0, -1, -1] when length(ons) is 2
+    nms = vcat(nms, ons)
+    depth += 1
+    
+    function recur_outneighbors(ons::Vector{String}, depth)
+        next_ons = String[]
+        for o in ons
+            nxtons = outneighbors(g, o)
+            for nxt in nxtons
+                push!(depths, depth + 1)
+                push!(nms, nxt)
+                push!(next_ons, nxt)
+            end
+        end
+        depth += 1
+        
+        if !isempty(next_ons) && abs(depth) < max_depth
+            recur_outneighbors(next_ons, depth)
+        end
+    end
+
+    recur_outneighbors(ons, depth)
+    return reverse(nms), reverse(depths)
+end
+
+

@@ -305,6 +305,17 @@ end
         @test abs(vs[b][1] - dss_voltages[b][1]) < 0.01
     end
 
+    bs, depths = busses_from_deepest_to_source(g, "650")
+    @test depths[end] == 0 && bs[end] == "650"
+    @test depths[end-1] == 1 && bs[end-1] == "rg60"
+    @test "675" in bs[1:3] && depths[1] == 6
+    @test "652" in bs[1:3] && depths[2] == 6
+    @test "611" in bs[1:3] && depths[3] == 6
+
+    splitting_bs = splitting_busses(p, "650"; threshold=4)
+    @test length(splitting_bs) == 3
+    @test "671" in splitting_bs && "632" in splitting_bs && "632" in splitting_bs 
+
 end
 
 @testset "SinglePhase network reduction" begin
