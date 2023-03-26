@@ -180,6 +180,7 @@ function dss_dict_to_arrays(d::Dict, Sbase::Real, Vbase::Real)
             # need to connect busses over switch
             b1, b2, phs = get_b1_b2_phs(v)
             if (b1,b2) in edges
+                @warn "Not adding switch $k because there is already an edge from $b1 to $b2)"
                 continue
             end
             linecode = "switch" * v["name"]
