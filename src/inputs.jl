@@ -431,6 +431,34 @@ function reduce_tree!(p::Inputs{BranchFlowModel.SinglePhase})
 end
 
 
+function trim_tree_once!(p::Inputs{BranchFlowModel.SinglePhase})
+    trimmable_busses = setdiff(leaf_busses(p), union(keys(p.Pload), keys(p.Qload)))
+    if isempty(trimmable_busses) return false end
+    trimmable_edges = Tuple[]
+    for j in trimmable_busses
+        for i in i_to_j(j, p)
+            push!(trimmable_edges, (i,j))
+        end
+    end
+    @info("Deleting the following edges from the Inputs:")
+    for edge in trimmable_edges println(edge) end
+    for (i,j) in trimmable_edges
+        delete_edge_ij!(i, j, p)
+        delete_bus_j!(j, p)
+    end
+    true
+end
+
+
+function trim_tree!(p::Inputs{BranchFlowModel.SinglePhase})
+    trimming = trim_tree_once!(p)
+    while trimming
+        trimming = trim_tree_once!(p)
+    end
+    true
+end
+
+
 function make_sub_inputs(
     p::Inputs{BranchFlowModel.SinglePhase}, 
     edges_to_delete::Vector, 
