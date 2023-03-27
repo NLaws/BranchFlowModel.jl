@@ -200,6 +200,9 @@ function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vect
     # create the load_sum_order, a breadth first search from the leafs
     set_prop!(mg, :load_sum_order, breadth_first_nodes_from_leafs(mg))
     init_inputs!(mg)
+    if mg.graph.ne != length(mg.vprops) - 1
+        @warn "The MetaDiGraph created is not a tree."
+    end
 
     return mg
 end

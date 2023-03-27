@@ -6,6 +6,7 @@ using Graphs, MetaGraphs
 import SparseArrays: sparse
 import PowerModelsDistribution: parse_dss, DELTA
 import MetaGraphs: inneighbors, outneighbors, induced_subgraph
+import Logging: SimpleLogger, Error, with_logger
 
 const DEFAULT_AMP_LIMIT = 1000.0
 
@@ -39,6 +40,7 @@ export
     current_values_by_time_edge,
     line_flow_values_by_time_edge,
     reduce_tree!,
+    trim_tree!,
     make_graph,
     leaf_busses,
     init_inputs!,

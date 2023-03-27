@@ -231,9 +231,15 @@ function Inputs(
         Q_lo_bound=-1e4,
         relaxed=true,
     )
-    d = open(dssfilepath) do io  # 
-        parse_dss(io)  # method from PowerModelsDistribution
+
+    d = let d 
+        with_logger(SimpleLogger(Error)) do
+            open(dssfilepath) do io  # 
+                parse_dss(io)# method from PowerModelsDistribution
+            end
+        end
     end
+
     edges, linecodes, linelengths, linecodes_dict, phases, Isquared_up_bounds, regulators = dss_dict_to_arrays(d, Sbase, Vbase)
 
     if isempty(Pload) && isempty(Qload)
@@ -428,6 +434,7 @@ function reduce_tree!(p::Inputs{BranchFlowModel.SinglePhase})
         )
         p.Isquared_up_bounds[ik_linecode] = ik_amps
     end
+    @info("Removed $(length(reducable_buses)) busses.")
 end
 
 
@@ -440,7 +447,7 @@ function trim_tree_once!(p::Inputs{BranchFlowModel.SinglePhase})
             push!(trimmable_edges, (i,j))
         end
     end
-    @info("Deleting the following edges from the Inputs:")
+    @debug("Deleting the following edges from the Inputs:")
     for edge in trimmable_edges println(edge) end
     for (i,j) in trimmable_edges
         delete_edge_ij!(i, j, p)
@@ -451,10 +458,13 @@ end
 
 
 function trim_tree!(p::Inputs{BranchFlowModel.SinglePhase})
+    n_edges_before = length(p.edges)
     trimming = trim_tree_once!(p)
     while trimming
         trimming = trim_tree_once!(p)
     end
+    n_edges_after = length(p.edges)
+    @info("Removed $(n_edges_before - n_edges_after) edges.")
     true
 end
 
