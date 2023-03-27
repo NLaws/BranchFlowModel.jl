@@ -448,7 +448,7 @@ function trim_tree_once!(p::Inputs{BranchFlowModel.SinglePhase})
         end
     end
     @debug("Deleting the following edges from the Inputs:")
-    for edge in trimmable_edges println(edge) end
+    for edge in trimmable_edges @debug(edge) end
     for (i,j) in trimmable_edges
         delete_edge_ij!(i, j, p)
         delete_bus_j!(j, p)

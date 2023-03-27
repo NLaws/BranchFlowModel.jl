@@ -516,6 +516,10 @@ end
     @test MetaGraphs.outneighbors(mg, 4) == [2, 3]
     @test MetaGraphs.outneighbors(mg, 2) == MetaGraphs.outneighbors(mg, 3) == Int[]
 
+    delete!(p.Pload, "e")
+    delete!(p.Qload, "e")
+    trim_tree!(p)
+
 end
 
 end  # all tests
