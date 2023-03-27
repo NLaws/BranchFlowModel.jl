@@ -268,5 +268,5 @@ function splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String
             b = inb
         end
     end
-    return splitting_bs
+    return setdiff(splitting_bs, [source])
 end
