@@ -125,3 +125,35 @@ function busses_from_deepest_to_source(g::MetaDiGraph, source::String; max_depth
 end
 
 
+function vertices_from_deepest_to_source(g::MetaDiGraph, source::Int64)
+    depths = Int64[0]  # 1:1 with vs
+    vs = Int64[source]
+    depth = 0
+    # first level
+    ons = outneighbors(g, source)
+    depths = vcat(depths, repeat([depth+1], length(ons)))  # [0, -1, -1] when length(ons) is 2
+    vs = vcat(vs, ons)
+    depth += 1
+    
+    function recur_outneighbors(ons::Vector{Int64}, depth)
+        next_ons = Int64[]
+        for o in ons
+            nxtons = outneighbors(g, o)
+            for nxt in nxtons
+                push!(depths, depth + 1)
+                push!(vs, nxt)
+                push!(next_ons, nxt)
+            end
+        end
+        depth += 1
+        
+        if !isempty(next_ons)
+            recur_outneighbors(next_ons, depth)
+        end
+    end
+
+    recur_outneighbors(ons, depth)
+    return reverse(vs)  #, reverse(depths)
+end
+
+

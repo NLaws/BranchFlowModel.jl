@@ -89,6 +89,13 @@ function init_inputs!(mg::MetaDiGraph; init_vs::Dict = Dict())
 end
 
 
+"""
+    set_inputs!(mg::MetaDiGraph; α::Float64=0.0)
+
+Set the shared values in each subgraph / vertex of mg:
+1. set the current vertex's v0 to its inneighbor's voltage
+2. set the current vertex P/Qload to the outneighbors' substation_bus loads
+"""
 function set_inputs!(mg::MetaDiGraph; α::Float64=0.0)
     for v in get_prop(mg, :load_sum_order) # ~breadth first search of vertices
         # if v has inneighbors use their voltages at connections
@@ -105,6 +112,7 @@ function set_inputs!(mg::MetaDiGraph; α::Float64=0.0)
             end
         end
         # if v has outneighbors then use v_below's m[:Pj][p_below.substation_bus,:] * p_above.Sbase as v's Pload at the same bus
+        # have set the loads from deepest vertices to shallowest to get correct sums
         p_above = get_prop(mg, v, :p)
         for v_below in outneighbors(mg, v)
             m_below = get_prop(mg, v_below, :m)
@@ -198,7 +206,7 @@ function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vect
         add_edge!(mg, vertex, i+2)  # p_above -> p_below
     end
     # create the load_sum_order, a breadth first search from the leafs
-    set_prop!(mg, :load_sum_order, breadth_first_nodes_from_leafs(mg))
+    set_prop!(mg, :load_sum_order, vertices_from_deepest_to_source(mg, 1))
     init_inputs!(mg)
     if mg.graph.ne != length(mg.vprops) - 1
         @warn "The MetaDiGraph created is not a tree."
