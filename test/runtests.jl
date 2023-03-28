@@ -312,10 +312,32 @@ end
     @test "652" in bs[1:3] && depths[2] == 6
     @test "611" in bs[1:3] && depths[3] == 6
 
-    splitting_bs = splitting_busses(p, "650"; max_busses=7)  # 671 and rg60
+    splitting_bs, subgraph_bs = splitting_busses(p, "650"; max_busses=7)  # 671 and rg60
     @test length(splitting_bs) == 2
-    @test "671" in splitting_bs && "rg60" in splitting_bs
+    @test splitting_bs[1] == "671" && splitting_bs[2] == "rg60"
+    @test length(subgraph_bs) == 2
+    @test length(subgraph_bs[1]) == 7
+    @test length(subgraph_bs[2]) == 7
+    @test isempty(intersect(subgraph_bs[1], subgraph_bs[2]))
 
+    # the subgraph_bs do not include over laps
+    mg = split_at_busses(p, splitting_bs, subgraph_bs; add_connections=false)
+    @test !("671" in mg[3,:p].busses)
+
+    mg = split_at_busses(p, splitting_bs, subgraph_bs; add_connections=true)
+    @test length(mg[1,:p].busses) == 2
+    @test length(mg[2,:p].busses) == 7
+    @test length(mg[3,:p].busses) == 8  # get one more bus then max_busses from adding connection @ 671
+
+    # to get overlaps use connect_subgraphs_at_busses (which is an option in split_at_busses)
+    new_subgraphs = connect_subgraphs_at_busses(p, splitting_bs, subgraph_bs)
+    mg = split_at_busses(p, splitting_bs, new_subgraphs; add_connections=false)
+    @test length(mg[1,:p].busses) == 2
+    @test length(mg[2,:p].busses) == 7
+    @test length(mg[3,:p].busses) == 8  # get one more bus then max_busses from adding connection @ 671
+
+    @test length(new_subgraphs) == 2
+    @test intersect(new_subgraphs[1], new_subgraphs[2])[1] == "671"
 end
 
 @testset "SinglePhase network reduction" begin
@@ -516,10 +538,22 @@ end
     @test MetaGraphs.outneighbors(mg, 4) == [2, 3]
     @test MetaGraphs.outneighbors(mg, 2) == MetaGraphs.outneighbors(mg, 3) == Int[]
 
+    p_above, p_below = split_inputs(p, "b", ["b", "c", "e"])
+    @test length(p_below.busses) == 3
+    @test "b" in p_below.busses && "c" in p_below.busses && "e" in p_below.busses
+    @test length(p_above.busses) == 4
+    @test "b" in p_above.busses && "a" in p_above.busses 
+    @test "d" in p_above.busses && "f" in p_above.busses
+    @test length(p_below.edges) == 2
+    @test ("b", "c") in p_below.edges && ("c", "e") in p_below.edges
+    @test length(p_above.edges) == 3
+    @test ("a", "b") in p_above.edges
+    @test ("b", "d") in p_above.edges
+    @test ("d", "f") in p_above.edges
+
     delete!(p.Pload, "e")
     delete!(p.Qload, "e")
     trim_tree!(p)
-
 end
 
 end  # all tests

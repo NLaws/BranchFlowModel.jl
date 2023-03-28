@@ -163,8 +163,6 @@ end
 
 Split `Inputs` using the `at_busses`
 
-TODO? maybe add a `mode` for how to split, and a `max_vars` parameter
-
 returns MetaDiGraph with vertex properties `:p` containing `Input` for the sub-graphs.
 For example `mg[2, :p]` is the `Input` at the second vertex of the graph created by splitting 
 the network via the `at_busses`.
@@ -189,6 +187,62 @@ function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vect
             end
         end
         p_above, p_below = BranchFlowModel.split_inputs(mg[vertex, :p], b);
+        set_prop!(mg, vertex, :p, p_above)  # replace the already set :p, which preserves inneighbors
+        add_vertex!(mg, :p, p_below)  # vertex i+2
+        if !isempty(outdegree(mg, vertex))
+            # already have edge(s) for vertex -> outneighbors(mg, vertex)
+            # but now i+2 could be the parent for some of the outneighbors(mg, vertex)
+            outns = copy(outneighbors(mg, vertex))
+            for neighb in outns
+                if !( mg[neighb, :p].substation_bus in mg[vertex, :p].busses )
+                    # mv the edge to the new intermediate node
+                    rem_edge!(mg, vertex, neighb)
+                    add_edge!(mg, i+2, neighb)
+                end
+            end
+        end
+        add_edge!(mg, vertex, i+2)  # p_above -> p_below
+    end
+    # create the load_sum_order, a breadth first search from the leafs
+    set_prop!(mg, :load_sum_order, vertices_from_deepest_to_source(mg, 1))
+    init_inputs!(mg)
+    if mg.graph.ne != length(mg.vprops) - 1
+        @warn "The MetaDiGraph created is not a tree."
+    end
+
+    return mg
+end
+
+
+"""
+    split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String}, with_busses::Vector{Vector{String}})
+
+Split up `p` using the `at_busses` as each new `substation_bus` and containing the corresponding `with_busses`.
+The `at_busses` and `with_busses` can be determined using `splitting_busses`.
+"""
+function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String}, with_busses::Vector{Vector}; add_connections=true)
+    unique!(at_busses)
+    mg = MetaDiGraph()
+    if add_connections
+        with_busses = connect_subgraphs_at_busses(p, at_busses, with_busses)
+    end
+    # initial split
+    p_above, p_below = BranchFlowModel.split_inputs(p, at_busses[1], with_busses[1]);
+    add_vertex!(mg, :p, p_above)
+    add_vertex!(mg, :p, p_below)
+    add_edge!(mg, 1, 2)
+    set_indexing_prop!(mg, :p)
+
+    for (i, (b, sub_bs)) in enumerate(zip(at_busses[2:end], with_busses[2:end]))
+        # find the vertex to split
+        vertex = 0
+        for v in vertices(mg)
+            if b in mg[v, :p].busses
+                vertex = v
+                break
+            end
+        end
+        p_above, p_below = BranchFlowModel.split_inputs(mg[vertex, :p], b, sub_bs);
         set_prop!(mg, vertex, :p, p_above)  # replace the already set :p, which preserves inneighbors
         add_vertex!(mg, :p, p_below)  # vertex i+2
         if !isempty(outdegree(mg, vertex))
@@ -249,11 +303,19 @@ end
 
 Determine the busses to split a tree graph on by searching upward from the deepest leafs first
 and gathering the nearest busses until threshold is met for each subgraph.
+
+NOTE: it is not enough to have only the splitting busses because to obey the max_busses limit
+    one must know which sub branches to take from each splitting bus. In other words, we also
+    need all the busses within each subgraph to split properly. For example, if a splitting
+    bus has two sub branches then obeying the max_busses limit can require only including one
+    sub branch out of the splitting bus. To know which branch to take we can use the other busses
+    in the sub graph.
 """
 function splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String; max_busses::Int64=10)
     g = make_graph(p.busses, p.edges)
     bs, depths = busses_from_deepest_to_source(g, source)
     splitting_bs = String[]  # head nodes of all the subgraphs
+    subgraph_bs = Vector[]
     # iterate until bs is empty, taking out busses as they are added to subgraphs
     subg_bs = String[]
     bs_parsed = String[]
@@ -271,6 +333,7 @@ function splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String
                 # so we split at b and start a new subgraph
                 push!(splitting_bs, b)
                 push!(bs_parsed, subg_bs...)
+                push!(subgraph_bs, subg_bs)
                 subg_bs = String[]
                 break  # inner loop
             end
@@ -281,5 +344,27 @@ function splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String
             b = inb
         end
     end
-    return setdiff(splitting_bs, [source])
+    return setdiff(splitting_bs, [source]), subgraph_bs
+    # the last bus in splitting_bs is the source, which is not really a splitting bus
+end
+
+
+"""
+
+The splitting_busses algorithm does not include over laps in subgraphs.
+But, we want overlaps at the splitting busses for solving the decomposed branch flow model.
+So here we add the overlapping splitting busses to each sub graph.
+"""
+function connect_subgraphs_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String}, subgraphs::Vector{Vector})
+    g = make_graph(p.busses, p.edges)
+    new_subgs = deepcopy(subgraphs)
+    for (i, subgraph) in enumerate(subgraphs)
+        for b in subgraph
+            bs_to_add = intersect(outneighbors(g, b), at_busses)
+            if !isempty(bs_to_add)
+                push!(new_subgs[i], bs_to_add...)
+            end
+        end
+    end
+    return new_subgs
 end
