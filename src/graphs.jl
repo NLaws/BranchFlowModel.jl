@@ -89,11 +89,11 @@ end
 
 
 """
-    busses_from_deepest_to_source(g::MetaDiGraph, source::String; max_depth=100)
+    busses_from_deepest_to_source(g::MetaDiGraph, source::String)
 
 return the busses and their integer depths in order from deepest from shallowest
 """
-function busses_from_deepest_to_source(g::MetaDiGraph, source::String; max_depth=100)
+function busses_from_deepest_to_source(g::MetaDiGraph, source::String)
     depths = Int64[0]  # 1:1 with nms
     nms = String[source]
     depth = 0
@@ -115,7 +115,7 @@ function busses_from_deepest_to_source(g::MetaDiGraph, source::String; max_depth
         end
         depth += 1
         
-        if !isempty(next_ons) && abs(depth) < max_depth
+        if !isempty(next_ons)
             recur_outneighbors(next_ons, depth)
         end
     end
