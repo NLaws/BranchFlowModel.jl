@@ -369,7 +369,11 @@ function connect_subgraphs_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_
         for b in subgraph
             bs_to_add = intersect(outneighbors(g, b), at_busses)
             if !isempty(bs_to_add)
-                push!(new_subgs[i], bs_to_add...)
+                for ba in bs_to_add
+                    if !(ba in new_subgs[i])
+                        push!(new_subgs[i], ba)
+                    end
+                end
             end
         end
     end
