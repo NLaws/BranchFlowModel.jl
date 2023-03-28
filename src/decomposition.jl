@@ -250,7 +250,7 @@ end
 Determine the busses to split a tree graph on by searching upward from the deepest leafs first
 and gathering the nearest busses until threshold is met for each subgraph.
 """
-function splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String; threshold::Int64=10)
+function splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String; max_busses::Int64=10)
     g = make_graph(p.busses, p.edges)
     bs, depths = busses_from_deepest_to_source(g, source)
     splitting_bs = String[]  # head nodes of all the subgraphs
@@ -262,16 +262,21 @@ function splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String
         ins = inneighbors(g, b)
         while length(ins) == 1  # moving up tree from b in this loop
             inb = ins[1]
-            outns = all_outneighbors(g, inb, String[], union([b], bs_parsed))  # want subg_bs in except_busses ?
+            # outns is everything below inb except b and bs_parsed
+            outns = all_outneighbors(g, inb, String[], union([b], bs_parsed))
             setdiff!(outns, bs_parsed)
-            subg_bs = unique(vcat([b, inb], outns, subg_bs))
-            bs = setdiff(bs, subg_bs)
-            if length(subg_bs) >= threshold || isempty(bs)
-                push!(splitting_bs, inb)
+            new_subg_bs = unique(vcat([b, inb], outns, subg_bs))
+            if length(new_subg_bs) > max_busses || isempty(bs)
+                # addition of busses would increase busses in subgraph beyond max_busses
+                # so we split at b and start a new subgraph
+                push!(splitting_bs, b)
                 push!(bs_parsed, subg_bs...)
                 subg_bs = String[]
                 break  # inner loop
             end
+            # else continue going up tree
+            subg_bs = new_subg_bs
+            bs = setdiff(bs, subg_bs)
             ins = inneighbors(g, inb)  # go up another level
             b = inb
         end
