@@ -335,6 +335,7 @@ function splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String
                 push!(splitting_bs, b)
                 push!(bs_parsed, subg_bs...)
                 push!(subgraph_bs, subg_bs)
+                bs = setdiff(bs, subg_bs)
                 subg_bs = String[]
                 break  # inner loop
             end
