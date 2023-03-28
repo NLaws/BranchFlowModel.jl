@@ -338,6 +338,8 @@ end
 
     @test length(new_subgraphs) == 2
     @test intersect(new_subgraphs[1], new_subgraphs[2])[1] == "671"
+    @test intersect(mg[2,:p].busses, mg[3,:p].busses)[1] == "671"
+    @test intersect(mg[1,:p].busses, mg[3,:p].busses)[1] == "rg60"
 end
 
 @testset "SinglePhase network reduction" begin

@@ -527,11 +527,12 @@ function split_inputs(p::Inputs{BranchFlowModel.SinglePhase}, bus::String, out_b
     # in_buses does not have bus, but sub_busses does have bus
     # we want to keep bus in both p_above and p_below
 
-    sub_busses, sub_edges = induced_subgraph(g, out_buses)
-    p_above = make_sub_inputs(p, sub_edges, setdiff(out_buses, [bus]))
+    sub_busses, edges_to_remove = induced_subgraph(g, out_buses)
+    # NOTE edges_to_remove does not include edges going out of out_buses
+    p_above = make_sub_inputs(p, edges_to_remove, setdiff(out_buses, [bus]))
 
-    sub_busses, sub_edges = induced_subgraph(g, vcat(in_buses, bus))
-    p_below = make_sub_inputs(p, sub_edges, in_buses)
+    sub_busses, edges_to_remove = induced_subgraph(g, vcat(in_buses, bus))
+    p_below = make_sub_inputs(p, edges_to_remove, in_buses)
     p_below.substation_bus = bus
 
     return p_above, p_below

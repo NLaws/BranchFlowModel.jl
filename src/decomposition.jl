@@ -324,8 +324,9 @@ function splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String
         ins = inneighbors(g, b)
         while length(ins) == 1  # moving up tree from b in this loop
             inb = ins[1]
-            # outns is everything below inb except b and bs_parsed
-            outns = all_outneighbors(g, inb, String[], union([b], bs_parsed))
+            # outns includes every bus below inb except b, 
+            # excluding any branches that start with a bus in bs_parsed
+            outns = setdiff(all_outneighbors(g, inb, String[], bs_parsed), [b]) 
             setdiff!(outns, bs_parsed)
             new_subg_bs = unique(vcat([b, inb], outns, subg_bs))
             if length(new_subg_bs) > max_busses || isempty(bs)
