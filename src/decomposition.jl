@@ -321,14 +321,16 @@ function splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String
     bs_parsed = String[]
     while !isempty(bs)
         b = popfirst!(bs)
-        ins = inneighbors(g, b)
+        push!(subg_bs, b)
+        ins = [b] # first check for any out neighbors of b
         while length(ins) == 1  # moving up tree from b in this loop
             inb = ins[1]
-            # outns includes every bus below inb except b, 
+            # outns includes every bus below inb, 
             # excluding any branches that start with a bus in bs_parsed
-            outns = setdiff(all_outneighbors(g, inb, String[], bs_parsed), [b]) 
-            setdiff!(outns, bs_parsed)
-            new_subg_bs = unique(vcat([b, inb], outns, subg_bs))
+            outns = all_outneighbors(g, inb, String[], bs_parsed)
+            setdiff!(outns, bs_parsed)  # just in case
+            new_subg_bs = unique(vcat([inb], outns, subg_bs))
+
             if length(new_subg_bs) > max_busses || isempty(bs)
                 # addition of busses would increase busses in subgraph beyond max_busses
                 # so we split at b and start a new subgraph
@@ -346,7 +348,10 @@ function splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String
             b = inb
         end
     end
-    return setdiff(splitting_bs, [source]), subgraph_bs
+    if source in splitting_bs
+        return setdiff(splitting_bs, [source]), subgraph_bs[1:end-1]
+    end
+    return splitting_bs, subgraph_bs
     # the last bus in splitting_bs is the source, which is not really a splitting bus
 end
 
