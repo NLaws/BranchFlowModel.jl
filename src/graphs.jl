@@ -153,7 +153,7 @@ function vertices_from_deepest_to_source(g::MetaDiGraph, source::Int64)
     end
 
     recur_outneighbors(ons, depth)
-    return reverse(vs)  #, reverse(depths)
+    return reverse(vs), reverse(depths)
 end
 
 

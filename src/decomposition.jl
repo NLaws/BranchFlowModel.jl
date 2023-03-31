@@ -204,7 +204,8 @@ function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vect
         add_edge!(mg, vertex, i+2)  # p_above -> p_below
     end
     # create the load_sum_order, a breadth first search from the leafs
-    set_prop!(mg, :load_sum_order, vertices_from_deepest_to_source(mg, 1))
+    vs, depths = vertices_from_deepest_to_source(mg, 1)
+    set_prop!(mg, :load_sum_order, vs)
     init_inputs!(mg)
     if mg.graph.ne != length(mg.vprops) - 1
         @warn "The MetaDiGraph created is not a tree."
@@ -219,6 +220,10 @@ end
 
 Split up `p` using the `at_busses` as each new `substation_bus` and containing the corresponding `with_busses`.
 The `at_busses` and `with_busses` can be determined using `splitting_busses`.
+
+NOTE: this variation of splt_at_busses allows for more than two splits at the same bus; whereas the other
+implementation of split_at_busses only splits the network into two parts for everything above and
+everything below a splitting bus.
 """
 function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String}, with_busses::Vector{Vector}; add_connections=true)
     unique!(at_busses)
@@ -260,7 +265,8 @@ function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vect
         add_edge!(mg, vertex, i+2)  # p_above -> p_below
     end
     # create the load_sum_order, a breadth first search from the leafs
-    set_prop!(mg, :load_sum_order, vertices_from_deepest_to_source(mg, 1))
+    vs, depths = vertices_from_deepest_to_source(mg, 1)
+    set_prop!(mg, :load_sum_order, vs)
     init_inputs!(mg)
     if mg.graph.ne != length(mg.vprops) - 1
         @warn "The MetaDiGraph created is not a tree."
