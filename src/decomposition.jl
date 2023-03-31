@@ -67,8 +67,20 @@ function init_inputs!(ps::Vector{Inputs{BranchFlowModel.SinglePhase}}; init_vs::
         leafs = leaf_busses(p)
         for pp in ps
             if pp.substation_bus in leafs
-                p.Pload[pp.substation_bus] = sum( values(pp.Pload) )
-                p.Qload[pp.substation_bus] = sum( values(pp.Qload) )
+                if isempty(pp.Pload)
+                    @warn "The Pload dictionary is empty for the sub network with head bus $(pp.substation_bus).\
+                    \nThis indicates that there are probably lines with no loads on the ends in the larger network.\
+                    \nTry using trim_tree! to eliminate the deadend branches."
+                else
+                    p.Pload[pp.substation_bus] = sum( values(pp.Pload) )
+                end
+                if isempty(pp.Qload)
+                    @warn "The Qload dictionary is empty for the sub network with head bus $(pp.substation_bus).\
+                    \nThis indicates that there are probably lines with no loads on the ends in the larger network.\
+                    \nTry using trim_tree! to eliminate the deadend branches."
+                else
+                    p.Qload[pp.substation_bus] = sum( values(pp.Qload) )
+                end
             end
         end
     end
@@ -384,4 +396,27 @@ function connect_subgraphs_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_
         end
     end
     return new_subgs
+end
+
+
+"""
+    metagraph_to_json(mg::MetaDiGraph, filename::String)
+
+Dump the vertices, edges, and the busses and lines for each vertex in the metagraph to JSON
+"""
+function metagraph_to_json(mg::MetaDiGraph, filename::String)
+    vs, order = vertices_from_deepest_to_source(mg, 1)
+    depths = Dict(k => v for (k,v) in zip(vs, order))
+    d = Dict()
+    d["nodes"] = collect(vertices(mg))
+    d["edges"] = [(e.src, e.dst) for e in collect(edges(mg))]
+    d["depths"] = depths
+    for v in vertices(mg)
+        d[v] = Dict()
+        d[v]["busses"] = mg[v, :p].busses
+        d[v]["lines"] = mg[v, :p].edges
+    end
+    open(filename * ".json", "w") do f
+        JSON.print(f, d, 2)
+    end
 end

@@ -3,6 +3,7 @@ module BranchFlowModel
 using JuMP
 using LinearAlgebra
 using Graphs, MetaGraphs
+using JSON
 import SparseArrays: sparse
 import PowerModelsDistribution: parse_dss, DELTA
 import MetaGraphs: inneighbors, outneighbors, induced_subgraph
