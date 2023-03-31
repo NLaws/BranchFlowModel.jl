@@ -1,6 +1,3 @@
-
-
-
 function leaf_busses(p::Inputs)
     leafs = String[]
     for j in p.busses
@@ -108,7 +105,7 @@ Set the shared values in each subgraph / vertex of mg:
 1. set the current vertex's v0 to its inneighbor's voltage
 2. set the current vertex P/Qload to the outneighbors' substation_bus loads
 """
-function set_inputs!(mg::MetaDiGraph; α::Float64=0.0)
+function set_inputs!(mg::MetaDiGraph; α::R=0.0) where R <: Real
     for v in get_prop(mg, :load_sum_order) # ~breadth first search of vertices
         # if v has inneighbors use their voltages at connections
         p_below = get_prop(mg, v, :p)
@@ -289,6 +286,14 @@ end
 
 
 
+"""
+    get_diffs(mg::MetaDiGraph)
+
+Uses the JuMP Models stored in mg[:m] to calculate the difference between Pj, Qj, and |v| at every
+leaf/substation connection. 
+
+returns three `Float64[]`
+"""
 function get_diffs(mg::MetaDiGraph)
     pdiffs, qdiffs, vdiffs = Float64[], Float64[], Float64[]
     for v in get_prop(mg, :load_sum_order) # ~breadth first search of vertices
@@ -375,6 +380,7 @@ end
 
 
 """
+    connect_subgraphs_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String}, subgraphs::Vector{Vector})
 
 The splitting_busses algorithm does not include over laps in subgraphs.
 But, we want overlaps at the splitting busses for solving the decomposed branch flow model.
@@ -418,5 +424,106 @@ function metagraph_to_json(mg::MetaDiGraph, filename::String)
     end
     open(filename * ".json", "w") do f
         JSON.print(f, d, 2)
+    end
+end
+
+
+"""
+    build_metagraph(p::Inputs{BranchFlowModel.SinglePhase}, source::String; max_busses::Int64=10)
+
+return MetaDiGraph with `:p` property set for every vertex by splitting the `Inputs` via `splitting_busses`
+"""
+function build_metagraph(p::Inputs{BranchFlowModel.SinglePhase}, source::String; max_busses::Int64=10)
+    splitting_bs, subgraphs = splitting_busses(p, source; max_busses=max_busses)  
+    split_at_busses(p, splitting_bs, subgraphs)
+end
+
+
+"""
+    solve_metagraph!(mg::MetaDiGraph, builder::Function, tol::T; α::T=0.5, verbose=false) where T <: Real
+
+Given a MetaDiGraph and a JuMP Model `builder` method iteratively solve the models until the `tol` is 
+met for the differences provided by `BranchFlowModel.get_diffs`. 
+
+The `builder` must accept only one argument of type `BranchFlowModel.AbstractInputs` that returns 
+a `JuMP.AbstractModel`. Each model returned from the `builder` is stored as an `:m` property in 
+each vertex of `mg`.
+
+!!! note 
+    `tol` is compared to the maximum absolute value of all the p, q, and v differences.
+"""
+function solve_metagraph!(mg::MetaDiGraph, builder::Function, tol::R; α::T=0.5, verbose=false) where {T <: Real, R <: Real}
+    init_inputs!(mg)
+    diff = abs(tol) * 10
+    i = 0
+    while diff > abs(tol)
+        for (p, vertex) in mg[:p]
+            m = builder(p)
+            optimize!(m)
+            set_prop!(mg, vertex, :m, m)
+        end
+        set_indexing_prop!(mg, :m)
+        pdiffs, qdiffs, vdiffs = get_diffs(mg)
+        maxp = maximum(abs.(pdiffs))
+        maxq = maximum(abs.(qdiffs))
+        maxv = maximum(abs.(vdiffs))
+        if verbose
+            i += 1
+            println("\niterate $i")
+            println("max pdiff $(maxp)")
+            println("max qdiff $(maxq)")
+            println("max vdiff $(maxv)")
+        end
+        # we don't want to set_inputs! if we are about to break
+        diff = maximum([maxp, maxq, maxv])
+        if diff > abs(tol)
+            set_inputs!(mg; α=α)
+        end
+    end
+end
+
+
+"""
+    solve_metagraph!(mg::MetaDiGraph, builder::Function, tols::Vector{T}; α::T=0.5, verbose=false) where T <: Real
+    
+Given a MetaDiGraph and a JuMP Model `builder` method iteratively solve the models until the `tols` are 
+met for the differences provided by `BranchFlowModel.get_diffs`. 
+
+The `builder` must accept only one argument of type `BranchFlowModel.AbstractInputs` that returns 
+a `JuMP.AbstractModel`. Each model returned from the `builder` is stored as an `:m` property in 
+each vertex of `mg`.
+
+!!! note 
+    The `tols` should have a length of three. The first value is compared to the maximum absolute difference
+    in Pj, the second for Qj, and the third for |v|. All differences are calculated at the leaf/substation
+    connections.
+"""
+function solve_metagraph!(mg::MetaDiGraph, builder::Function, tols::Vector{R}; α::T=0.5, verbose=false) where {T <: Real, R <: Real}
+    init_inputs!(mg)
+    tol_not_met = true
+    i = 0
+    while tol_not_met
+        for (p, vertex) in mg[:p]
+            m = builder(p)
+            optimize!(m)
+            set_prop!(mg, vertex, :m, m)
+        end
+        set_indexing_prop!(mg, :m)
+        pdiffs, qdiffs, vdiffs = get_diffs(mg)
+        maxp = maximum(abs.(pdiffs))
+        maxq = maximum(abs.(qdiffs))
+        maxv = maximum(abs.(vdiffs))
+        if verbose
+            i += 1
+            println("\niterate $i")
+            println("max pdiff $(maxp)")
+            println("max qdiff $(maxq)")
+            println("max vdiff $(maxv)")
+        end
+        if all( val <= tol for (val,tol) in zip([maxp, maxq, maxv], tols))
+            tol_not_met = false
+            continue
+        end
+        set_inputs!(mg; α=α)
     end
 end

@@ -54,17 +54,20 @@ export
     vertices_from_deepest_to_source,
     splitting_busses,
     connect_subgraphs_at_busses,
-    split_inputs
+    split_inputs,
+    build_metagraph,
+    solve_metagraph!,
+    metagraph_voltages
 
 include("types.jl")
 include("io.jl")
 include("graphs.jl")
 include("inputs.jl")
 include("utils.jl")
+include("results.jl")
 include("checks.jl")
 include("model_single_phase.jl")
 include("model_multi_phase.jl")
 include("decomposition.jl")
-include("results.jl")
 
 end

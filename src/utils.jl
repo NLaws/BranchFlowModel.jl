@@ -112,19 +112,6 @@ function get_edge_values(var_prefix::AbstractString, m::JuMP.AbstractModel, p::I
 end
 
 
-function get_bus_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{SinglePhase})
-    vals = value.(m[var])
-    d = Dict()
-    for b in p.busses
-        d[b] = vals[b,:].data
-        if var == :vsqrd || var == :lij
-            d[b] = sqrt.(d[b])
-        end
-    end
-    return d
-end
-
-
 function get_constraints_by_variable_name(m::JuMP.AbstractModel, v::AbstractString)
     ac = ConstraintRef[]
     for tup in list_of_constraint_types(m)

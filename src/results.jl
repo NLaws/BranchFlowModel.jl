@@ -37,3 +37,25 @@ function line_flow_values_by_time_edge(m::JuMP.AbstractModel, p::Inputs{BranchFl
     end
     return d
 end
+
+
+function get_bus_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{SinglePhase})
+    vals = value.(m[var])
+    d = Dict()
+    for b in p.busses
+        d[b] = vals[b,:].data
+        if var == :vsqrd || var == :lij
+            d[b] = sqrt.(d[b])
+        end
+    end
+    return d
+end
+
+
+function metagraph_voltages(mg::MetaDiGraph)
+    d = Dict()
+    for v in vertices(mg)
+        merge!(d, get_bus_values(:vsqrd, mg[v, :m], mg[v, :p]))
+    end
+    return d
+end
