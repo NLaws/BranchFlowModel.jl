@@ -19,6 +19,11 @@ function j_to_k(j::AbstractString, p::Inputs)
 end
 
 
+"""
+    rij(i::AbstractString, j::AbstractString, p::Inputs{SinglePhase})
+
+The per-unit resistance of line i->j
+"""
 function rij(i::AbstractString, j::AbstractString, p::Inputs{SinglePhase})
     linecode = get_ijlinecode(i, j, p)
     linelength = get_ijlinelength(i, j, p)
@@ -27,6 +32,11 @@ function rij(i::AbstractString, j::AbstractString, p::Inputs{SinglePhase})
 end
 
 
+"""
+    xij(i::AbstractString, j::AbstractString, p::Inputs{SinglePhase})
+
+The per-unit reacttance of line i->j
+"""
 function xij(i::AbstractString, j::AbstractString, p::Inputs{SinglePhase})
     linecode = get_ijlinecode(i, j, p)
     linelength = get_ijlinelength(i, j, p)
@@ -160,3 +170,32 @@ function phi_ij(j::String, p::Inputs, M::AbstractMatrix)
     return N
 end
 
+
+"""
+    check_unique_solution_conditions(p::Inputs)
+
+
+report the maximum per-unit immpedance and load values.
+See Chiang and Baran 2013:
+A load flow solution with feasible voltage magnitude always exists and is unique when
+1. V0 ≈ 1
+2. loss values < 1
+3. rpu, xpu << 1
+"""
+function check_unique_solution_conditions(p::Inputs)
+    Rmax, Xmax = info_max_rpu_xpu(p)
+    maxP, maxQ = info_max_Ppu_Qpu(p)
+
+    if p.v0 > 1.09 || p.v0 < 0.91
+        @warn "The substation voltage should be set close to one."
+    end
+
+    if maxP > 0.1 || maxQ > 0.1 
+        @warn "The maximum load is greater than 0.1 * Sbase. You should probably increase Sbase."
+    end
+    if Rmax > 1e-2 || Xmax > 1e-2
+        @warn "\nThe per unit impedance values should be much less than one but the max is >0.01 .\
+            \nYou should increase Zbase by increasing Vbase."
+    end
+    nothing
+end

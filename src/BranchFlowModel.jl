@@ -57,7 +57,8 @@ export
     split_inputs,
     build_metagraph,
     solve_metagraph!,
-    metagraph_voltages
+    metagraph_voltages,
+    check_unique_solution_conditions
 
 include("types.jl")
 include("io.jl")

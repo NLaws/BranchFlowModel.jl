@@ -285,6 +285,7 @@ end
     @test check_connected_graph(p) == true
     g = make_graph(p.busses, p.edges)
     @test g.graph.ne == length(g.vprops) - 1  # a radial network has n_edges = n_vertices - 1
+    @test_warn "The per unit impedance values should be much less than one" check_unique_solution_conditions(p)
     p.regulators[("650", "rg60")][:turn_ratio] = dss_voltages["rg60"][1]
 
     m = Model(Ipopt.Optimizer)

@@ -132,10 +132,11 @@ function Inputs(
         relaxed=true,
         regulators=Dict()
     )
+
     Ibase = Sbase / (Vbase * sqrt(3))
     # Ibase^2 should be used to recover amperage from lij ?
     Zbase = Vbase^2 / Sbase
-    @info "Zbase: ", Zbase
+
     busses = String[]
     for t in edges
         push!(busses, t[1])
@@ -536,4 +537,30 @@ function split_inputs(p::Inputs{BranchFlowModel.SinglePhase}, bus::String, out_b
     p_below.substation_bus = bus
 
     return p_above, p_below
+end
+
+
+"""
+    info_max_rpu_xpu(p::Inputs)
+
+report the maximum per-unit resistance and reactance values of the lines.
+It is important that the rpu ans xpu values be << 1. See Chiang and Baran 2013:
+A load flow solution with feasible voltage magnitude always exists and is unique when
+1. V0 ≈ 1
+2. loss values < 1
+3. rpu, xpu << 1
+"""
+function info_max_rpu_xpu(p::Inputs)
+    Rmax = maximum([rij(i,j,p) for (i,j) in p.edges])
+    Xmax = maximum([xij(i,j,p) for (i,j) in p.edges])
+    @info("Max. Rpu: $Rmax   Max Xpu: $Xmax")
+    return Rmax, Xmax
+end
+
+
+function info_max_Ppu_Qpu(p::Inputs)
+    maxP = maximum(maximum.(values(p.Pload))) / p.Sbase
+    maxQ = maximum(maximum.(values(p.Qload))) / p.Sbase
+    @info("Max. Rpu: $maxP   Max Xpu: $maxQ")
+    return maxP, maxQ
 end
