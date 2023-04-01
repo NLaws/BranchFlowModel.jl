@@ -44,7 +44,7 @@
 TODO Zdict example
 TODO test against simple model to make sure scaling is done right
 
-!!! NOTE
+!!! note
     The `edges`, `linecodes`, `phases`, `edge_keys`, and `linelengths` are in mutual order (e.g. the i-th value in each list corresponds to the same line)
 """
 mutable struct Inputs{T<:Phases} <: AbstractInputs
@@ -210,6 +210,7 @@ end
         Q_up_bound=1e4,
         P_lo_bound=-1e4,
         Q_lo_bound=-1e4,
+        relaxed=true,
     )
 
 Inputs constructor that parses a openDSS file for the network. If `Pload` and `Qload` are not provided

@@ -233,8 +233,8 @@ as the first index. For example `m[:loadbalcons]["busname"]` will give the const
 from JuMP for all time steps.
 """
 function constrain_power_balance(m, p::Inputs{MultiPhase})
-    Sⱼ = m[:Sj]
-    Sᵢⱼ = m[:Sij]
+    Sj = m[:Sj]
+    Sij = m[:Sij]
     lij = m[:l]
     m[:loadbalcons] = Dict()
     # TODO change Pj and Qj to expressions, make P₀ and Q₀ dv's, which will reduce # of variables
@@ -242,27 +242,27 @@ function constrain_power_balance(m, p::Inputs{MultiPhase})
     for j in p.busses
         if isempty(i_to_j(j, p)) && !isempty(j_to_k(j, p)) # source nodes, injection = flows out
             con = @constraint(m,  [t in 1:p.Ntimesteps],
-                Sⱼ[t][j] - sum( diag( Sᵢⱼ[t][string(j*"-"*k)] ) for k in j_to_k(j, p) ) .== 0
+                Sj[t][j] - sum( diag( Sij[t][string(j*"-"*k)] ) for k in j_to_k(j, p) ) .== 0
             )
         elseif isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # unconnected nodes
-            @warn "Bus $j has no edges, setting Sⱼ and Qj to zero."
+            @warn "Bus $j has no edges, setting Sj and Qj to zero."
             con = @constraint(m, [t in 1:p.Ntimesteps],
-                diag(Sⱼ[t][j]) .== 0
+                diag(Sj[t][j]) .== 0
             )
         elseif !isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))  # leaf nodes / sinks, flows in = draw out
             con = @constraint(m, [t in 1:p.Ntimesteps],
                 sum( diag( 
-                    Sᵢⱼ[t][string(i*"-"*j)] - zij(i,j,p) * lij[t][string(i*"-"*j)]
+                    Sij[t][string(i*"-"*j)] - zij(i,j,p) * lij[t][string(i*"-"*j)]
                 ) for i in i_to_j(j, p) )
-                + Sⱼ[t][j] .== 0
+                + Sj[t][j] .== 0
             )
         else  # node with lines in and out
             con =  @constraint(m, [t in 1:p.Ntimesteps],
                 sum( diag( 
-                    Sᵢⱼ[t][string(i*"-"*j)] - zij(i,j,p) * lij[t][string(i*"-"*j)]
+                    Sij[t][string(i*"-"*j)] - zij(i,j,p) * lij[t][string(i*"-"*j)]
                 ) for i in i_to_j(j, p) )
-                + Sⱼ[t][j]
-                - sum( diag( Sᵢⱼ[t][string(j*"-"*k)] ) for k in j_to_k(j, p) ) .== 0
+                + Sj[t][j]
+                - sum( diag( Sij[t][string(j*"-"*k)] ) for k in j_to_k(j, p) ) .== 0
             )
         end
         m[:loadbalcons][j] = con
@@ -295,7 +295,7 @@ Add the voltage drop definintions between busses.
 """
 function constrain_KVL(m, p::Inputs{MultiPhase})
     w = m[:w]
-    Sᵢⱼ = m[:Sij]
+    Sij = m[:Sij]
     lij = m[:l]
 
     T = matrix_phases_to_vec  # "T" for transform
@@ -308,7 +308,7 @@ function constrain_KVL(m, p::Inputs{MultiPhase})
             # need to slice w[t][i] by phases in i_j
             con = @constraint(m, [t in 1:p.Ntimesteps],
                 T(w[t][j], phs) .== T(w[t][i], phs)
-                    - T(Sᵢⱼ[t][i_j] * cj(z) + z * cj(Sᵢⱼ[t][i_j]), phs)
+                    - T(Sij[t][i_j] * cj(z) + z * cj(Sij[t][i_j]), phs)
                     + T(z * lij[t][i_j] * cj(z), phs)
             );
             m[:kvl][j] = con
@@ -334,7 +334,7 @@ m[:injectioncons]["busname"][t,phs]
 where `t` is the integer time step and `phs` is the integer phase.
 """
 function constrain_loads(m, p::Inputs{BranchFlowModel.MultiPhase})
-    Sⱼ = m[:Sj]
+    Sj = m[:Sj]
     m[:injectioncons] = Dict()
     for j in setdiff(p.busses, [p.substation_bus])
 
@@ -357,7 +357,7 @@ function constrain_loads(m, p::Inputs{BranchFlowModel.MultiPhase})
         end
 
         con = @constraint(m, [t in 1:p.Ntimesteps, phs in p.phases_into_bus[j]],
-            Sⱼ[t][j][phs] == (-real_load[phs][t] - reactive_load[phs][t]im ) / p.Sbase
+            Sj[t][j][phs] == (-real_load[phs][t] - reactive_load[phs][t]im ) / p.Sbase
         )
         m[:injectioncons][j] = con
     end
