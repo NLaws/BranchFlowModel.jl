@@ -1,3 +1,8 @@
+"""
+    leaf_busses(p::Inputs)
+
+returns `Vector{String}` containing all of the leaf busses in `p.busses`
+"""
 function leaf_busses(p::Inputs)
     leafs = String[]
     for j in p.busses
@@ -25,6 +30,11 @@ function connecting_busses(mg::MetaDiGraph, v)
 end
 
 
+"""
+    leaf_vertices(mg::MetaDiGraph)
+
+returns `Vector{Int64}` containing all of the leaf vertices in `mg`
+"""
 function leaf_vertices(mg::MetaDiGraph)
     leafs = Int64[]
     for v in vertices(mg)
@@ -143,6 +153,11 @@ function set_inputs!(mg::MetaDiGraph; α::R=0.0) where R <: Real
 end
 
 
+"""
+    breadth_first_nodes_from_leafs(mg::AbstractGraph)
+
+returns a `Vector{Int64}` for the vertices in `mg` from the leafs to the source.
+"""
 function breadth_first_nodes_from_leafs(mg::AbstractGraph)
     order = leaf_vertices(mg)  # initialize with all leafs
     nodes_left = Set(setdiff(vertices(mg), order))
@@ -327,8 +342,12 @@ end
 Determine the busses to split a tree graph on by searching upward from the deepest leafs first
 and gathering the nearest busses until threshold is met for each subgraph.
 
-NOTE: it is not enough to have only the splitting busses because to obey the max_busses limit
-    one must know which sub branches to take from each splitting bus. In other words, we also
+Returns a `Vector{String}` for the bus names and `Vector{Vector{String}}` for the corresponding
+busses within each sub-graph.
+
+!!! note
+    It is not enough to have only the splitting busses to obey the `max_busses` limit because
+    one must also know which sub branches to take from each splitting bus. In other words, we also
     need all the busses within each subgraph to split properly. For example, if a splitting
     bus has two sub branches then obeying the max_busses limit can require only including one
     sub branch out of the splitting bus. To know which branch to take we can use the other busses
@@ -505,6 +524,53 @@ function solve_metagraph!(mg::MetaDiGraph, builder::Function, tols::Vector{R}; �
     while tol_not_met
         for (p, vertex) in mg[:p]
             m = builder(p)
+            optimize!(m)
+            set_prop!(mg, vertex, :m, m)
+        end
+        set_indexing_prop!(mg, :m)
+        pdiffs, qdiffs, vdiffs = get_diffs(mg)
+        maxp = maximum(abs.(pdiffs))
+        maxq = maximum(abs.(qdiffs))
+        maxv = maximum(abs.(vdiffs))
+        if verbose
+            i += 1
+            println("\niterate $i")
+            println("max pdiff $(maxp)")
+            println("max qdiff $(maxq)")
+            println("max vdiff $(maxv)")
+        end
+        if all( val <= tol for (val,tol) in zip([maxp, maxq, maxv], tols))
+            tol_not_met = false
+            continue
+        end
+        set_inputs!(mg; α=α)
+    end
+end
+
+
+"""
+    solve_metagraph!(mg::MetaDiGraph, builder::Dict{Int64, Function}, tols::Vector{T}; α::T=0.5, verbose=false) where T <: Real
+    
+Given a MetaDiGraph and a JuMP Model `builder` method iteratively solve the models until the `tols` are 
+met for the differences provided by `BranchFlowModel.get_diffs`. 
+The `builder` dict is used to build each model for the corresponding vertex key.
+
+Each function in the `builder` dict must accept only one argument of type `BranchFlowModel.AbstractInputs` that returns 
+a `JuMP.AbstractModel`. Each model returned from the builder function is stored as an `:m` property in 
+each vertex of `mg`.
+
+!!! note 
+    The `tols` should have a length of three. The first value is compared to the maximum absolute difference
+    in Pj, the second for Qj, and the third for |v|. All differences are calculated at the leaf/substation
+    connections.
+"""
+function solve_metagraph!(mg::MetaDiGraph, builder::Dict{Int64, <:Function}, tols::Vector{R}; α::T=0.5, verbose=false) where {T <: Real, R <: Real}
+    init_inputs!(mg)
+    tol_not_met = true
+    i = 0
+    while tol_not_met
+        for (p, vertex) in mg[:p]
+            m = builder[vertex](p)
             optimize!(m)
             set_prop!(mg, vertex, :m, m)
         end

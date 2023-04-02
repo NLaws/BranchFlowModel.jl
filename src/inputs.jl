@@ -27,7 +27,7 @@
         phases_into_bus::Dict{String, Vector{Int}}
     end
 
-# Inputs
+Inputs
 - `edges` Vector{Tuple} e.g. `[("0", "1"), ("1", "2")]`
 - `linecodes` vector of string keys for the Zdict (impedance values for lines). When using an OpenDSS model a `linecode` is the `name` in `New linecode.name`
 - `linelengths` vector of floats to scale impedance values
@@ -42,10 +42,12 @@
 - `v0` slack bus reference voltage
 
 TODO Zdict example
+
 TODO test against simple model to make sure scaling is done right
 
 !!! note
-    The `edges`, `linecodes`, `phases`, `edge_keys`, and `linelengths` are in mutual order (e.g. the i-th value in each list corresponds to the same line)
+    The `edges`, `linecodes`, `phases`, `edge_keys`, and `linelengths` are in mutual order (i.e. the i-th value in each list corresponds to the same line)
+
 """
 mutable struct Inputs{T<:Phases} <: AbstractInputs
     edges::Array{Tuple, 1}

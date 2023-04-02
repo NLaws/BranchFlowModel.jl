@@ -9,7 +9,7 @@ using LinearAlgebra
 using COSMO
 using CSDP
 using Ipopt
-using MetaGraphs  # maybe export what is needed from MetaGraphs in BranchFlowModel ?
+using Graphs, MetaGraphs  # maybe export what is needed from MetaGraphs in BranchFlowModel ?
 
 # # hack for local testing
 # using Pkg
@@ -260,6 +260,7 @@ end
     =#
 end
 
+
 @testset "ieee13 balanced SinglePhase" begin
 
     # make the dss solution to compare
@@ -288,14 +289,17 @@ end
     @test_warn "The per unit impedance values should be much less than one" check_unique_solution_conditions(p)
     p.regulators[("650", "rg60")][:turn_ratio] = dss_voltages["rg60"][1]
 
-    m = Model(Ipopt.Optimizer)
+    function build_min_loss_model(p)
+        m = Model(Ipopt.Optimizer)
+        build_model!(m,p)
+        @objective(m, Min, 
+            sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
+        )
+        set_optimizer_attribute(m, "print_level", 0)
+        return m
+    end
 
-    build_model!(m,p)
-
-    @objective(m, Min, 
-        sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
-    )
-
+    m = build_min_loss_model(p)
     optimize!(m)
     
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
@@ -321,7 +325,7 @@ end
     @test length(subgraph_bs[2]) == 7
     @test isempty(intersect(subgraph_bs[1], subgraph_bs[2]))
 
-    # the subgraph_bs do not include over laps
+    # the subgraph_bs do not include over laps if add_connections=false
     mg = split_at_busses(p, splitting_bs, subgraph_bs; add_connections=false)
     @test !("671" in mg[3,:p].busses)
 
@@ -341,7 +345,21 @@ end
     @test intersect(new_subgraphs[1], new_subgraphs[2])[1] == "671"
     @test intersect(mg[2,:p].busses, mg[3,:p].busses)[1] == "671"
     @test intersect(mg[1,:p].busses, mg[3,:p].busses)[1] == "rg60"
+
+    # test the decomposed solution against openDSS
+    builder = Dict(
+        v => build_min_loss_model for v in vertices(mg)
+    )
+    solve_metagraph!(mg, builder, [1e-3, 1e-4, 1e-4]; verbose=true)
+
+    vs = metagraph_voltages(mg)
+    for b in keys(vs)
+        @test abs(vs[b][1] - dss_voltages[b][1]) < 0.01
+    end
+
+
 end
+
 
 @testset "SinglePhase network reduction" begin
 
