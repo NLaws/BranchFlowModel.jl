@@ -58,7 +58,8 @@ export
     build_metagraph,
     solve_metagraph!,
     metagraph_voltages,
-    check_unique_solution_conditions
+    check_unique_solution_conditions,
+    check_statuses
 
 include("types.jl")
 include("io.jl")

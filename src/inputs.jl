@@ -564,6 +564,6 @@ end
 function info_max_Ppu_Qpu(p::Inputs)
     maxP = maximum(maximum.(values(p.Pload))) / p.Sbase
     maxQ = maximum(maximum.(values(p.Qload))) / p.Sbase
-    @info("Max. Rpu: $maxP   Max Xpu: $maxQ")
+    @info("Max. Ppu: $maxP   Max Qpu: $maxQ")
     return maxP, maxQ
 end

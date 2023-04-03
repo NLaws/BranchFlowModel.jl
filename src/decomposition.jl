@@ -300,6 +300,16 @@ function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vect
 end
 
 
+function check_statuses(mg::MetaDiGraph)
+    good_status = [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
+    for v in vertices(mg)
+        if !(termination_status(mg[v, :m]) in good_status)
+            @warn("vertex $v status: $(termination_status(mg[v, :m]))")
+        end
+    end
+end
+
+
 
 """
     get_diffs(mg::MetaDiGraph)
@@ -487,8 +497,9 @@ function solve_metagraph!(mg::MetaDiGraph, builder::Function, tol::R; Î±::T=0.5,
         maxq = maximum(abs.(qdiffs))
         maxv = maximum(abs.(vdiffs))
         if verbose
-            i += 1
-            println("\niterate $i")
+            println()
+            check_statuses(mg)
+            println("iterate $i")
             println("max pdiff $(maxp)")
             println("max qdiff $(maxq)")
             println("max vdiff $(maxv)")
@@ -533,8 +544,9 @@ function solve_metagraph!(mg::MetaDiGraph, builder::Function, tols::Vector{R}; Î
         maxq = maximum(abs.(qdiffs))
         maxv = maximum(abs.(vdiffs))
         if verbose
-            i += 1
-            println("\niterate $i")
+            println()
+            check_statuses(mg)
+            println("iterate $i")
             println("max pdiff $(maxp)")
             println("max qdiff $(maxq)")
             println("max vdiff $(maxv)")
@@ -581,7 +593,9 @@ function solve_metagraph!(mg::MetaDiGraph, builder::Dict{Int64, <:Function}, tol
         maxv = maximum(abs.(vdiffs))
         if verbose
             i += 1
-            println("\niterate $i")
+            println()
+            check_statuses(mg)
+            println("iterate $i")
             println("max pdiff $(maxp)")
             println("max qdiff $(maxq)")
             println("max vdiff $(maxv)")
