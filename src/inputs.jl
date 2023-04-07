@@ -236,10 +236,10 @@ function Inputs(
         relaxed=true,
     )
 
-    d = let d 
-        with_logger(SimpleLogger(Error)) do
-            open(dssfilepath) do io  # 
-                parse_dss(io)# method from PowerModelsDistribution
+    d = let d
+        with_logger(SimpleLogger(Error)) do  # lots of info from parse_dss
+            open(dssfilepath) do io
+                parse_dss(io)  # method from PowerModelsDistribution
             end
         end
     end
@@ -394,12 +394,17 @@ end
 combine any line sets with intermediate busses that have indegree == outdegree == 1
 and is not a load bus into a single line
 """
-function reduce_tree!(p::Inputs{BranchFlowModel.SinglePhase})
+function reduce_tree!(p::Inputs{BranchFlowModel.SinglePhase}; keep_regulator_busses=true)
     # TODO make graph once in Inputs ?
     g = make_graph(p.busses, p.edges)
     int_bus_map = get_prop(g, :int_bus_map)
     reducable_buses = String[]
     load_buses = Set(vcat(collect(keys(p.Pload)), collect(keys(p.Qload))))
+    if keep_regulator_busses
+        for bs in keys(p.regulators)  # tuple keys of bus pairs, i.e. edges
+            push!(load_buses, bs...)
+        end
+    end
     for v in vertices(g)
         if indegree(g, v) == outdegree(g, v) == 1 && !(int_bus_map[v] in load_buses)
             push!(reducable_buses, int_bus_map[v])
