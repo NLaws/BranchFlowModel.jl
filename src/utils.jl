@@ -199,3 +199,11 @@ function check_unique_solution_conditions(p::Inputs)
     end
     nothing
 end
+
+
+function reg_busses(p::Inputs)
+    vcat( 
+        getindex.(keys(p.regulators), 1),
+        getindex.(keys(p.regulators), 2)
+    )
+end

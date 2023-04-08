@@ -121,6 +121,7 @@ function set_inputs!(mg::MetaDiGraph; α::R=0.0) where R <: Real
         p_below = get_prop(mg, v, :p)
         for v_above in inneighbors(mg, v)
             m_above = get_prop(mg, v_above, :m)
+            # need to account for regulators here (and/or in get_diffs ?)
             if α == 0.0
                 p_below.v0 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data  # vector of time
             else  # use weighted average of new and old values
@@ -326,8 +327,13 @@ function get_diffs(mg::MetaDiGraph)
         p_below = get_prop(mg, v, :p)
         for v_above in inneighbors(mg, v)
             m_above = get_prop(mg, v_above, :m)
-            v_above = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :]))  # vector of time
-            push!(vdiffs, sum(abs.(p_below.v0 .- v_above)) / p_below.Ntimesteps)
+            volts_above = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :]))  # vector of time
+            if p_below.substation_bus in reg_busses(p_below)  # works ? TODO test
+                 # the voltage at p_below.substation_bus is fixed and known, essentially starts new problem
+                push!(vdiffs, 0.0)
+            else
+                push!(vdiffs, sum(abs.(p_below.v0 .- volts_above)) / p_below.Ntimesteps)
+            end
         end
 
         m_above = get_prop(mg, v, :m)

@@ -30,6 +30,17 @@ function dss_voltages_pu()
 end
 
 
+function build_min_loss_model(p)
+    m = Model(Ipopt.Optimizer)
+    build_model!(m,p)
+    @objective(m, Min, 
+        sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
+    )
+    set_optimizer_attribute(m, "print_level", 0)
+    return m
+end
+
+
 @testset "BranchFlowModel.jl" begin
 
 
@@ -117,6 +128,7 @@ end
     p.Q_up_bound = 10
 
     m = Model(CSDP.Optimizer)
+    set_attribute(m, "printlevel", 0)
 
     # m = Model(COSMO.Optimizer)
 
@@ -177,16 +189,6 @@ end
     @test_warn "The per unit impedance values should be much less than one" check_unique_solution_conditions(p)
     p.regulators[("650", "rg60")][:turn_ratio] = dss_voltages["rg60"][1]
 
-    function build_min_loss_model(p)
-        m = Model(Ipopt.Optimizer)
-        build_model!(m,p)
-        @objective(m, Min, 
-            sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
-        )
-        set_optimizer_attribute(m, "print_level", 0)
-        return m
-    end
-
     m = build_min_loss_model(p)
     optimize!(m)
     
@@ -238,13 +240,12 @@ end
     builder = Dict(
         v => build_min_loss_model for v in vertices(mg)
     )
-    solve_metagraph!(mg, builder, [1e-3, 1e-4, 1e-4]; verbose=true)
+    solve_metagraph!(mg, builder, [1e-3, 1e-4, 1e-4]; verbose=false)
 
     vs = metagraph_voltages(mg)
     for b in keys(vs)
         @test abs(vs[b][1] - dss_voltages[b][1]) < 0.01
     end
-
 
 end
 
@@ -397,6 +398,47 @@ end
         @test abs(dss_voltages[b][1] - vs_decomposed[b][1]) < 0.001
     end
 
+    # use OpenDSSDirect to replace a line 20-21 with a transformer/regulator and test solution convergence
+    p = Inputs(
+        joinpath("data", "singlephase38lines", "master_extra_trfx.dss"), 
+        "0";
+        Sbase=Sbase, 
+        Vbase=Vbase, 
+        v0 = 1.00,
+        v_uplim = 1.05,
+        v_lolim = 0.95,
+        relaxed = false,
+    );
+    @test ("20","21") in keys(p.regulators)
+
+    dss("clear")
+    dss("Redirect data/singlephase38lines/master_extra_trfx.dss")
+    dss("Solve")
+    @test(OpenDSSDirect.Solution.Converged() == true)
+    dss_voltages = dss_voltages_pu()
+
+    p.regulators[("20","21")][:turn_ratio] = dss_voltages["21"][1] / dss_voltages["20"][1]
+
+    mg = split_at_busses(p, ["21"])
+
+    builder = Dict(
+        v => build_min_loss_model for v in vertices(mg)
+    )
+    solve_metagraph!(mg, builder, [1e-3, 1e-3, 1e-3]; verbose=false)
+    pdiffs, qdiffs, vdiffs = get_diffs(mg)
+    @test maximum(vdiffs) ≈ 0  # because that is how it is defined across a regulator
+
+    # split at two busses including the regulator and compare against openDSS
+    mg = split_at_busses(p, ["14","21"])
+    builder = Dict(
+        v => build_min_loss_model for v in vertices(mg)
+    )
+    solve_metagraph!(mg, builder, [1e-5, 1e-5, 1e-5]; verbose=false)
+    vs = metagraph_voltages(mg)
+    for b in keys(vs)
+        @test abs(vs[b][1] - dss_voltages[b][1]) < 0.001
+    end
+
 
 end
 
@@ -460,6 +502,9 @@ end
     @test ("b", "d") in p_above.edges
     @test ("d", "f") in p_above.edges
 
+
+
+    # TODO test trim_tree!
     delete!(p.Pload, "e")
     delete!(p.Qload, "e")
     trim_tree!(p)

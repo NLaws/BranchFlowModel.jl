@@ -59,7 +59,8 @@ export
     solve_metagraph!,
     metagraph_voltages,
     check_unique_solution_conditions,
-    check_statuses
+    check_statuses,
+    reg_busses
 
 include("types.jl")
 include("io.jl")
