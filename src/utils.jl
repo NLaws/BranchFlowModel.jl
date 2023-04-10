@@ -201,9 +201,46 @@ function check_unique_solution_conditions(p::Inputs)
 end
 
 
+"""
+    reg_busses(p::Inputs)
+
+All of the regulated busses, i.e. the second bus in the regulated edges
+"""
 function reg_busses(p::Inputs)
-    vcat( 
-        getindex.(keys(p.regulators), 1),
-        getindex.(keys(p.regulators), 2)
-    )
+    getindex.(keys(p.regulators), 2)
+end
+
+
+function turn_ratio(p::Inputs, b::String)
+    if !(b in reg_busses(p))
+        throw(@error "Bus $b is not a regulated bus")
+    end
+    for (edge_tuple, d) in p.regulators
+        if edge_tuple[2] == b
+            return d[:turn_ratio]
+        end
+    end
+end
+
+
+function has_vreg(p::Inputs, b::String)
+    for (edge_tuple, d) in p.regulators
+        if edge_tuple[2] == b  && :vreg in keys(d)
+            return true
+        end
+    end
+    return false
+end
+
+
+function vreg(p::Inputs, b::String)
+    if !(b in reg_busses(p))
+        throw(@error "Bus $b is not a regulated bus")
+    end
+    for (edge_tuple, d) in p.regulators
+        if edge_tuple[2] == b  && :vreg in keys(d)
+            return d[:vreg]
+        end
+    end
+    false
 end

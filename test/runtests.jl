@@ -397,7 +397,12 @@ end
     for b in keys(vs_decomposed)
         @test abs(dss_voltages[b][1] - vs_decomposed[b][1]) < 0.001
     end
+end
 
+
+@testset "Single phase regulators at network splits" begin
+    Sbase = 1e6
+    Vbase = 12.47e3
     # use OpenDSSDirect to replace a line 20-21 with a transformer/regulator and test solution convergence
     p = Inputs(
         joinpath("data", "singlephase38lines", "master_extra_trfx.dss"), 
@@ -410,6 +415,7 @@ end
         relaxed = false,
     );
     @test ("20","21") in keys(p.regulators)
+    @test reg_busses(p) == ["21"]
 
     dss("clear")
     dss("Redirect data/singlephase38lines/master_extra_trfx.dss")
@@ -418,15 +424,7 @@ end
     dss_voltages = dss_voltages_pu()
 
     p.regulators[("20","21")][:turn_ratio] = dss_voltages["21"][1] / dss_voltages["20"][1]
-
-    mg = split_at_busses(p, ["21"])
-
-    builder = Dict(
-        v => build_min_loss_model for v in vertices(mg)
-    )
-    solve_metagraph!(mg, builder, [1e-3, 1e-3, 1e-3]; verbose=false)
-    pdiffs, qdiffs, vdiffs = get_diffs(mg)
-    @test maximum(vdiffs) ≈ 0  # because that is how it is defined across a regulator
+    @test turn_ratio(p, "21") == dss_voltages["21"][1] / dss_voltages["20"][1]
 
     # split at two busses including the regulator and compare against openDSS
     mg = split_at_busses(p, ["14","21"])
@@ -438,6 +436,18 @@ end
     for b in keys(vs)
         @test abs(vs[b][1] - dss_voltages[b][1]) < 0.001
     end
+
+    # split only at regulator, add vreg, and test the vdiff is zero
+    # (because using vreg makes the regulator voltage equal to the setting)
+    p.regulators[("20","21")][:vreg] = 1.02
+    mg = split_at_busses(p, ["21"])
+
+    builder = Dict(
+        v => build_min_loss_model for v in vertices(mg)
+    )
+    solve_metagraph!(mg, builder, [1e-3, 1e-3, 1e-3]; verbose=true)
+    pdiffs, qdiffs, vdiffs = get_diffs(mg)
+    @test maximum(vdiffs) ≈ 0  # because that is how it is defined across a regulator
 
 
 end

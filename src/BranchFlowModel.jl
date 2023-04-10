@@ -60,7 +60,10 @@ export
     metagraph_voltages,
     check_unique_solution_conditions,
     check_statuses,
-    reg_busses
+    reg_busses,
+    turn_ratio,
+    vreg,
+    has_vreg
 
 include("types.jl")
 include("io.jl")

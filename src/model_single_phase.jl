@@ -156,9 +156,15 @@ function constrain_KVL(m, p::Inputs)
                         + (rᵢⱼ^2 + xᵢⱼ^2) * l[i_j, t]
                 )
             else
-                vcon = @constraint(m, [t in 1:p.Ntimesteps],
-                    w[j,t] == w[i,t] * p.regulators[(i,j)][:turn_ratio]^2 
-                )
+                if has_vreg(p, j)
+                    vcon = @constraint(m, [t in 1:p.Ntimesteps],
+                        w[j,t] == p.regulators[(i,j)][:vreg]
+                    )
+                else  # default turn_ratio is 1.0
+                    vcon = @constraint(m, [t in 1:p.Ntimesteps],
+                        w[j,t] == w[i,t] * p.regulators[(i,j)][:turn_ratio]^2 
+                    )
+                end
             end
         end
     end

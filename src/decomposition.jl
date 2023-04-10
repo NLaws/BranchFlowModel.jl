@@ -121,14 +121,22 @@ function set_inputs!(mg::MetaDiGraph; α::R=0.0) where R <: Real
         p_below = get_prop(mg, v, :p)
         for v_above in inneighbors(mg, v)
             m_above = get_prop(mg, v_above, :m)
-            # need to account for regulators here (and/or in get_diffs ?)
-            if α == 0.0
-                p_below.v0 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data  # vector of time
-            else  # use weighted average of new and old values
-                m_below = get_prop(mg, v, :m)
-                v_kp1 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data
-                v_k   = sqrt.(value.(m_below[:vsqrd][p_below.substation_bus, :])).data
-                p_below.v0 = (v_kp1 + α .* v_k) ./ (1 + α)
+            if p_below.substation_bus in reg_busses(p_below)  # then p_below.v0 is set by regulator
+                if has_vreg(p_below, p_below.substation_bus)
+                    p_below.v0 = vreg(p_below, p_below.substation_bus)
+                else
+                    # same as α == 0 because the m_above voltage is defined by regulator settings in constrain_KVL
+                    p_below.v0 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data
+                end
+            else  # p_below.v0 is updated using α
+                if α == 0.0
+                    p_below.v0 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data  # vector of time
+                else  # use weighted average of new and old values
+                    m_below = get_prop(mg, v, :m)
+                    v_kp1 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data
+                    v_k   = sqrt.(value.(m_below[:vsqrd][p_below.substation_bus, :])).data
+                    p_below.v0 = (v_kp1 + α .* v_k) ./ (1 + α)
+                end
             end
         end
         # if v has outneighbors then use v_below's m[:Pj][p_below.substation_bus,:] * p_above.Sbase as v's Pload at the same bus
@@ -328,9 +336,11 @@ function get_diffs(mg::MetaDiGraph)
         for v_above in inneighbors(mg, v)
             m_above = get_prop(mg, v_above, :m)
             volts_above = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :]))  # vector of time
-            if p_below.substation_bus in reg_busses(p_below)  # works ? TODO test
-                 # the voltage at p_below.substation_bus is fixed and known, essentially starts new problem
-                push!(vdiffs, 0.0)
+            if has_vreg(p_below, p_below.substation_bus)
+                # the voltage at p_below.substation_bus is fixed and known, essentially starts new problem
+                # however, the NLP can lead to violation of the substation voltage constraint
+                v_below = sqrt.(value.(mg[v, :m][:vsqrd][p_below.substation_bus, :])).data
+                push!(vdiffs, sum(vreg(p_below, p_below.substation_bus) .- v_below) / p_below.Ntimesteps)
             else
                 push!(vdiffs, sum(abs.(p_below.v0 .- volts_above)) / p_below.Ntimesteps)
             end
