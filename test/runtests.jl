@@ -445,7 +445,7 @@ end
     builder = Dict(
         v => build_min_loss_model for v in vertices(mg)
     )
-    solve_metagraph!(mg, builder, [1e-3, 1e-3, 1e-3]; verbose=true)
+    solve_metagraph!(mg, builder, [1e-3, 1e-3, 1e-3]; verbose=false)
     pdiffs, qdiffs, vdiffs = get_diffs(mg)
     @test maximum(vdiffs) ≈ 0  # because that is how it is defined across a regulator
 
