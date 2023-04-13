@@ -41,14 +41,14 @@ end
 
 
 """
-    check_connected_graph(p::Inputs{BranchFlowModel.SinglePhase})
+    check_connected_graph(p::Inputs{SinglePhase})
 
 return true if only one connected graph; false otherwise
 
 this is a good check to do before attempting to solve a model because
 if there is more than one sub-graph then it is likely the model will be infeasible
 """
-function check_connected_graph(p::Inputs{BranchFlowModel.SinglePhase})
+function check_connected_graph(p::Inputs{SinglePhase})
     g = make_graph(p.busses, p.edges)
     if length(connected_components(g)) == 1
         return true

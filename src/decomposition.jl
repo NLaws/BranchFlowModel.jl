@@ -46,7 +46,7 @@ function leaf_vertices(mg::MetaDiGraph)
 end
 
 """
-    init_inputs!(ps::Vector{Inputs{BranchFlowModel.SinglePhase}}; init_vs::Dict = Dict())
+    init_inputs!(ps::Vector{Inputs{SinglePhase}}; init_vs::Dict = Dict())
 
 Set the load on the upstream leaf noades equal to the sum of all the loads in the
 downstream inputs. It is important that the order of `ps` is from leaf branches to trunk branches
@@ -66,7 +66,7 @@ for p in ps
 end
 ```
 """
-function init_inputs!(ps::Vector{Inputs{BranchFlowModel.SinglePhase}}; init_vs::Dict = Dict())
+function init_inputs!(ps::Vector{Inputs{SinglePhase}}; init_vs::Dict = Dict())
     for p in ps
         if p.substation_bus in keys(init_vs)
             p.v0 = init_vs[p.substation_bus]
@@ -184,7 +184,7 @@ end
 
 
 """
-    split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String})
+    split_at_busses(p::Inputs{SinglePhase}, at_busses::Vector{String})
 
 Split `Inputs` using the `at_busses`
 
@@ -192,7 +192,7 @@ returns MetaDiGraph with vertex properties `:p` containing `Input` for the sub-g
 For example `mg[2, :p]` is the `Input` at the second vertex of the graph created by splitting 
 the network via the `at_busses`.
 """
-function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String})
+function split_at_busses(p::Inputs{SinglePhase}, at_busses::Vector{String})
     unique!(at_busses)
     mg = MetaDiGraph()
     # initial split
@@ -241,7 +241,7 @@ end
 
 
 """
-    split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String}, with_busses::Vector{Vector{String}})
+    split_at_busses(p::Inputs{SinglePhase}, at_busses::Vector{String}, with_busses::Vector{Vector{String}})
 
 Split up `p` using the `at_busses` as each new `substation_bus` and containing the corresponding `with_busses`.
 The `at_busses` and `with_busses` can be determined using `splitting_busses`.
@@ -250,7 +250,7 @@ NOTE: this variation of splt_at_busses allows for more than two splits at the sa
 implementation of split_at_busses only splits the network into two parts for everything above and
 everything below a splitting bus.
 """
-function split_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String}, with_busses::Vector{Vector}; add_connections=true)
+function split_at_busses(p::Inputs{SinglePhase}, at_busses::Vector{String}, with_busses::Vector{Vector}; add_connections=true)
     unique!(at_busses)
     mg = MetaDiGraph()
     if add_connections
@@ -355,7 +355,7 @@ end
 
 
 """
-    splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String; threshold::Int64=10)
+    splitting_busses(p::Inputs{SinglePhase}, source::String; threshold::Int64=10)
 
 Determine the busses to split a tree graph on by searching upward from the deepest leafs first
 and gathering the nearest busses until threshold is met for each subgraph.
@@ -371,7 +371,7 @@ busses within each sub-graph.
     sub branch out of the splitting bus. To know which branch to take we can use the other busses
     in the sub graph.
 """
-function splitting_busses(p::Inputs{BranchFlowModel.SinglePhase}, source::String; max_busses::Int64=10)
+function splitting_busses(p::Inputs{SinglePhase}, source::String; max_busses::Int64=10)
     g = make_graph(p.busses, p.edges)
     bs, depths = busses_from_deepest_to_source(g, source)
     splitting_bs = String[]  # head nodes of all the subgraphs
@@ -417,13 +417,13 @@ end
 
 
 """
-    connect_subgraphs_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String}, subgraphs::Vector{Vector})
+    connect_subgraphs_at_busses(p::Inputs{SinglePhase}, at_busses::Vector{String}, subgraphs::Vector{Vector})
 
 The splitting_busses algorithm does not include over laps in subgraphs.
 But, we want overlaps at the splitting busses for solving the decomposed branch flow model.
 So here we add the overlapping splitting busses to each sub graph.
 """
-function connect_subgraphs_at_busses(p::Inputs{BranchFlowModel.SinglePhase}, at_busses::Vector{String}, subgraphs::Vector{Vector})
+function connect_subgraphs_at_busses(p::Inputs{SinglePhase}, at_busses::Vector{String}, subgraphs::Vector{Vector})
     g = make_graph(p.busses, p.edges)
     new_subgs = deepcopy(subgraphs)
     for (i, subgraph) in enumerate(subgraphs)
@@ -466,11 +466,11 @@ end
 
 
 """
-    build_metagraph(p::Inputs{BranchFlowModel.SinglePhase}, source::String; max_busses::Int64=10)
+    build_metagraph(p::Inputs{SinglePhase}, source::String; max_busses::Int64=10)
 
 return MetaDiGraph with `:p` property set for every vertex by splitting the `Inputs` via `splitting_busses`
 """
-function build_metagraph(p::Inputs{BranchFlowModel.SinglePhase}, source::String; max_busses::Int64=10)
+function build_metagraph(p::Inputs{SinglePhase}, source::String; max_busses::Int64=10)
     splitting_bs, subgraphs = splitting_busses(p, source; max_busses=max_busses)  
     split_at_busses(p, splitting_bs, subgraphs)
 end

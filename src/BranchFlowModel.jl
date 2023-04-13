@@ -6,7 +6,6 @@ using LinearAlgebra
 using Graphs, MetaGraphs
 using JSON
 import SparseArrays: sparse
-import PowerModelsDistribution: parse_dss, DELTA
 import MetaGraphs: inneighbors, outneighbors, induced_subgraph
 import Logging: SimpleLogger, Error, with_logger
 
@@ -16,7 +15,7 @@ export
     Inputs,
     singlephase38linesInputs,
     dsstxt_to_sparse_array, 
-    parse_dss,
+    dss_files_to_dict,
     build_model!,
     add_variables,
     constrain_power_balance,
