@@ -7,7 +7,6 @@ using Graphs, MetaGraphs
 using JSON
 import SparseArrays: sparse
 import MetaGraphs: inneighbors, outneighbors, induced_subgraph
-import Logging: SimpleLogger, Error, with_logger
 
 const DEFAULT_AMP_LIMIT = 1000.0
 
