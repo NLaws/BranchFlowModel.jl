@@ -236,15 +236,10 @@ function Inputs(
         relaxed=true,
     )
 
-    d = let d
-        with_logger(SimpleLogger(Error)) do  # lots of info from parse_dss
-            open(dssfilepath) do io
-                parse_dss(io)  # method from PowerModelsDistribution
-            end
-        end
-    end
+    d = dss_files_to_dict(dssfilepath)
 
-    edges, linecodes, linelengths, linecodes_dict, phases, Isquared_up_bounds, regulators = dss_dict_to_arrays(d, Sbase, Vbase)
+    edges, linecodes, linelengths, linecodes_dict, phases, Isquared_up_bounds, regulators = 
+        dss_dict_to_arrays(d, Sbase, Vbase)
 
     if isempty(Pload) && isempty(Qload)
         Pload, Qload = dss_loads(d)

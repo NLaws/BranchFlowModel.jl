@@ -1,5 +1,6 @@
 module BranchFlowModel
 
+using CommonOPF
 using JuMP
 using LinearAlgebra
 using Graphs, MetaGraphs
@@ -65,8 +66,6 @@ export
     vreg,
     has_vreg
 
-include("types.jl")
-include("io.jl")
 include("graphs.jl")
 include("inputs.jl")
 include("utils.jl")
