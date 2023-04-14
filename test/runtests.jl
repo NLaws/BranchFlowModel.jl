@@ -44,6 +44,49 @@ end
 @testset "BranchFlowModel.jl" begin
 
 
+@testset "ieee13 positive sequence" begin
+    # make the dss solution to compare
+    dss("Redirect data/ieee13/IEEE13Nodeckt.dss")
+    @test(OpenDSSDirect.Solution.Converged() == true)
+    dss_voltages = dss_voltages_pu()
+
+    p3phase = Inputs(joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), "rg60");
+
+    extract_phase = 3
+    p = Inputs(
+        joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), 
+        "rg60";
+        Sbase = 1_000_000, 
+        Vbase = 4160/sqrt(3), 
+        v0 = dss_voltages["rg60"][extract_phase],
+        v_uplim = dss_voltages["rg60"][extract_phase],
+        v_lolim = minimum(values(dss_voltages))[1],
+        Ntimesteps = 1,
+        extract_phase = extract_phase,
+        relaxed = false
+    );
+
+    @test check_connected_graph(p) == true
+
+    m = build_min_loss_model(p)
+    optimize!(m)
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
+
+    # vs = get_bus_values(:vsqrd, m, p)
+
+    # for (bus, phs) in p3phase.phases_into_bus
+    #     if bus in keys(vs)
+    #         dss_index = indexin(extract_phase, phs)[1]
+    #         if !isnothing(dss_index)
+    #             println(rpad(bus,5), 
+    #                 rpad(round(vs[bus][1] -  dss_voltages[bus][dss_index], digits=4), 8)
+    #             )
+    #         end
+    #     end
+    # end
+
+end
+
 # using data taken from Andrianesis, Caramanis LMV paper 2019
 # TODO don't use random loads
 @testset "single phase 38-nodes 3 time steps" begin

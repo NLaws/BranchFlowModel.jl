@@ -64,7 +64,7 @@ version = "0.7.1"
 
 [[deps.CommonOPF]]
 deps = ["LinearAlgebra", "Logging", "PowerModelsDistribution"]
-git-tree-sha1 = "b488206e8e9c0483e9d72741761bc1cf2a406cc5"
+git-tree-sha1 = "33e9b8039ce30c204ead00a86ace96a70d80b4f6"
 repo-rev = "main"
 repo-url = "https://github.com/NLaws/CommonOPF.jl"
 uuid = "dad7ea18-2b21-482e-81c1-e84414cc4b03"
