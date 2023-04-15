@@ -6,7 +6,6 @@ using LinearAlgebra
 using Graphs, MetaGraphs
 using JSON
 import SparseArrays: sparse
-import MetaGraphs: inneighbors, outneighbors, induced_subgraph
 
 const DEFAULT_AMP_LIMIT = 1000.0
 
@@ -64,7 +63,6 @@ export
     vreg,
     has_vreg
 
-include("graphs.jl")
 include("inputs.jl")
 include("utils.jl")
 include("results.jl")
