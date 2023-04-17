@@ -64,11 +64,9 @@ version = "0.7.1"
 
 [[deps.CommonOPF]]
 deps = ["Graphs", "LinearAlgebra", "Logging", "MetaGraphs", "PowerModelsDistribution"]
-git-tree-sha1 = "86f6e1549c9d94bf796e3d80480793a01cb771bd"
-repo-rev = "main"
-repo-url = "/Users/nlaws/projects/CommonOPF"
+git-tree-sha1 = "0b0840e3a9ffa518cdc5a169174ea87234a02454"
 uuid = "dad7ea18-2b21-482e-81c1-e84414cc4b03"
-version = "0.1.0"
+version = "0.2.0"
 
 [[deps.CommonSubexpressions]]
 deps = ["MacroTools", "Test"]
