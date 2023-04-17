@@ -25,6 +25,7 @@ export
     get_bus_values, 
     get_edge_values, 
     get_ijlinecode,
+    get_ijlinelength,
     get_ij_idx,
     # recover_voltage_current,  # TODO validate this method
     i_to_j, 
@@ -61,7 +62,10 @@ export
     reg_busses,
     turn_ratio,
     vreg,
-    has_vreg
+    has_vreg,
+    combine_parallel_lines!,
+    remove_bus!,
+    paths_between
 
 include("inputs.jl")
 include("utils.jl")

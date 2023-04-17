@@ -59,3 +59,21 @@ function metagraph_voltages(mg::MetaDiGraph)
     end
     return d
 end
+
+
+function get_edge_values(var_prefix::AbstractString, m::JuMP.AbstractModel, p::Inputs)
+    vals = Float64[]
+    for edge in p.edges
+        var = string(var_prefix, "[", edge[1], "-", edge[2], "]")
+        try
+            val = value(variable_by_name(m, var))
+            if startswith(var_prefix, "l")
+                val = sqrt(val)
+            end
+            push!(vals, round(val; digits=8))
+        catch e
+            println(var, "failed", e)
+        end
+    end
+    return vals
+end

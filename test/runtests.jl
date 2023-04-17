@@ -44,6 +44,61 @@ end
 @testset "BranchFlowModel.jl" begin
 
 
+
+@testset "merge parallel single phase lines" begin
+    #=       3
+           c -- e                   
+         2/      1\                 6.5  
+    a -- b         g    ->   a -- b -- g
+       2.5\      2/                     
+           d -- f            
+            3.5
+    Merge parallel lines sets that do not have loads
+    =#
+    
+    edges = [("a", "b"), ("b", "c"), ("b", "d"), ("c", "e"), ("d", "f"), ("e", "g"), ("f", "g")]
+    linecodes = ["l1", "l2", "l3", "l2", "l3", "l2", "l3"]
+    linelengths = [1.0, 2.0, 2.5, 3.0, 3.5, 1.0, 1.0]
+    phases = [[1,2], [1], [2], [1], [2], [1], [1,2]]
+    substation_bus = "a"
+    Pload = Dict()
+    Qload = Dict()
+    Zdict = Dict(
+        "l1" => Dict("rmatrix"=> [[1.0, 0.5], [0.5, 1.0]], "xmatrix"=> [[1.0, 0.5], [0.5, 1.0]], "nphases"=> 2),
+        "l2" => Dict("rmatrix"=> [2.0], "xmatrix"=> [2.0], "nphases"=> 1),  # total R = 2 * 6
+        "l3" => Dict("rmatrix"=> [3.0], "xmatrix"=> [3.0], "nphases"=> 1),  # total R = 3 * 7
+    )
+    v0 = 1.0
+    # NOTE intermediate steps are tested in CommonOPF
+
+    p = Inputs(
+        edges, 
+        linecodes, 
+        linelengths, 
+        phases,
+        substation_bus;
+        Pload=Pload, 
+        Qload=Qload, 
+        Sbase=1, 
+        Vbase=1, 
+        Zdict=Zdict, 
+        v0=v0, 
+        Isquared_up_bounds=Dict{String, Float64}()
+    )
+
+    combine_parallel_lines!(p)
+    @test p.busses == ["a", "b", "g"]
+    @test p.edge_keys == ["a-b", "b-g"]
+    @test get_ijlinelength("b", "g", p) == 6.5  # avg of 6 and 7
+    @test rij("b", "g", p)[1,1] == 18
+    @test rij("b", "g", p)[2,2] == 21
+    @test zij("b", "g", p)[1,1] == 18+18im
+    @test zij("b", "g", p)[2,2] == 21+21im
+
+end
+    
+
+
 @testset "ieee13 positive sequence" begin
     # make the dss solution to compare
     dss("Redirect data/ieee13/IEEE13Nodeckt.dss")
@@ -511,7 +566,7 @@ end
     substation_bus = "a"
     Pload = Dict("c" => [1.0], "d" => [1.0], "e" => [1.0], "f" => [1.0])
     Qload = Dict("c" => [0.1], "d" => [0.1], "e" => [0.1], "f" => [0.1])
-    Zdict = Dict("l1" => Dict("rmatrix"=> [1.0], "zmatrix"=> [1.0], "nphases"=> 1))
+    Zdict = Dict("l1" => Dict("rmatrix"=> [1.0], "xmatrix"=> [1.0], "nphases"=> 1))
     v0 = 1.0
 
     p = Inputs(
