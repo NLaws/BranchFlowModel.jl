@@ -6,7 +6,8 @@ Some various methods used in BranchFlowModel.jl:
     Contributions are welcome via fork and pull request.
 
 ```@docs
-Inputs
+Inputs(::String, ::String)
+Inputs(::AbstractVector{<:Tuple}, ::AbstractVector{<:AbstractString}, ::AbstractVector{<:Real}, ::AbstractVector{<:AbstractVector}, ::String)
 singlephase38linesInputs
 dsstxt_to_sparse_array 
 dss_files_to_dict

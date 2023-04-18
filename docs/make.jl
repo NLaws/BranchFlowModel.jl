@@ -1,3 +1,4 @@
+using CommonOPF
 using Documenter
 using BranchFlowModel
 using JuMP
@@ -5,7 +6,7 @@ using JuMP
 makedocs(
     sitename = "BranchFlowModel",
     format = Documenter.HTML(),
-    modules = [BranchFlowModel],
+    modules = [BranchFlowModel, CommonOPF],
     workdir = joinpath(@__DIR__, ".."),
     pages = [
         "User Documentation" => "index.md",
