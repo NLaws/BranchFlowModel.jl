@@ -246,6 +246,8 @@ end
 
     vs = Dict(k => real.(diag(v)) for (k,v) in voltage_values_by_time_bus(m,p)[1])
 
+    # I = get_bus_values(:l, m, p)  # TODO method for multiphase results
+
     # for b in keys(vs)
     #     for (i,phsv) in enumerate(filter(v -> v != 0, vs[b]))
     #         # @assert abs(phsv - dss_voltages[b][i]) < 1e-2 "bus $b phase $i failed"
@@ -293,6 +295,7 @@ end
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
 
     vs = get_bus_values(:vsqrd, m, p)
+    I = get_bus_values(:lij, m, p)
     
     for b in keys(vs)
         @test abs(vs[b][1] - dss_voltages[b][1]) < 0.01

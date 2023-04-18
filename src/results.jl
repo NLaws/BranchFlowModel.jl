@@ -39,16 +39,34 @@ function line_flow_values_by_time_edge(m::JuMP.AbstractModel, p::Inputs{BranchFl
 end
 
 
-function get_bus_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{SinglePhase})
-    vals = value.(m[var])
+function get_variable_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{SinglePhase})
     d = Dict()
-    for b in p.busses
-        d[b] = vals[b,:].data
-        if var == :vsqrd || var == :lij
-            d[b] = sqrt.(d[b])
+    if var in [:Pj, :Qj, :vsqrd]  # TODO make these a const in CommonOPF
+        vals = value.(m[var])
+        for b in p.busses
+            d[b] = vals[b,:].data
+            if var == :vsqrd
+                d[b] = sqrt.(d[b])
+            end
         end
+    elseif var in [:Pij, :Qij, :lij]  # TODO make these a const in CommonOPF
+        vals = value.(m[var])
+        for ek in p.edge_keys
+            d[ek] = vals[ek,:].data
+            if var == :lij
+                d[ek] = sqrt.(d[ek])
+            end
+        end
+    else
+        @warn "$var is not a valid variable symbol"
     end
     return d
+end
+
+
+function get_bus_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{SinglePhase})
+    @warn "get_bus_values will be deprecated in favor of get_variable_values in the next major release."
+    get_variable_values(var, m, p)
 end
 
 
