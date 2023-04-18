@@ -1,5 +1,6 @@
 using Documenter
 using BranchFlowModel
+using JuMP
 
 makedocs(
     sitename = "BranchFlowModel",

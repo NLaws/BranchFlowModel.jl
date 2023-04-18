@@ -1,4 +1,42 @@
+abstract type AbstractResults end
 
+"""
+TODO
+"""
+struct Results <: AbstractResults
+    voltage_magnitudes
+    real_power_injections
+    reactive_power_injections
+    current_magnitudes
+    real_sending_end_powers
+    reactive_sending_end_powers
+end
+
+
+"""
+    Results(m::AbstractModel, p::Inputs{SinglePhase})
+
+return a `Results` struct with fieldnames:
+
+    voltage_magnitudes
+    real_power_injections
+    reactive_power_injections
+    current_magnitudes
+    real_sending_end_powers
+    reactive_sending_end_powers
+
+"""
+function Results(m::AbstractModel, p::Inputs{SinglePhase})
+
+    vs  = get_variable_values(:vsqrd, m, p)
+    Pj  = get_variable_values(:Pj,    m, p)
+    Qj  = get_variable_values(:Qj,    m, p)
+    lij = get_variable_values(:lij,   m, p)
+    Pij = get_variable_values(:Pij,   m, p)
+    Qij = get_variable_values(:Qij,   m, p)
+
+    Results(vs, Pj, Qj, lij, Pij, Qij)
+end
 
 
 
@@ -39,12 +77,19 @@ function line_flow_values_by_time_edge(m::JuMP.AbstractModel, p::Inputs{BranchFl
 end
 
 
-function get_variable_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{SinglePhase})
+"""
+    get_variable_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{SinglePhase}; digits=6)
+
+!!! note
+    Rounding can be necessary for values that require `sqrt` and have optimal values of zero like 
+    `-3.753107219618953e-31`
+"""
+function get_variable_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{SinglePhase}; digits=6)
     d = Dict()
     if var in [:Pj, :Qj, :vsqrd]  # TODO make these a const in CommonOPF
         vals = value.(m[var])
         for b in p.busses
-            d[b] = vals[b,:].data
+            d[b] = round.(vals[b,:].data, digits=digits)
             if var == :vsqrd
                 d[b] = sqrt.(d[b])
             end
@@ -52,7 +97,7 @@ function get_variable_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{Singl
     elseif var in [:Pij, :Qij, :lij]  # TODO make these a const in CommonOPF
         vals = value.(m[var])
         for ek in p.edge_keys
-            d[ek] = vals[ek,:].data
+            d[ek] = round.(vals[ek,:].data, digits=digits)
             if var == :lij
                 d[ek] = sqrt.(d[ek])
             end

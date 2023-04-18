@@ -65,7 +65,8 @@ export
     has_vreg,
     combine_parallel_lines!,
     remove_bus!,
-    paths_between
+    paths_between,
+    Results
 
 include("inputs.jl")
 include("utils.jl")

@@ -9,8 +9,9 @@ Some various methods used in BranchFlowModel.jl:
 Inputs
 singlephase38linesInputs
 dsstxt_to_sparse_array 
-parse_dss
-build_model!
+dss_files_to_dict
+build_model!(m::JuMP.AbstractModel, p::Inputs{BranchFlowModel.SinglePhase})
+build_model!(m::JuMP.AbstractModel, p::Inputs{BranchFlowModel.MultiPhase})
 add_variables
 constrain_power_balance
 constrain_substation_voltage
@@ -21,8 +22,8 @@ check_rank_one
 get_bus_values 
 get_edge_values 
 get_ijlinecode
+get_ijlinelength
 get_ij_idx
-# recover_voltage_current  # TODO validate this method
 i_to_j 
 j_to_k 
 rij 
@@ -53,4 +54,13 @@ build_metagraph
 solve_metagraph!
 metagraph_voltages
 check_unique_solution_conditions
+check_statuses
+reg_busses
+turn_ratio
+vreg
+has_vreg
+combine_parallel_lines!
+remove_bus!
+paths_between
+Results(m::AbstractModel, p::Inputs{SinglePhase})
 ```

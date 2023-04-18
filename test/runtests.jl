@@ -44,6 +44,26 @@ end
 @testset "BranchFlowModel.jl" begin
 
 
+@testset "Results" begin
+    # p = singlephase38linesInputs();  # TODO use this once CommonOPF updated
+    Sbase = 1e6
+    Vbase = 12.47e3
+    p = Inputs(
+        joinpath("data", "singlephase38lines", "master.dss"), 
+        "0";
+        Sbase=Sbase, 
+        Vbase=Vbase, 
+        v0 = 1.00,
+        v_uplim = 1.05,
+        v_lolim = 0.95,
+        relaxed = false,
+    );
+    m = build_min_loss_model(p)
+    optimize!(m)
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
+    r = Results(m, p)
+end
+
 
 @testset "merge parallel single phase lines" begin
     #=       3

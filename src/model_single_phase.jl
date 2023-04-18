@@ -1,5 +1,5 @@
 """
-    build_model!(m::JuMP.AbstractModel, p::Inputs)
+    build_model!(m::JuMP.AbstractModel, p::Inputs{SinglePhase})
 
 Add variables and constraints to `m` using the values in `p`. Calls the following functions:
 ```julia
@@ -11,7 +11,7 @@ constrain_cone(m, p)
 constrain_loads(m, p)
 ```
 """
-function build_model!(m::JuMP.AbstractModel, p::Inputs)
+function build_model!(m::JuMP.AbstractModel, p::Inputs{SinglePhase})
 
     add_variables(m, p)
     constrain_power_balance(m, p)
