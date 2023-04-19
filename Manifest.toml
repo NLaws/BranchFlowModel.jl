@@ -2,7 +2,7 @@
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "57b20c7a99a7f36e5fe2844122f6b46d5f09c36e"
+project_hash = "1bdcaf0199adee9712b5456eaed4f685d33dd6b0"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -64,9 +64,9 @@ version = "0.7.1"
 
 [[deps.CommonOPF]]
 deps = ["Graphs", "LinearAlgebra", "Logging", "MetaGraphs", "PowerModelsDistribution"]
-git-tree-sha1 = "0b0840e3a9ffa518cdc5a169174ea87234a02454"
+git-tree-sha1 = "e1768a4d3d85855ee9bf1c0529a647819c4f29d7"
 uuid = "dad7ea18-2b21-482e-81c1-e84414cc4b03"
-version = "0.2.0"
+version = "0.2.2"
 
 [[deps.CommonSubexpressions]]
 deps = ["MacroTools", "Test"]
