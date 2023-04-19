@@ -191,6 +191,7 @@ function combine_parallel_lines!(p::Inputs)
                 push!(p.phases, new_phases)
                 push!(p.linelengths, new_len)
                 push!(p.edge_keys, b1 * "-" * b2)
+                p.phases_into_bus[b2] = new_phases
                 p.Zdict[new_linecode] = Dict(
                     "nphases" => 2,
                     "name" => new_linecode,
@@ -228,6 +229,7 @@ function combine_parallel_lines!(p::Inputs)
                 push!(p.phases, new_phases)
                 push!(p.linelengths, new_len)
                 push!(p.edge_keys, b1 * "-" * b2)
+                p.phases_into_bus[b2] = new_phases
                 p.Zdict[new_linecode] = Dict(
                     "nphases" => 3,
                     "name" => new_linecode,
