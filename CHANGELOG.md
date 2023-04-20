@@ -1,6 +1,9 @@
 # BranchFlowModel Changelog
 
 ## v0.2.1
+- CommonOPF upgrade to 0.3
+
+## v0.2.1
 - add `Results`
 - improve `combine_parallel_lines!`
 - mv `reg_busses`, `turn_ratio`, `has_vreg`, `vreg` to CommonOPF
