@@ -1,5 +1,8 @@
 # BranchFlowModel Changelog
 
+## v0.3.1
+- change JuMP compat to "1" (was "1.9") for better cross-compatibility
+
 ## v0.3.0
 - CommonOPF upgrade to 0.3
 
