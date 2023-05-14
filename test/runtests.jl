@@ -43,6 +43,271 @@ end
 
 @testset "BranchFlowModel.jl" begin
 
+@testset "Papavasiliou 2018 with shunts" begin
+    #=
+    Copied network from paper "Analysis of DLMPs"
+    and testing some DLMP values here as well as the addition of shunt susceptance values
+    =#
+    
+    T = 1
+    # edges_as_drawn = [
+    #     ("0", "1"), ("1", "2"), ("2", "3"), ("3", "4"), ("4", "5"), ("5", "6"),
+    #     ("8", "7"), ("3", "8"), 
+    #     ("8", "9"), ("9", "10"), ("10", "11"), 
+    #     ("0", "12"), ("12", "13"), ("13", "14"), 
+    # ]
+    # edges sorted according to ending bus
+    # and 7 switched with 8, gives closer voltages
+    edges = [
+        ("0", "1"), ("1", "2"), ("2", "3"), ("3", "4"), ("4", "5"), ("5", "6"),
+        ("3", "7"), ("7", "8"), 
+        ("7", "9"), ("9", "10"), ("10", "11"), 
+        ("0", "12"), ("12", "13"), ("13", "14"), 
+    ]
+    linecodes = ["l"*string(i) for i = 1:14]
+    linelengths = repeat([1.0], length(edges))
+    phases = repeat([[1]], length(edges))
+    substation_bus = "0"
+
+    Pload = Dict(
+        "1" => [0.7936], 
+        "2" => [0.0], 
+        "3" => [0.0201], 
+        "4" => [0.0173], 
+        "5" => [0.0291], 
+        "6" => [0.0219], 
+        "7" => [-0.1969], # uncontrolled generator
+        "8" => [0.0235], 
+        "9" => [0.0229], 
+        "10" => [0.0217], 
+        "11" => [0.0132], 
+        "12" => [0.6219], 
+        "13" => [0.0014], 
+        "14" => [0.0224], 
+    )
+
+    Qload = Dict(
+        "1" => [0.01855], 
+        "2" => [0.0], 
+        "3" => [0.0084], 
+        "4" => [0.0043], 
+        "5" => [0.0073], 
+        "6" => [0.0055], 
+        "7" => [0.0019], 
+        "8" => [0.0059], 
+        "9" => [0.0142], 
+        "10" => [0.0065], 
+        "11" => [0.0033], 
+        "12" => [0.1291], 
+        "13" => [0.0008], 
+        "14" => [0.0083], 
+    )
+
+    Zdict = Dict(
+        "l1" => Dict("rmatrix"=> [0.001], "xmatrix"=> [0.12], "nphases"=> 1),
+        "l2" => Dict("rmatrix"=> [0.0883], "xmatrix"=> [0.1262], "nphases"=> 1),
+        "l3" => Dict("rmatrix"=> [0.1384], "xmatrix"=> [0.1978], "nphases"=> 1),
+        "l4" => Dict("rmatrix"=> [0.0191], "xmatrix"=> [0.0273], "nphases"=> 1),
+        "l5" => Dict("rmatrix"=> [0.0175], "xmatrix"=> [0.0251], "nphases"=> 1),
+        "l6" => Dict("rmatrix"=> [0.0482], "xmatrix"=> [0.0689], "nphases"=> 1),
+        "l7" => Dict("rmatrix"=> [0.0523], "xmatrix"=> [0.0747], "nphases"=> 1),
+        "l8" => Dict("rmatrix"=> [0.0407], "xmatrix"=> [0.0582], "nphases"=> 1),
+        "l9" => Dict("rmatrix"=> [0.01], "xmatrix"=> [0.0143], "nphases"=> 1),
+        "l10" => Dict("rmatrix"=> [0.0241], "xmatrix"=> [0.0345], "nphases"=> 1),
+        "l11" => Dict("rmatrix"=> [0.0103], "xmatrix"=> [0.0148], "nphases"=> 1),
+        "l12" => Dict("rmatrix"=> [0.001], "xmatrix"=> [0.12], "nphases"=> 1),
+        "l13" => Dict("rmatrix"=> [0.1559], "xmatrix"=> [0.1119], "nphases"=> 1),
+        "l14" => Dict("rmatrix"=> [0.0953], "xmatrix"=> [0.0684], "nphases"=> 1),
+    )
+    v0 = 1.0
+    shunts = Dict(
+        "0" => 0.0,
+        "1" => 1.1,
+        "2" => 2.8,
+        "3" => 2.4,
+        "4" => 0.4,
+        "5" => 0.8,
+        "6" => 0.6,
+        "7" => 0.6,
+        "8" => 1.2,
+        "9" => 0.4,
+        "10" => 0.4,
+        "11" => 0.1,
+        "12" => 0.1,
+        "13" => 0.2,
+        "14" => 0.1,
+    )
+    shunts = Dict(k => v*1e-3 for (k,v) in shunts)
+
+    p = Inputs(
+        edges, 
+        linecodes, 
+        linelengths, 
+        phases,
+        substation_bus;
+        Pload=Pload, 
+        Qload=Qload, 
+        Sbase=1,
+        Vbase=1,
+        Zdict=Zdict, 
+        v0=v0, 
+        v_lolim=0.9, 
+        v_uplim=1.1,
+        Ntimesteps=T, 
+        P_up_bound=1e4,
+        Q_up_bound=1e4,
+        P_lo_bound=-1e4,
+        Q_lo_bound=-1e4,
+        Isquared_up_bounds=Dict{String, Float64}(),
+        relaxed=true,  # TODO does the unrelaxed model match unrelaxed
+        shunt_susceptance=shunts,
+    );
+    # TODO check_soc_inequalities
+    # TODO line limits
+    m = Model(ECOS.Optimizer) 
+    set_optimizer_attribute(m, "maxit", 10000)
+    set_optimizer_attribute(m, "verbose", 0)
+    set_optimizer_attribute(m, "reltol", 1e-7)
+    build_model!(m,p)
+
+    # put in the generator at bus 11
+    b = "11"
+    @variable(m, 0.4 >= pgen11 >= 0)
+    @variable(m, 0.4 >= qgen11 >= 0)
+    JuMP.delete.(m, m[:injectioncons][b]["p"])
+    m[:injectioncons][b]["p"] = @constraint(m, 
+        m[:Pj][b, 1] == pgen11 - p.Pload[b][1]
+    )
+    JuMP.delete.(m, m[:injectioncons][b]["q"])
+    m[:injectioncons][b]["q"] = @constraint(m, 
+        m[:Qj][b, 1] == qgen11 - p.Qload[b][1]
+    )
+
+    @objective(m, Min,
+         m[:Pj][p.substation_bus, 1] * 50 + pgen11 * 10
+    )
+    optimize!(m)
+    r = Results(m,p)
+
+    r.real_power_injections["0"]
+    #   1.064072, looking for 1.063
+
+    #=
+        Increase load on 11 s.t. generator can't export
+        and test if all prices > 50
+    =#
+    m = Model(ECOS.Optimizer)
+    set_optimizer_attribute(m, "maxit", 100000)
+    set_optimizer_attribute(m, "verbose", 0)
+    set_optimizer_attribute(m, "reltol", 1e-6)
+
+    p.Pload["11"][1]  = 0.4 # this is not enough to get prices > 50 b/c 7 is injecting
+    p.Pload["7"][1] = 0  # so set load at 7 to zero
+
+    build_model!(m,p)
+
+    # put in the generator at bus 11
+    b = "11"
+    @variable(m, 0.4 >= pgen11 >= 0)
+    @variable(m, 0.4 >= qgen11 >= 0)
+    JuMP.delete.(m, m[:injectioncons][b]["p"])
+    m[:injectioncons][b]["p"] = @constraint(m, 
+        m[:Pj][b, 1] == pgen11 - p.Pload[b][1]
+    )
+    JuMP.delete.(m, m[:injectioncons][b]["q"])
+    m[:injectioncons][b]["q"] = @constraint(m, 
+        m[:Qj][b, 1] == qgen11 - p.Qload[b][1]
+    )
+
+    @objective(m, Min,
+         m[:Pj][p.substation_bus, 1] * 50 + pgen11 * 10
+    )
+    optimize!(m)
+    r = Results(m,p)
+    @test all((price[1] >= 49.999 for price in values(r.shadow_prices)))
+
+    #=
+     now with voltage limit preventing full gen the gen should set the price
+    =#
+    p.v_uplim = 1.01 # pgen11 not curtailed at 1.03 ?!
+    p.Pload["11"][1] = 0.0132  # back to original value
+    p.relaxed = false
+    m = Model(Ipopt.Optimizer)
+    set_optimizer_attribute(m, "print_level", 0)
+
+    build_model!(m,p)
+
+    # put in the generator at bus 11
+    b = "11"
+    @variable(m, 0.4 >= pgen11 >= 0)
+    @variable(m, 0.4 >= qgen11 >= 0)
+    JuMP.delete.(m, m[:injectioncons][b]["p"])
+    m[:injectioncons][b]["p"] = @constraint(m, 
+        m[:Pj][b, 1] == pgen11 - p.Pload[b][1]
+    )
+    JuMP.delete.(m, m[:injectioncons][b]["q"])
+    m[:injectioncons][b]["q"] = @constraint(m, 
+        m[:Qj][b, 1] == qgen11 - p.Qload[b][1]
+    )
+
+    @objective(m, Min,
+         m[:Pj][p.substation_bus, 1] * 50 + pgen11 * 10
+    )
+    optimize!(m)
+    r = Results(m,p)
+    @test r.shadow_prices["11"][1] ≈ 10.0
+
+
+    #=
+    is the DLMP lower with DER not net injecting?
+    i.e. is the total DSO cost lower when paying DLMP > LMP?
+    =#
+
+    p.v_uplim = 1.05 # pgen11 not curtailed at 1.03 ?!
+    p.Pload["11"][1] = 0.1 
+    p.relaxed = false
+    m = Model(Ipopt.Optimizer)
+    set_optimizer_attribute(m, "print_level", 0)
+
+    build_model!(m,p)
+    @objective(m, Min,
+         m[:Pj][p.substation_bus, 1] * 50
+    )
+    optimize!(m)
+    prices_no_der = Dict(
+        j => JuMP.dual.(m[:loadbalcons][j]["p"][1])
+        for j in p.busses
+    )  # TODO put this as option in Results?
+    cost_no_der = objective_value(m)
+
+
+    m = Model(Ipopt.Optimizer)
+    set_optimizer_attribute(m, "print_level", 0)
+    build_model!(m,p)
+    # put in the generator at bus 11
+    b = "11"
+    @variable(m, 0.05 >= pgen11 >= 0)
+    @variable(m, 0.05 >= qgen11 >= 0)
+    JuMP.delete.(m, m[:injectioncons][b]["p"])
+    m[:injectioncons][b]["p"] = @constraint(m, 
+        m[:Pj][b, 1] == pgen11 - p.Pload[b][1]
+    )
+    JuMP.delete.(m, m[:injectioncons][b]["q"])
+    m[:injectioncons][b]["q"] = @constraint(m, 
+        m[:Qj][b, 1] == qgen11 - p.Qload[b][1]
+    )
+
+    @objective(m, Min,
+         m[:Pj][p.substation_bus, 1] * 50 + pgen11 * 10
+    )
+    optimize!(m)
+    r = Results(m,p)
+    cost_with_der = value(m[:Pj][p.substation_bus, 1]) * 50 + r.shadow_prices["11"][1] * value(pgen11)
+    @test cost_with_der < cost_no_der
+    @test r.shadow_prices["11"][1] < prices_no_der["11"][1]
+
+end
+
 
 @testset "Results" begin
     # p = singlephase38linesInputs();  # TODO use this once CommonOPF updated

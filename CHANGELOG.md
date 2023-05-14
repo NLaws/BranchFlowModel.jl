@@ -1,5 +1,9 @@
 # BranchFlowModel Changelog
 
+## v0.3.2
+- add `shunt_susceptance` times `vsqrd` to flow balance equations in single phase model
+- add `Results.shadow_prices`
+
 ## v0.3.1
 - change JuMP compat to "1" (was "1.9") for better cross-compatibility
 

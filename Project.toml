@@ -1,7 +1,7 @@
 name = "BranchFlowModel"
 uuid = "73c867df-75f8-459f-abd8-059b58de1e18"
 authors = ["Nick Laws"]
-version = "0.3.1"
+version = "0.3.2"
 
 [deps]
 CommonOPF = "dad7ea18-2b21-482e-81c1-e84414cc4b03"
@@ -13,7 +13,7 @@ MetaGraphs = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-CommonOPF = "0.3.1"
+CommonOPF = "0.3.2"
 Graphs = "1.8"
 JSON = "0.21"
 JuMP = "1"

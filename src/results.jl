@@ -10,6 +10,7 @@ struct Results <: AbstractResults
     current_magnitudes
     real_sending_end_powers
     reactive_sending_end_powers
+    shadow_prices
 end
 
 
@@ -34,8 +35,12 @@ function Results(m::AbstractModel, p::Inputs{SinglePhase})
     lij = get_variable_values(:lij,   m, p)
     Pij = get_variable_values(:Pij,   m, p)
     Qij = get_variable_values(:Qij,   m, p)
+    prices = Dict(
+        j => JuMP.dual.(m[:loadbalcons][j]["p"])
+        for j in p.busses
+    )
 
-    Results(vs, Pj, Qj, lij, Pij, Qij)
+    Results(vs, Pj, Qj, lij, Pij, Qij, prices)
 end
 
 

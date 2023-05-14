@@ -103,7 +103,7 @@ function constrain_power_balance(m, p::Inputs)
             qcon = @constraint(m, [t in 1:p.Ntimesteps],
                 sum( Qij[string(i*"-"*j), t] for i in i_to_j(j, p) ) -
                 sum( lij[string(i*"-"*j), t] * xij(i,j,p) for i in i_to_j(j, p) ) + 
-                Qj[j, t] == 0
+                Qj[j, t] - p.shunt_susceptance[j] * m[:vsqrd][j,t] == 0
             )
         else
             pcon =  @constraint(m, [t in 1:p.Ntimesteps],
@@ -113,8 +113,9 @@ function constrain_power_balance(m, p::Inputs)
             )
             qcon = @constraint(m, [t in 1:p.Ntimesteps],
                 sum( Qij[string(i*"-"*j), t] for i in i_to_j(j, p) ) 
-                - sum( lij[string(i*"-"*j), t] * xij(i,j,p) for i in i_to_j(j, p) ) +
-                Qj[j,t] - sum( Qij[string(j*"-"*k), t] for k in j_to_k(j, p) ) == 0
+                - sum( lij[string(i*"-"*j), t] * xij(i,j,p) for i in i_to_j(j, p) )
+                + Qj[j,t] - sum( Qij[string(j*"-"*k), t] for k in j_to_k(j, p) ) 
+                - p.shunt_susceptance[j] * m[:vsqrd][j,t]== 0
             )
         end
         m[:loadbalcons][j] = Dict("p" => pcon, "q" => qcon)
