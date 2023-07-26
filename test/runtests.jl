@@ -900,10 +900,10 @@ end
 
 
 
-    # TODO test trim_tree!
+    # TODO test CommonOPF.trim_tree!
     delete!(p.Pload, "e")
     delete!(p.Qload, "e")
-    trim_tree!(p)
+    BranchFlowModel.CommonOPF.trim_tree!(p)
 end
 
 end  # all tests

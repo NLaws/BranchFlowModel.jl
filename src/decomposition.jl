@@ -1,18 +1,3 @@
-"""
-    leaf_busses(p::Inputs)
-
-returns `Vector{String}` containing all of the leaf busses in `p.busses`
-"""
-function leaf_busses(p::Inputs)
-    leafs = String[]
-    for j in p.busses
-        if !isempty(i_to_j(j, p)) && isempty(j_to_k(j, p))
-            push!(leafs, j)
-        end
-    end
-    return leafs
-end
-
 
 """
     connecting_busses(mg::MetaDiGraph, v)
@@ -71,20 +56,20 @@ function init_inputs!(ps::Vector{Inputs{SinglePhase}}; init_vs::Dict = Dict())
         if p.substation_bus in keys(init_vs)
             p.v0 = init_vs[p.substation_bus]
         end
-        leafs = leaf_busses(p)
+        leafs = CommonOPF.leaf_busses(p)
         for pp in ps
             if pp.substation_bus in leafs
                 if isempty(pp.Pload)
                     @warn "The Pload dictionary is empty for the sub network with head bus $(pp.substation_bus).\
                     \nThis indicates that there are probably lines with no loads on the ends in the larger network.\
-                    \nTry using trim_tree! to eliminate the deadend branches."
+                    \nTry using CommonOPF.trim_tree! to eliminate the deadend branches."
                 else
                     p.Pload[pp.substation_bus] = sum( values(pp.Pload) )
                 end
                 if isempty(pp.Qload)
                     @warn "The Qload dictionary is empty for the sub network with head bus $(pp.substation_bus).\
                     \nThis indicates that there are probably lines with no loads on the ends in the larger network.\
-                    \nTry using trim_tree! to eliminate the deadend branches."
+                    \nTry using CommonOPF.trim_tree! to eliminate the deadend branches."
                 else
                     p.Qload[pp.substation_bus] = sum( values(pp.Qload) )
                 end

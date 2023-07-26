@@ -29,37 +29,6 @@ function reduce_tree!(p::Inputs{SinglePhase}; keep_regulator_busses=true)
 end
 
 
-function trim_tree_once!(p::Inputs{SinglePhase})
-    trimmable_busses = setdiff(leaf_busses(p), union(keys(p.Pload), keys(p.Qload)))
-    if isempty(trimmable_busses) return false end
-    trimmable_edges = Tuple[]
-    for j in trimmable_busses
-        for i in i_to_j(j, p)
-            push!(trimmable_edges, (i,j))
-        end
-    end
-    @debug("Deleting the following edges from the Inputs:")
-    for edge in trimmable_edges @debug(edge) end
-    for (i,j) in trimmable_edges
-        delete_edge_ij!(i, j, p)
-        delete_bus_j!(j, p)
-    end
-    true
-end
-
-
-function trim_tree!(p::Inputs{SinglePhase})
-    n_edges_before = length(p.edges)
-    trimming = trim_tree_once!(p)
-    while trimming
-        trimming = trim_tree_once!(p)
-    end
-    n_edges_after = length(p.edges)
-    @info("Removed $(n_edges_before - n_edges_after) edges.")
-    true
-end
-
-
 function make_sub_inputs(
     p::Inputs{SinglePhase}, 
     edges_to_delete::Vector, 
