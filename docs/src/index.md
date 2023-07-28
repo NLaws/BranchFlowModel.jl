@@ -32,18 +32,15 @@ build_model!
 
 ## Single Phase Model
 Let `m` be the JuMP.Model provided by the user, then the variables can be accessed via:
-- `m[:vsqrd]` voltage magnitude squared, indexed on busses, (phases), time
-- `m[:Pj], m[:Qj]` net real, reactive power injection, indexed on busses, (phases), time
-- `m[:Pij], m[:Qij]` net real, reactive line flow, indexed on edges, (phases), time
+- `m[:vsqrd]` voltage magnitude squared, indexed on busses, time
+- `m[:Pj], m[:Qj]` net real, reactive power injection, indexed on busses, time
+- `m[:Pij], m[:Qij]` net real, reactive line flow, indexed on edges, time
+- `m[:lij]` current magnitude squared, indexed on edges, time
 Note that the `m[:Pj], m[:Qj]` are not truly variables since they are defined by the loads (unless you modify the model to make them decisions).
 After a model has been solved using `JuMP.optimize!` variable values can be extracted with `JuMP.value`. For more see [Getting started with JuMP](https://jump.dev/JuMP.jl/stable/tutorials/getting_started/getting_started_with_JuMP/#Getting-started-with-JuMP).
 
-
-!!! note
-    Single phase models do not have a phase index
-
 ## MultiPhase Model
-The definition of the muliphase variables is done in `model_multi_phase.jl` as follows:
+The definition of the multiphase variables is done in `model_multi_phase.jl` as follows:
 ```julia
 # voltage squared is Hermitian
 m[:w] = Dict{Int64, S}()
@@ -56,6 +53,11 @@ m[:Sj] = Dict{Int64, S}()
 # Hermitian PSD matrices
 m[:H] = Dict{Int64, S}()
 ```
+where the first key is for the time index and the inner `Dict`:
+```julia
+S = Dict{String, AbstractVecOrMat}
+```
+has string keys for either bus names or edge names, (which are stored in the `Inputs` as `Inputs.busses` and `Inputs.edge_keys` respectively).
 
 # Accessing and Modifying Constraints
 Let the JuMP.Model provided by the user be called `m`. 
