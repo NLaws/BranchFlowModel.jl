@@ -310,7 +310,6 @@ end
 
 
 @testset "Results" begin
-    # p = singlephase38linesInputs();  # TODO use this once CommonOPF updated
     Sbase = 1e6
     Vbase = 12.47e3
     p = Inputs(
@@ -412,7 +411,7 @@ end
     optimize!(m)
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
 
-    # vs = get_bus_values(:vsqrd, m, p)
+    # vs = get_variable_values(:vsqrd, m, p)
 
     # for (bus, phs) in p3phase.phases_into_bus
     #     if bus in keys(vs)
@@ -531,7 +530,7 @@ end
 
     vs = Dict(k => real.(diag(v)) for (k,v) in voltage_values_by_time_bus(m,p)[1])
 
-    # I = get_bus_values(:l, m, p)  # TODO method for multiphase results
+    # I = get_variable_values(:l, m, p)  # TODO method for multiphase results
 
     # for b in keys(vs)
     #     for (i,phsv) in enumerate(filter(v -> v != 0, vs[b]))
@@ -579,8 +578,8 @@ end
     
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
 
-    vs = get_bus_values(:vsqrd, m, p)
-    I = get_bus_values(:lij, m, p)
+    vs = get_variable_values(:vsqrd, m, p)
+    I = get_variable_values(:lij, m, p)
     
     for b in keys(vs)
         @test abs(vs[b][1] - dss_voltages[b][1]) < 0.01
@@ -664,7 +663,7 @@ end
     );
     m = make_solve_min_loss_model(p)
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
-    vs = get_bus_values(:vsqrd, m, p)
+    vs = get_variable_values(:vsqrd, m, p)
     # make the dss solution to compare
     dss("clear")
     dss("Redirect data/singlephase38lines/master.dss")
@@ -686,7 +685,7 @@ end
     @test nbusses_before - length(removed_busses) == length(p.busses)
     m = make_solve_min_loss_model(p)
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
-    vs_reduced = get_bus_values(:vsqrd, m, p)
+    vs_reduced = get_variable_values(:vsqrd, m, p)
     for b in keys(vs_reduced)
         @test abs(dss_voltages[b][1] - vs_reduced[b][1]) < 0.001
     end
@@ -741,8 +740,8 @@ end
         qdiff = value(m_below[:Qj]["12",1]) + value(m_above[:Qj]["12",1])  # 1.231675e-8
     end
 
-    vs_decomposed = get_bus_values(:vsqrd, m_above, p_above)
-    merge!(vs_decomposed, get_bus_values(:vsqrd, m_below, p_below))
+    vs_decomposed = get_variable_values(:vsqrd, m_above, p_above)
+    merge!(vs_decomposed, get_variable_values(:vsqrd, m_below, p_below))
     for b in keys(vs_decomposed)
         @test abs(dss_voltages[b][1] - vs_decomposed[b][1]) < 0.001
     end
@@ -777,9 +776,9 @@ end
     @test sum(qdiffs2) < sum(qdiffs1) 
     @test sum(vdiffs2) < sum(vdiffs1) 
 
-    vs_decomposed = get_bus_values(:vsqrd, mg[1, :m], mg[1, :p])
-    merge!(vs_decomposed, get_bus_values(:vsqrd, mg[2, :m], mg[2, :p]))
-    merge!(vs_decomposed, get_bus_values(:vsqrd, mg[3, :m], mg[3, :p]))
+    vs_decomposed = get_variable_values(:vsqrd, mg[1, :m], mg[1, :p])
+    merge!(vs_decomposed, get_variable_values(:vsqrd, mg[2, :m], mg[2, :p]))
+    merge!(vs_decomposed, get_variable_values(:vsqrd, mg[3, :m], mg[3, :p]))
     for b in keys(vs_decomposed)
         @test abs(dss_voltages[b][1] - vs_decomposed[b][1]) < 0.001
     end

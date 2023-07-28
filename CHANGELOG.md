@@ -1,5 +1,9 @@
 # BranchFlowModel Changelog
 
+## v0.4.0
+- deprecate `get_bus_values`
+- mv `get_variable_values` to CommonOPF
+
 ## v0.3.2
 - add `shunt_susceptance` times `vsqrd` to flow balance equations in single phase model
 - add `Results.shadow_prices`

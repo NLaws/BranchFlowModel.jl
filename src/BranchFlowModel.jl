@@ -22,7 +22,6 @@ export
     constrain_loads,
     constrain_bounds,
     check_rank_one,
-    get_bus_values, 
     get_variable_values,
     get_edge_values, 
     get_ijlinecode,

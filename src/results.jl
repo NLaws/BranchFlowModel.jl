@@ -15,7 +15,7 @@ end
 
 
 """
-    Results(m::AbstractModel, p::Inputs{SinglePhase})
+    Results(m::AbstractModel, p::Inputs{SinglePhase}; digits=8)
 
 return a `Results` struct with fieldnames:
 
@@ -27,14 +27,14 @@ return a `Results` struct with fieldnames:
     reactive_sending_end_powers
 
 """
-function Results(m::AbstractModel, p::Inputs{SinglePhase})
+function Results(m::AbstractModel, p::Inputs{SinglePhase}; digits=8)
 
-    vs  = get_variable_values(:vsqrd, m, p)
-    Pj  = get_variable_values(:Pj,    m, p)
-    Qj  = get_variable_values(:Qj,    m, p)
-    lij = get_variable_values(:lij,   m, p)
-    Pij = get_variable_values(:Pij,   m, p)
-    Qij = get_variable_values(:Qij,   m, p)
+    vs  = get_variable_values(:vsqrd, m, p, digits=digits)
+    Pj  = get_variable_values(:Pj,    m, p, digits=digits)
+    Qj  = get_variable_values(:Qj,    m, p, digits=digits)
+    lij = get_variable_values(:lij,   m, p, digits=digits)
+    Pij = get_variable_values(:Pij,   m, p, digits=digits)
+    Qij = get_variable_values(:Qij,   m, p, digits=digits)
     prices = Dict(
         j => JuMP.dual.(m[:loadbalcons][j]["p"])
         for j in p.busses
@@ -42,7 +42,6 @@ function Results(m::AbstractModel, p::Inputs{SinglePhase})
 
     Results(vs, Pj, Qj, lij, Pij, Qij, prices)
 end
-
 
 
 function voltage_values_by_time_bus(m::JuMP.AbstractModel, p::Inputs{BranchFlowModel.MultiPhase})
@@ -55,7 +54,6 @@ function voltage_values_by_time_bus(m::JuMP.AbstractModel, p::Inputs{BranchFlowM
     end
     return d
 end
-
 
 
 function current_values_by_time_edge(m::JuMP.AbstractModel, p::Inputs{BranchFlowModel.MultiPhase})
@@ -82,48 +80,10 @@ function line_flow_values_by_time_edge(m::JuMP.AbstractModel, p::Inputs{BranchFl
 end
 
 
-"""
-    get_variable_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{SinglePhase}; digits=6)
-
-!!! note
-    Rounding can be necessary for values that require `sqrt` and have optimal values of zero like 
-    `-3.753107219618953e-31`
-"""
-function get_variable_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{SinglePhase}; digits=6)
-    d = Dict()
-    if var in [:Pj, :Qj, :vsqrd]  # TODO make these a const in CommonOPF
-        vals = value.(m[var])
-        for b in p.busses
-            d[b] = round.(vals[b,:].data, digits=digits)
-            if var == :vsqrd
-                d[b] = sqrt.(d[b])
-            end
-        end
-    elseif var in [:Pij, :Qij, :lij]  # TODO make these a const in CommonOPF
-        vals = value.(m[var])
-        for ek in p.edge_keys
-            d[ek] = round.(vals[ek,:].data, digits=digits)
-            if var == :lij
-                d[ek] = sqrt.(d[ek])
-            end
-        end
-    else
-        @warn "$var is not a valid variable symbol"
-    end
-    return d
-end
-
-
-function get_bus_values(var::Symbol, m::JuMP.AbstractModel, p::Inputs{SinglePhase})
-    @warn "get_bus_values will be deprecated in favor of get_variable_values in the next major release."
-    get_variable_values(var, m, p)
-end
-
-
 function metagraph_voltages(mg::MetaDiGraph)
     d = Dict()
     for v in vertices(mg)
-        merge!(d, get_bus_values(:vsqrd, mg[v, :m], mg[v, :p]))
+        merge!(d, get_variable_values(:vsqrd, mg[v, :m], mg[v, :p]))
     end
     return d
 end
