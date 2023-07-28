@@ -88,3 +88,8 @@ m[:cons][:injection_equalities]["680"]["p"][1] = @constraint(m, [t in 1:p.Ntimes
 where `p` is short for "parameters" and is the `Inputs` struct for the problem of interest. Note that it is not necessary to store the new constraints in the `m[:cons][:injection_equalities]`.
 
 See the [JuMP documentation](https://jump.dev/JuMP.jl/stable/manual/constraints/#Delete-a-constraint) for more on deleting constraints.
+
+# Results
+```@docs
+Results(m::AbstractModel, p::Inputs{SinglePhase})
+```

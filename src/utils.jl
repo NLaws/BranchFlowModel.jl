@@ -7,7 +7,7 @@ function rij(i::AbstractString, j::AbstractString, p::Inputs{SinglePhase})
     linecode = get_ijlinecode(i, j, p)
     linelength = get_ijlinelength(i, j, p)
     rmatrix = p.Zdict[linecode]["rmatrix"] * linelength / p.Zbase
-    return rmatrix[1]
+    return rmatrix[1]  # 1 index b/c single phase
 end
 
 
@@ -20,7 +20,7 @@ function xij(i::AbstractString, j::AbstractString, p::Inputs{SinglePhase})
     linecode = get_ijlinecode(i, j, p)
     linelength = get_ijlinelength(i, j, p)
     xmatrix = p.Zdict[linecode]["xmatrix"] * linelength / p.Zbase
-    return xmatrix[1]
+    return xmatrix[1]  # 1 index b/c single phase
 end
 
 
