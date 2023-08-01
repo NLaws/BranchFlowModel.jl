@@ -1,5 +1,9 @@
 # BranchFlowModel Changelog
 
+## v0.4.1
+- mv `remove_bus!` and `reduce_tree!` to CommonOPF
+- mv SinglePhase `rij` and `xij` to CommonOPF
+
 ## v0.4.0
 - deprecate `get_bus_values`
 - mv `get_variable_values` to CommonOPF

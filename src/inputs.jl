@@ -1,34 +1,3 @@
-"""
-    reduce_tree!(p::Inputs{SinglePhase})
-
-combine any line sets with intermediate busses that have indegree == outdegree == 1
-and is not a load bus into a single line
-"""
-function reduce_tree!(p::Inputs{SinglePhase}; keep_regulator_busses=true)
-    # TODO make graph once in Inputs ?
-    g = make_graph(p.busses, p.edges)
-    int_bus_map = get_prop(g, :int_bus_map)
-    reducable_buses = String[]
-    load_buses = Set(vcat(collect(keys(p.Pload)), collect(keys(p.Qload))))
-    if keep_regulator_busses
-        for bs in keys(p.regulators)  # tuple keys of bus pairs, i.e. edges
-            push!(load_buses, bs...)
-        end
-    end
-    for v in vertices(g)
-        if indegree(g, v) == outdegree(g, v) == 1 && !(int_bus_map[v] in load_buses)
-            push!(reducable_buses, int_bus_map[v])
-        end
-    end
-    @debug("Removing the following busses: \n$reducable_buses")
-    # replace two lines with one
-    for j in reducable_buses
-        remove_bus!(j, p)
-    end
-    @info("Removed $(length(reducable_buses)) busses.")
-end
-
-
 function make_sub_inputs(
     p::Inputs{SinglePhase}, 
     edges_to_delete::Vector, 
