@@ -1,5 +1,8 @@
 # BranchFlowModel Changelog
 
+## v0.4.2
+- upgrade CommonOPF to v0.3.7
+
 ## v0.4.1
 - mv `remove_bus!` and `reduce_tree!` to CommonOPF
 - mv SinglePhase `rij` and `xij` to CommonOPF
