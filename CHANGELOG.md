@@ -1,5 +1,8 @@
 # BranchFlowModel Changelog
 
+## v0.4.3
+- upgrade CommonOPF to v0.3.8
+
 ## v0.4.2
 - upgrade CommonOPF to v0.3.7
 
