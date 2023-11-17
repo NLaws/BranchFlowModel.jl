@@ -1,5 +1,16 @@
+# Hosting documentation locally
+Use `LiveServer.jl` to host the documentation locally by running `docs/src/devdeploy.jl`; e.g.: 
+```julia
+[~/.julia/dev/BranchFlowModel/docs]
+(BranchFlowModel) pkg> activate .
+(BranchFlowModel) pkg> dev BranchFlowModel
+julia> include("devdeploy.jl")
+[ Info: Precompiling BranchFlowModel [73c867df-75f8-459f-abd8-059b58de1e18]
+...
+✓ LiveServer listening on http://localhost:8000/ ...
+  (use CTRL+C to shut down)
+```
 
-## Hosting documentation locally
 You must `Pkg.dev BranchFlowModel` in the docs Project for the docs to update using the following method. The python server does not pick up on changes dynamically so the process below must be repeated to show changes.
 ```bash
 [~/.julia/dev/BranchFlowModel/docs]
@@ -25,19 +36,6 @@ nlaws-> cd build/
 nlaws-> python3 -m http.server --bind localhost
 Serving HTTP on ::1 port 8000 (http://[::1]:8000/) ...
 ```
-
-Alternatively, you can use `LiveServer.jl` to host the documentation locally by running `docs/src/devdeploy.jl`; e.g.: 
-```julia
-[~/.julia/dev/BranchFlowModel/docs]
-(BranchFlowModel) pkg> activate .
-(BranchFlowModel) pkg> dev BranchFlowModel
-julia> include("devdeploy.jl")
-[ Info: Precompiling BranchFlowModel [73c867df-75f8-459f-abd8-059b58de1e18]
-...
-✓ LiveServer listening on http://localhost:8000/ ...
-  (use CTRL+C to shut down)
-```
-
 
 ## Fixing a broken docs build or updating docs without creating a new release
 From the Documenter.jl documentation:

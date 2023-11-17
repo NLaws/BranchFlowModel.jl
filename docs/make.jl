@@ -11,6 +11,7 @@ makedocs(
     pages = [
         "User Documentation" => "index.md",
         "Methods" => "methods.md",
+        "Decomposition" => "decomposition.md",
         "Math" => "math.md"
     ],
 )

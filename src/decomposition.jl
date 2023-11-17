@@ -2,7 +2,7 @@
 """
     connecting_busses(mg::MetaDiGraph, v)
 
-return Dict with keys for out-vertices of `v` and values for their substation_bus
+return Dict with keys for out-vertices of node `v` and values for their substation_bus
 """
 function connecting_busses(mg::MetaDiGraph, v)
     cbusses = Dict()
@@ -354,7 +354,7 @@ busses within each sub-graph.
     need all the busses within each subgraph to split properly. For example, if a splitting
     bus has two sub branches then obeying the max_busses limit can require only including one
     sub branch out of the splitting bus. To know which branch to take we can use the other busses
-    in the sub graph.
+    in the sub graph (which is why this method also returns the bussed in each subgraph).
 """
 function splitting_busses(p::Inputs{SinglePhase}, source::String; max_busses::Int64=10)
     g = make_graph(p.busses, p.edges)

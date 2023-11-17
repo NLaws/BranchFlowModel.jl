@@ -55,3 +55,13 @@ function check_connected_graph(p::Inputs{SinglePhase})
     end
     return false
 end
+
+
+"""
+    check_any_results_at_bounds(r::Results, p::Inputs{SinglePhase})
+
+warn if any results are at their bounds
+"""
+function check_any_results_at_bounds(r::Results, p::Inputs{SinglePhase})
+
+end
