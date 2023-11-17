@@ -6,18 +6,16 @@ on:
       - main
     tags: '*'
   pull_request:
-    branches:
-      - main
-    tags: '*'
 
 jobs:
   build:
     permissions:
       contents: write
+      statuses: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@latest
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v1
         with:
           version: '1.8'
       - name: Install dependencies
