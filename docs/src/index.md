@@ -91,5 +91,5 @@ See the [JuMP documentation](https://jump.dev/JuMP.jl/stable/manual/constraints/
 
 # Results
 ```@docs
-Results(m::AbstractModel, p::Inputs{SinglePhase})
+Results(m::JuMP.AbstractModel, p::Inputs{SinglePhase}; digits=8)
 ```

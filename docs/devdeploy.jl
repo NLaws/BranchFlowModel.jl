@@ -8,7 +8,7 @@ e.g.
 ```julia
 [~/.julia/dev/BranchFlowModel/docs]
 (BranchFlowModel) pkg> activate .
-(BranchFlowModel) pkg> dev BranchFlowModel
+(BranchFlowModel) pkg> dev ../../BranchFlowModel
 julia> include("devdeploy.jl")
 [ Info: Precompiling BranchFlowModel [73c867df-75f8-459f-abd8-059b58de1e18]
 ...

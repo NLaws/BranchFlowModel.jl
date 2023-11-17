@@ -15,7 +15,7 @@ end
 
 
 """
-    Results(m::AbstractModel, p::Inputs{SinglePhase}; digits=8)
+    Results(m::JuMP.AbstractModel, p::Inputs{SinglePhase}; digits=8)
 
 return a `Results` struct with fieldnames:
 
@@ -27,7 +27,7 @@ return a `Results` struct with fieldnames:
     reactive_sending_end_powers
 
 """
-function Results(m::AbstractModel, p::Inputs{SinglePhase}; digits=8)
+function Results(m::JuMP.AbstractModel, p::Inputs{SinglePhase}; digits=8)
 
     vs  = get_variable_values(:vsqrd, m, p, digits=digits)
     Pj  = get_variable_values(:Pj,    m, p, digits=digits)
