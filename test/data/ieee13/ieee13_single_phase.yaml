@@ -1,0 +1,135 @@
+network:
+  substation_bus: 650
+  Sbase: 5000000
+  Vbase: 2400  # 4160/sqrt(3), low side of substation trfx
+
+conductors:
+  - name: mtx601
+    busses: 
+      - 650
+      - 632
+    length: 0.3787878787878788
+    r1: 0.185966659863092 
+    x1: 0.596766656810831
+  - name: Line.632670
+    busses:
+      - 632
+      - 670
+    template: mtx601
+    length: 0.12632575757575756
+  - name: Line.670671
+    busses: 
+      - 670
+      - 671
+    template: mtx601
+    length: 0.2524621212121212
+  - name: Line.671680
+    busses: 
+      - 671
+      - 680
+    template: mtx601
+    length: 0.1893939393939394
+  - name: mtx602
+    busses: 
+      - 632
+      - 633
+    r1: 0.592066664941285 
+    x1: 0.760233332897959
+    length: 0.0946969696969697
+  - name: mtx603
+    busses: 
+      - 632
+      - 645
+    r1: 1.11999999301303 
+    x1: 0.892900001596878
+    length: 0.0946969696969697
+  - name: Line.645646
+    busses: 
+      - 645
+      - 646
+    template: mtx603
+    length: 0.0568181818181818
+  - name: mtx606
+    busses: 
+      - 692
+      - 675
+    length: 0.0946969696969697
+    r1: 0.481562914125568 
+    x1: 0.412151280086745
+  - name: mtx604
+    busses: 
+      - 671
+      - 684
+    length: 0.05681818181818181
+    r1: 1.11999999748539 
+    x1: 0.892900000574537
+  - name: mtx605
+    busses: 
+      - 684
+      - 611
+    length: 0.05681818181818181
+    r1: 1.3292
+    x1: 1.3475
+  - name: mtx607
+    busses: 
+      - 684
+      - 652
+    length: 0.15151515151515152
+    r1: 1.3425
+    x1: 0.5124
+  - name: Line.671692
+    busses: 
+      - 671
+      - 692
+    length: 1  # switch
+    r1: 0.0001
+    x1: 0
+    r0: 0.0001
+    x0: 0
+
+loads:
+  - bus: 671
+    kws1: 
+      - 385
+    kvars1: 
+      - 220
+  - bus: 634
+    kws1: 
+      - 133.33
+    kvars1: 
+      - 96.67
+  - bus: 645
+    kws1: 
+      - 56.67
+    kvars1: 
+      - 41.67
+  - bus: 646
+    kws1: 
+      - 76.67
+    kvars1: 
+      - 44
+  - bus: 692
+    kws1: 
+      - 56.67
+    kvars1: 
+      - 50.3
+  - bus: 675
+    kws1: 
+      - 281
+    kvars1: 
+      - 154
+  - bus: 611
+    kws1: 
+      - 56.67
+    kvars1: 
+      - 26.67
+  - bus: 652
+    kws1: 
+      - 42.67
+    kvars1: 
+      - 28.67
+  - bus: 670
+    kws1: 
+      - 66.67
+    kvars1: 
+      - 38.67
