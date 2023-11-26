@@ -1,0 +1,209 @@
+network:
+  substation_bus: 650
+  Sbase: 5000000
+  Vbase: 2400  # 4160/sqrt(3), low side of substation trfx
+
+conductors:
+  - name: mtx601
+    busses: 
+      - 650
+      - 632
+    length: 0.3787878787878788
+    phases: [1, 2, 3]
+    rmatrix:
+      - [0.3465]
+      - [0.1560, 0.3375]
+      - [0.1580, 0.1535, 0.3414]
+    xmatrix:
+      - [1.0179]
+      - [0.5017, 1.0478]
+      - [0.4236, 0.3849, 1.0348]
+  - name: Line.632670
+    busses:
+      - 632
+      - 670
+    template: mtx601
+    length: 0.12632575757575756
+    phases: [1, 2, 3]
+  - name: Line.670671
+    busses: 
+      - 670
+      - 671
+    template: mtx601
+    length: 0.2524621212121212
+    phases: [1, 2, 3]
+  - name: Line.671680
+    busses: 
+      - 671
+      - 680
+    template: mtx601
+    length: 0.1893939393939394
+    phases: [1, 2, 3]
+  - name: mtx602
+    busses: 
+      - 632
+      - 633
+    rmatrix:
+      - [0.7526]
+      - [0.1580, 0.7475]
+      - [0.1560, 0.1535, 0.7436]
+    xmatrix:
+      - [1.1814]
+      - [0.4236, 1.1983]
+      - [0.5017, 0.3849, 1.2112]
+    length: 0.0946969696969697
+    phases: [1, 2, 3]
+  - name: mtx603
+    busses: 
+      - 632
+      - 645
+    rmatrix:
+      - [1.3238]
+      - [0.2066, 1.3294]
+    xmatrix:
+      - [1.3569]
+      - [0.4591, 1.3471]
+    length: 0.0946969696969697
+    phases: [2, 3]
+  - name: Line.645646
+    busses: 
+      - 645
+      - 646
+    template: mtx603
+    length: 0.0568181818181818
+    phases: [2, 3]
+  - name: mtx606
+    busses: 
+      - 692
+      - 675
+    length: 0.0946969696969697
+    phases: [1, 2, 3]
+    rmatrix:
+      - [0.791721]
+      - [0.318476,  0.781649]
+      - [0.28345,  0.318476,  0.791721]
+    xmatrix:
+      - [0.438352]
+      - [0.0276838,  0.396697]
+      - [-0.0184204,  0.0276838,  0.438352]
+  - name: mtx604
+    busses: 
+      - 671
+      - 684
+    length: 0.05681818181818181
+    phases: [1, 3]
+    rmatrix:
+      - [1.3238]
+      - [0.2066, 1.3294]
+    xmatrix:
+      - [1.3569]
+      - [0.4591, 1.3471]
+  - name: mtx605
+    busses: 
+      - 684
+      - 611
+    length: 0.05681818181818181
+    phases: [3]
+    rmatrix:
+      - [1.3292]
+    xmatrix:
+      - [1.3475]
+  - name: mtx607
+    busses: 
+      - 684
+      - 652
+    length: 0.15151515151515152
+    phases: [1]
+    rmatrix:
+      - [1.3425]
+    xmatrix:
+      - [0.5124]
+  - name: Line.671692
+    busses: 
+      - 671
+      - 692
+    length: 1  # switch
+    phases: [1]
+    r1: 0.0001
+    x1: 0
+    r0: 0.0001
+    x0: 0
+
+loads:
+  - bus: 671
+    kws1: 
+      - 385
+    kvars1: 
+      - 220
+    kws2: 
+      - 385
+    kvars2: 
+      - 220
+    kws3: 
+      - 385
+    kvars3: 
+      - 220
+  - bus: 634
+    kws1: 
+      - 160
+    kvars1: 
+      - 110
+    kws2: 
+      - 120
+    kvars2: 
+      - 90
+    kws3: 
+      - 120
+    kvars3: 
+      - 90
+  - bus: 645
+    kws2: 
+      - 170
+    kvars2: 
+      - 125
+  - bus: 646
+    kws3: 
+      - 230
+    kvars3: 
+      - 132
+  - bus: 692
+    kws3: 
+      - 170
+    kvars3: 
+      - 151
+  - bus: 675
+    kws1: 
+      - 485
+    kvars1: 
+      - 190
+    kws2: 
+      - 68
+    kvars2: 
+      - 60
+    kws3: 
+      - 290
+    kvars3: 
+      - 212
+  - bus: 611
+    kws3: 
+      - 170
+    kvars3: 
+      - 80
+  - bus: 652
+    kws1: 
+      - 128
+    kvars1: 
+      - 86
+  - bus: 670
+    kws1: 
+      - 17
+    kvars1: 
+      - 10
+    kws2: 
+      - 66
+    kvars2: 
+      - 38
+    kws3: 
+      - 117
+    kvars3: 
+      - 68
