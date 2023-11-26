@@ -84,8 +84,23 @@ conductors:
     length: 1  # switch
     r1: 0.0001
     x1: 0
-    r0: 0.0001
-    x0: 0
+  - name: Trfx.633-634
+    busses: 
+      - 633
+      - 634
+    length: 1
+    r1: 0.3807230859
+    x1: 1.384447585
+
+# transformer impedance
+# R1 = v["%r"] / 100 * v["kv"]^2 * 1000 / v["kva"]
+# R2 = v["%r_2"] / 100 * v["kv"]^2 * 1000 / v["kva"]
+# R = R1 + R2
+# R = 2 * 0.55 / 100 * (2.401777)^2 * 1000 / 166.6667 = 0.3807230859
+# X = (v["xhl"] + v["xlt"] + v["xht"]) / 100 * v["kv"]^2 * 1000 / v["kva"]
+# X = (2 + 1 + 1) / 100 * (2.401777)^2 * 1000 / 166.6667 = 1.384447585
+# openDSS Manual says "Always use the kVA base of the first winding for entering impedances. 
+# Impedance values are entered in percent."
 
 loads:
   - bus: 671
