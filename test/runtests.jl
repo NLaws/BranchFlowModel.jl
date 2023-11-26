@@ -46,16 +46,9 @@ end
 
 @testset "CommonOPF.Network" begin
 
-    # dss("clear")
-    # dss("Redirect data/ieee13_makePosSeq/Master.dss")
-    # dss("Solve")
-    # @test(OpenDSSDirect.Solution.Converged() == true)
-    # dss_voltages = dss_voltages_pu()
-
-
     fp = joinpath("data", "ieee13", "ieee13_single_phase.yaml")
     net = Network(fp)
-    # net.v0 = dss_voltages["rg60"][1]
+    net.v0 = 1.0435118162902168
     m = Model(Ipopt.Optimizer)
     build_model!(m, net; relaxed=false)
     @objective(m, Min, 
@@ -63,18 +56,46 @@ end
     )
     optimize!(m)
 
-    vs = get_variable_values(:vsqrd, m, net)
+    vs_net = get_variable_values(:vsqrd, m, net)
+    lij_net = get_variable_values(:lij, m, net)
 
-    # NEXT the opendss model has a lot more in it. rather than catch up to opendss to validate use
-    # https://jso.dev/NLPModelsJuMP.jl/dev/tutorial/ to newton-solve the SDP (and check rank 1?) and
-    # compare voltages between the optimal model and the newton solution
-    # for bus in busses(net)
-    #     if bus in keys(vs)
-    #         println(rpad(bus,5), 
-    #             rpad(round(vs[bus][1] -  dss_voltages[bus][1], digits=4), 8)
-    #         )
-    #     end
-    # end
+    p = Inputs(
+        joinpath("data", "ieee13_makePosSeq", "Master.dss"), 
+        "650";
+        Sbase=net.Sbase, 
+        Vbase=net.Vbase, 
+        v0 = 1.0,
+        v_uplim = 1.05,
+        v_lolim = 0.95,
+        Ntimesteps = 1,
+        relaxed = false  # NLP
+    );
+    p.regulators[("650", "rg60")][:turn_ratio] = 1.0435118162902168  # dss_voltages["rg60"][1]
+    m = build_min_loss_model(p)
+    optimize!(m)
+    
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
+
+    vs = get_variable_values(:vsqrd, m, p)
+    lij = get_variable_values(:lij, m, p)
+    
+    for b in keys(vs)
+        if b in keys(vs_net)
+            if b == "650" continue end  
+            # ignore this value b/c Inputs model has an extra line 650-rg60 from a transformer
+            @test abs(vs[b][1] - vs_net[b][1]) < 0.0001
+        end
+    end
+
+    for edge in keys(lij_net)
+        if edge in keys(lij)
+            @test abs(lij[string(edge[1]*"-"*edge[2])][1] - lij_net[edge][1]) < 0.0001
+        end
+    end
+
+
+    # TODO use https://jso.dev/NLPModelsJuMP.jl/dev/tutorial/ to newton-solve the NLP with no
+    # relaxation and compare
 
 end
 

@@ -70,9 +70,10 @@ function constrain_power_balance(m, net::Network)
     lij = m[:lij]
     Pj = m[:Pj] = Dict()  # we fill these in with expression indexed on bus and time
     Qj = m[:Qj] = Dict()
-    # TODO change Pj and Qj to expressions, make P₀ and Q₀ dv's, which will reduce # of variables
-    # by (Nnodes - 1)*8760 and number of constraints by 6*(Nnodes - 1)*8760
-    # AND? using expressions for net injections means that we do not have to delete and redifine
+    # NOTE with Pj and Qj as expressions (instead of variables) the # of variables is reduced by
+    # (Nnodes - 1)*8760 and number of constraints by 6*(Nnodes - 1)*8760 
+    
+    # TODO using expressions for net injections means that we do not have to delete and redifine
     # constraints? i.e. can just define another expression for Pj when it is a function of a DER ?
     for j in busses(net)
 
