@@ -9,7 +9,7 @@ using LinearAlgebra
 using COSMO
 using CSDP
 using Ipopt
-using Graphs, MetaGraphs  # maybe export what is needed from MetaGraphs in BranchFlowModel ?
+using Graphs, MetaGraphs  # TODO export what is needed from MetaGraphs in BranchFlowModel
 
 # # hack for local testing
 # using Pkg
@@ -42,6 +42,42 @@ end
 
 
 @testset "BranchFlowModel.jl" begin
+
+
+@testset "CommonOPF.Network" begin
+
+    # dss("clear")
+    # dss("Redirect data/ieee13_makePosSeq/Master.dss")
+    # dss("Solve")
+    # @test(OpenDSSDirect.Solution.Converged() == true)
+    # dss_voltages = dss_voltages_pu()
+
+
+    fp = joinpath("data", "ieee13", "ieee13_single_phase.yaml")
+    net = Network(fp)
+    # net.v0 = dss_voltages["rg60"][1]
+    m = Model(Ipopt.Optimizer)
+    build_model!(m, net; relaxed=false)
+    @objective(m, Min, 
+        sum( m[:lij][edge,t] for t in 1:net.Ntimesteps, edge in edges(net))
+    )
+    optimize!(m)
+
+    vs = get_variable_values(:vsqrd, m, net)
+
+    # NEXT the opendss model has a lot more in it. rather than catch up to opendss to validate use
+    # https://jso.dev/NLPModelsJuMP.jl/dev/tutorial/ to newton-solve the SDP (and check rank 1?) and
+    # compare voltages between the optimal model and the newton solution
+    # for bus in busses(net)
+    #     if bus in keys(vs)
+    #         println(rpad(bus,5), 
+    #             rpad(round(vs[bus][1] -  dss_voltages[bus][1], digits=4), 8)
+    #         )
+    #     end
+    # end
+
+end
+
 
 @testset "Papavasiliou 2018 with shunts" begin
     #=
@@ -569,7 +605,7 @@ end
     );
     @test check_connected_graph(p) == true
     g = make_graph(p.busses, p.edges)
-    @test g.graph.ne == length(g.vprops) - 1  # a radial network has n_edges = n_vertices - 1
+    @test g.graph.ne == Graphs.nv(g) - 1  # a radial network has n_edges = n_vertices - 1
     @test_warn "The per unit impedance values should be much less than one" check_unique_solution_conditions(p)
     p.regulators[("650", "rg60")][:turn_ratio] = dss_voltages["rg60"][1]
 

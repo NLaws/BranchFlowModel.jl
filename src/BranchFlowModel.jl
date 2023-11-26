@@ -12,6 +12,15 @@ const DEFAULT_AMP_LIMIT = 1000.0
 
 export 
     Inputs,
+    # new CommonOPF methods
+    Network,
+    edges,
+    busses,
+    i_to_j,
+    j_to_k,
+    rij, 
+    xij,
+    # end new methods TODO distinguish all exports by module
     singlephase38linesInputs,
     dsstxt_to_sparse_array, 
     dss_files_to_dict,
@@ -29,10 +38,6 @@ export
     get_ijlinelength,
     get_ij_idx,
     # recover_voltage_current,  # TODO validate this method
-    i_to_j, 
-    j_to_k, 
-    rij, 
-    xij,
     zij,
     check_soc_inequalities,
     check_connected_graph,
@@ -72,6 +77,7 @@ include("utils.jl")
 include("results.jl")
 include("checks.jl")
 include("model_single_phase.jl")
+include("model_single_phase_network.jl")
 include("model_multi_phase.jl")
 include("decomposition.jl")
 

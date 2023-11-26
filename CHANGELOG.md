@@ -1,5 +1,11 @@
 # BranchFlowModel Changelog
 
+## dev
+
+### transition to CommonOPF.Network (from CommonOPF.Inputs)
+- add model_single_phase_network.jl and test build and solve
+    - this will replace model_single_phase.jl in next release
+
 ## v0.4.3
 - upgrade CommonOPF to v0.3.8
 
