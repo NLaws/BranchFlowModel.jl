@@ -357,7 +357,7 @@ busses within each sub-graph.
     in the sub graph (which is why this method also returns the bussed in each subgraph).
 """
 function splitting_busses(p::Inputs{SinglePhase}, source::String; max_busses::Int64=10)
-    g = make_graph(p.busses, p.edges)
+    g = make_graph(p.busses, p.edges; directed=true)
     bs, depths = busses_from_deepest_to_source(g, source)
     splitting_bs = String[]  # head nodes of all the subgraphs
     subgraph_bs = Vector[]
@@ -409,7 +409,7 @@ But, we want overlaps at the splitting busses for solving the decomposed branch 
 So here we add the overlapping splitting busses to each sub graph.
 """
 function connect_subgraphs_at_busses(p::Inputs{SinglePhase}, at_busses::Vector{String}, subgraphs::Vector{Vector})
-    g = make_graph(p.busses, p.edges)
+    g = make_graph(p.busses, p.edges; directed=true)
     new_subgs = deepcopy(subgraphs)
     for (i, subgraph) in enumerate(subgraphs)
         for b in subgraph

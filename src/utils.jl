@@ -38,7 +38,7 @@ TODO this can probably be used for LinDistFlow too but then have to move rij and
     BranchFlowModel Inputs)
 """
 function combine_parallel_lines!(p::Inputs)
-    g = make_graph(p.busses, p.edges)
+    g = make_graph(p.busses, p.edges; directed=true)
     end_bs = busses_with_multiple_inneighbors(g)
 
     for b2 in end_bs

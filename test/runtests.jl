@@ -625,7 +625,7 @@ end
         relaxed = false  # NLP
     );
     @test check_connected_graph(p) == true
-    g = make_graph(p.busses, p.edges)
+    g = make_graph(p.busses, p.edges; directed=true)
     @test g.graph.ne == Graphs.nv(g) - 1  # a radial network has n_edges = n_vertices - 1
     @test_warn "The per unit impedance values should be much less than one" check_unique_solution_conditions(p)
     p.regulators[("650", "rg60")][:turn_ratio] = dss_voltages["rg60"][1]
@@ -750,7 +750,7 @@ end
     @test nvar_original > nvar_reduced  # 225 > 159
 
     # 3 split and solve the reduced model, compare v
-    g = BranchFlowModel.make_graph(p.busses, p.edges)
+    g = BranchFlowModel.make_graph(p.busses, p.edges; directed=true)
     p_above, p_below = BranchFlowModel.split_inputs(p, "12");
     @test intersect(p_above.busses, p_below.busses) == ["12"]
     @test length(p.busses) == length(p_below.busses) + length(p_above.busses) - 1
