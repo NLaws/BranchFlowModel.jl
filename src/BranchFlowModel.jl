@@ -20,6 +20,7 @@ export
     j_to_k,
     rij, 
     xij,
+    Network_IEEE13_SinglePhase,
     # end new methods TODO distinguish all exports by module
     singlephase38linesInputs,
     dsstxt_to_sparse_array, 

@@ -46,8 +46,7 @@ end
 
 @testset "CommonOPF.Network" begin
 
-    fp = joinpath("data", "ieee13", "ieee13_single_phase.yaml")
-    net = Network(fp)
+    net = Network_IEEE13_SinglePhase()
     net.v0 = 1.0435118162902168
     m = Model(Ipopt.Optimizer)
     build_model!(m, net; relaxed=false)
