@@ -21,6 +21,7 @@ export
     rij, 
     xij,
     Network_IEEE13_SinglePhase,
+    Network_Papavasiliou_2018,
     # end new methods TODO distinguish all exports by module
     singlephase38linesInputs,
     dsstxt_to_sparse_array, 

@@ -45,6 +45,9 @@ end
 
 
 @testset "CommonOPF.Network" begin
+    # this test confirms that the results for IEEE13 SinglePhase using Network are the same as when
+    # we use Inputs.
+    # TODO this test will have to go away b/c we're deprecating Inputs
 
     net = Network_IEEE13_SinglePhase()
     net.v0 = 1.0435118162902168
@@ -91,10 +94,6 @@ end
             @test abs(lij[string(edge[1]*"-"*edge[2])][1] - lij_net[edge][1]) < 0.0001
         end
     end
-
-
-    # TODO use https://jso.dev/NLPModelsJuMP.jl/dev/tutorial/ to newton-solve the NLP with no
-    # relaxation and compare
 
 end
 
@@ -218,6 +217,7 @@ end
         relaxed=true,  # TODO does the unrelaxed model match unrelaxed
         shunt_susceptance=shunts,
     );
+    net = Network_Papavasiliou_2018()
     # TODO check_soc_inequalities
     # TODO line limits
     m = Model(ECOS.Optimizer) 
@@ -227,17 +227,20 @@ end
     build_model!(m,p)
 
     # put in the generator at bus 11
-    b = "11"
-    @variable(m, 0.4 >= pgen11 >= 0)
-    @variable(m, 0.4 >= qgen11 >= 0)
-    JuMP.delete.(m, m[:injectioncons][b]["p"])
-    m[:injectioncons][b]["p"] = @constraint(m, 
-        m[:Pj][b, 1] == pgen11 - p.Pload[b][1]
-    )
-    JuMP.delete.(m, m[:injectioncons][b]["q"])
-    m[:injectioncons][b]["q"] = @constraint(m, 
-        m[:Qj][b, 1] == qgen11 - p.Qload[b][1]
-    )
+    function add_generator_at_bus_11!(m)
+        b = "11"
+        @variable(m, 0.4 >= pgen11 >= 0)
+        @variable(m, 0.4 >= qgen11 >= 0)
+        JuMP.delete.(m, m[:injectioncons][b]["p"])
+        m[:injectioncons][b]["p"] = @constraint(m, 
+            m[:Pj][b, 1] == pgen11 - p.Pload[b][1]
+        )
+        JuMP.delete.(m, m[:injectioncons][b]["q"])
+        m[:injectioncons][b]["q"] = @constraint(m, 
+            m[:Qj][b, 1] == qgen11 - p.Qload[b][1]
+        )
+    end
+    add_generator_at_bus_11!(m)
 
     @objective(m, Min,
          m[:Pj][p.substation_bus, 1] * 50 + pgen11 * 10
@@ -262,18 +265,7 @@ end
 
     build_model!(m,p)
 
-    # put in the generator at bus 11
-    b = "11"
-    @variable(m, 0.4 >= pgen11 >= 0)
-    @variable(m, 0.4 >= qgen11 >= 0)
-    JuMP.delete.(m, m[:injectioncons][b]["p"])
-    m[:injectioncons][b]["p"] = @constraint(m, 
-        m[:Pj][b, 1] == pgen11 - p.Pload[b][1]
-    )
-    JuMP.delete.(m, m[:injectioncons][b]["q"])
-    m[:injectioncons][b]["q"] = @constraint(m, 
-        m[:Qj][b, 1] == qgen11 - p.Qload[b][1]
-    )
+    add_generator_at_bus_11!(m)
 
     @objective(m, Min,
          m[:Pj][p.substation_bus, 1] * 50 + pgen11 * 10
@@ -293,18 +285,7 @@ end
 
     build_model!(m,p)
 
-    # put in the generator at bus 11
-    b = "11"
-    @variable(m, 0.4 >= pgen11 >= 0)
-    @variable(m, 0.4 >= qgen11 >= 0)
-    JuMP.delete.(m, m[:injectioncons][b]["p"])
-    m[:injectioncons][b]["p"] = @constraint(m, 
-        m[:Pj][b, 1] == pgen11 - p.Pload[b][1]
-    )
-    JuMP.delete.(m, m[:injectioncons][b]["q"])
-    m[:injectioncons][b]["q"] = @constraint(m, 
-        m[:Qj][b, 1] == qgen11 - p.Qload[b][1]
-    )
+    add_generator_at_bus_11!(m)
 
     @objective(m, Min,
          m[:Pj][p.substation_bus, 1] * 50 + pgen11 * 10
