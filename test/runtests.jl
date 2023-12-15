@@ -243,7 +243,7 @@ end
     add_generator_at_bus_11!(m)
 
     @objective(m, Min,
-         m[:Pj][p.substation_bus, 1] * 50 + pgen11 * 10
+         m[:Pj][p.substation_bus, 1] * 50 + m[:pgen11] * 10
     )
     optimize!(m)
     r = Results(m,p)
@@ -268,7 +268,7 @@ end
     add_generator_at_bus_11!(m)
 
     @objective(m, Min,
-         m[:Pj][p.substation_bus, 1] * 50 + pgen11 * 10
+         m[:Pj][p.substation_bus, 1] * 50 + m[:pgen11] * 10
     )
     optimize!(m)
     r = Results(m,p)
@@ -288,7 +288,7 @@ end
     add_generator_at_bus_11!(m)
 
     @objective(m, Min,
-         m[:Pj][p.substation_bus, 1] * 50 + pgen11 * 10
+         m[:Pj][p.substation_bus, 1] * 50 + m[:pgen11] * 10
     )
     optimize!(m)
     r = Results(m,p)
@@ -321,25 +321,14 @@ end
     m = Model(Ipopt.Optimizer)
     set_optimizer_attribute(m, "print_level", 0)
     build_model!(m,p)
-    # put in the generator at bus 11
-    b = "11"
-    @variable(m, 0.05 >= pgen11 >= 0)
-    @variable(m, 0.05 >= qgen11 >= 0)
-    JuMP.delete.(m, m[:injectioncons][b]["p"])
-    m[:injectioncons][b]["p"] = @constraint(m, 
-        m[:Pj][b, 1] == pgen11 - p.Pload[b][1]
-    )
-    JuMP.delete.(m, m[:injectioncons][b]["q"])
-    m[:injectioncons][b]["q"] = @constraint(m, 
-        m[:Qj][b, 1] == qgen11 - p.Qload[b][1]
-    )
+    add_generator_at_bus_11!(m)
 
     @objective(m, Min,
-         m[:Pj][p.substation_bus, 1] * 50 + pgen11 * 10
+         m[:Pj][p.substation_bus, 1] * 50 + m[:pgen11] * 10
     )
     optimize!(m)
     r = Results(m,p)
-    cost_with_der = value(m[:Pj][p.substation_bus, 1]) * 50 + r.shadow_prices["11"][1] * value(pgen11)
+    cost_with_der = value(m[:Pj][p.substation_bus, 1]) * 50 + r.shadow_prices["11"][1] * value(m[:pgen11])
     @test cost_with_der < cost_no_der
     @test r.shadow_prices["11"][1] < prices_no_der["11"][1]
 
