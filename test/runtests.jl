@@ -226,6 +226,12 @@ end
     set_optimizer_attribute(m, "reltol", 1e-7)
     build_model!(m,p)
 
+    m_net = Model(ECOS.Optimizer) 
+    set_optimizer_attribute(m_net, "maxit", 10000)
+    set_optimizer_attribute(m_net, "verbose", 0)
+    set_optimizer_attribute(m_net, "reltol", 1e-7)
+    build_model!(m_net, net)
+
     # put in the generator at bus 11
     function add_generator_at_bus_11!(m)
         b = "11"
@@ -240,13 +246,35 @@ end
             m[:Qj][b, 1] == qgen11 - p.Qload[b][1]
         )
     end
+
     add_generator_at_bus_11!(m)
+
+    function add_generator_at_bus_11_net!(m)
+        b = "11"
+        @variable(m, 0.4 >= pgen11 >= 0)
+        @variable(m, 0.4 >= qgen11 >= 0)
+        JuMP.delete.(m, m[:injectioncons][b]["p"])
+        m[:injectioncons][b]["p"] = @constraint(m, 
+            m[:Pj][b][1] == pgen11 - net[b][:Load][:kws1][1]
+        )
+        JuMP.delete.(m, m[:injectioncons][b]["q"])
+        m[:injectioncons][b]["q"] = @constraint(m, 
+            m[:Qj][b][1] == qgen11 - net[b][:Load][:kvars1][1]
+        )
+    end
+    add_generator_at_bus_11_net!(m_net)
 
     @objective(m, Min,
          m[:Pj][p.substation_bus, 1] * 50 + m[:pgen11] * 10
     )
     optimize!(m)
     r = Results(m,p)
+
+    @objective(m_net, Min,
+         m_net[:Pj][p.substation_bus][1] * 50 + m_net[:pgen11] * 10
+    )
+    optimize!(m_net)
+    # r_net = Results(m_net, net) # PICKUP HERE ON THE Network TRANSITION
 
     r.real_power_injections["0"]
     #   1.064072, looking for 1.063
