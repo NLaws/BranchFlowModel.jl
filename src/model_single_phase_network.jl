@@ -21,7 +21,7 @@ function build_model!(m::JuMP.AbstractModel, net::Network{SinglePhase}; relaxed:
     if relaxed
         constrain_cone(m, net)
     else
-        constrain_psd(m, net)
+        constrain_bilinear(m, net)
     end
 end
 
@@ -29,18 +29,15 @@ end
 function add_variables(m, net::Network)
     T = 1:net.Ntimesteps
     # bus injections are expressions, defined in constrain_power_balance
-    # @variables m begin
-    #     p.P_lo_bound <= Pj[p.busses, T] <= p.P_up_bound
-    #     p.Q_lo_bound <= Qj[p.busses, T] <= p.Q_up_bound
-    # end
+
     # TODO warn when applying power injection lower bounds and SDP, radial b/c for radial
     # networks with power injections unbounded below (voltage angle relaxation) the SOCP (more
     # efficiently) yields the same solution as the SDP and the (non-convex) exact equations.
 
     # voltage squared
-   @variable(m, vsqrd[busses(net), T] >= (net.v_lolim)^2) #<= p.v_uplim^2 ) 
+    @variable(m, vsqrd[busses(net), T] >= (net.v_lolim)^2) #<= p.v_uplim^2 ) 
     
-    # line flows, netower sent from i to j
+    # line flows, net power sent from i to j
     # @variable(m, net.P_lo_bound <= Pij[edges(net), T] <= p.P_up_bound )
     # @variable(m, net.Q_lo_bound <= Qij[edges(net), T] <= p.Q_up_bound )
     @variable(m, Pij[edges(net), T])
@@ -81,14 +78,14 @@ function constrain_power_balance(m, net::Network)
         if isempty(i_to_j(j, net)) && !isempty(j_to_k(j, net))
             substation_Pload = zeros(net.Ntimesteps)
             if j in real_load_busses(net)
-                substation_Pload = net[j][:Load][:kws1] / net.Sbase
+                substation_Pload = net[j][:Load][:kws1] * 1e3 / net.Sbase
             end
             Pj[j] = @expression(m, [t = 1:net.Ntimesteps],
                 - substation_Pload[t] - sum( Pij[(j,k), t] for k in j_to_k(j, net) )
             )
             substation_Qload = zeros(net.Ntimesteps)
             if j in reactive_load_busses(net)
-                substation_Qload = net[j][:Load][:kvars1] / net.Sbase
+                substation_Qload = net[j][:Load][:kvars1] * 1e3 / net.Sbase
             end
             Qj[j] = @expression(m, [t = 1:net.Ntimesteps],
                 - substation_Qload[t] - sum( Qij[(j,k), t] for k in j_to_k(j, net) )
@@ -199,14 +196,13 @@ function constrain_cone(m, net::Network)
 end
 
 
-function constrain_psd(m, net::Network)
+function constrain_bilinear(m, net::Network)
     w = m[:vsqrd]
     P = m[:Pij]
     Q = m[:Qij]
     l = m[:lij]
     for j in busses(net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
-            # need to use PSD?
             @constraint(m, [t = 1:net.Ntimesteps],
                 w[i,t] * l[(i,j), t] == P[(i,j),t]^2 + Q[(i,j),t]^2
             )
