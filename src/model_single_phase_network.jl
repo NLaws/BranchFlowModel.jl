@@ -26,8 +26,9 @@ function build_model!(m::JuMP.AbstractModel, net::Network{SinglePhase}; relaxed:
 end
 
 
-function add_variables(m, net::Network)
-    T = 1:net.Ntimesteps
+function add_variables(m, net::Network{SinglePhase})
+    bs = collect(busses(net))
+    es = collect(edges(net))
     # bus injections are expressions, defined in constrain_power_balance
 
     # TODO warn when applying power injection lower bounds and SDP, radial b/c for radial
@@ -35,16 +36,20 @@ function add_variables(m, net::Network)
     # efficiently) yields the same solution as the SDP and the (non-convex) exact equations.
 
     # voltage squared
-    @variable(m, vsqrd[busses(net), T] >= (net.v_lolim)^2) #<= p.v_uplim^2 ) 
+    CommonOPF.add_time_vector_variables!(m, net, :vsqrd, bs)
+    for bus in busses(net)
+        JuMP.set_lower_bound.(m[:vsqrd][bus], (net.v_lolim)^2)
+    end
+    # TODO upper bounds
     
     # line flows, net power sent from i to j
     # @variable(m, net.P_lo_bound <= Pij[edges(net), T] <= p.P_up_bound )
     # @variable(m, net.Q_lo_bound <= Qij[edges(net), T] <= p.Q_up_bound )
-    @variable(m, Pij[edges(net), T])
-    @variable(m, Qij[edges(net), T])
+    CommonOPF.add_time_vector_variables!(m, net, :Pij, es)
+    CommonOPF.add_time_vector_variables!(m, net, :Qij, es)
 
     # current squared (non-negative)
-    @variable(m, lij[edges(net), T] >= 0)
+    CommonOPF.add_time_vector_variables!(m, net, :lij, es)
 
     # @constraint(m, [edge in net.edge_keys, t in T],
     #     lij[edge, t] <= net.amps_limit[edge]
@@ -81,14 +86,14 @@ function constrain_power_balance(m, net::Network)
                 substation_Pload = net[j][:Load][:kws1] * 1e3 / net.Sbase
             end
             Pj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                - substation_Pload[t] - sum( Pij[(j,k), t] for k in j_to_k(j, net) )
+                - substation_Pload[t] - sum( Pij[(j,k)][t] for k in j_to_k(j, net) )
             )
             substation_Qload = zeros(net.Ntimesteps)
             if j in reactive_load_busses(net)
                 substation_Qload = net[j][:Load][:kvars1] * 1e3 / net.Sbase
             end
             Qj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                - substation_Qload[t] - sum( Qij[(j,k), t] for k in j_to_k(j, net) )
+                - substation_Qload[t] - sum( Qij[(j,k)][t] for k in j_to_k(j, net) )
             )
         
         # unconnected nodes
@@ -100,26 +105,26 @@ function constrain_power_balance(m, net::Network)
         # leaf nodes / sinks, flows in = draw out
         elseif !isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
             Pj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                -sum( Pij[(i,j), t] for i in i_to_j(j, net) ) +
-                sum( lij[(i,j), t] * rij(i,j,net) for i in i_to_j(j, net) ) 
+                -sum( Pij[(i,j)][t] for i in i_to_j(j, net) ) +
+                sum( lij[(i,j)][t] * rij(i,j,net) for i in i_to_j(j, net) ) 
             )
             Qj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                -sum( Qij[(i,j), t] for i in i_to_j(j, net) ) +
-                sum( lij[(i,j), t] * xij(i,j,net) for i in i_to_j(j, net) )
+                -sum( Qij[(i,j)][t] for i in i_to_j(j, net) ) +
+                sum( lij[(i,j)][t] * xij(i,j,net) for i in i_to_j(j, net) )
                 # + p.shunt_susceptance[j] * m[:vsqrd][j,t]
             )
         
         # intermediate nodes
         else
             Pj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                -sum( Pij[(i,j), t] for i in i_to_j(j, net) )
-                + sum( lij[(i,j), t] * rij(i,j,net) for i in i_to_j(j, net) ) 
-                + sum( Pij[(j,k), t] for k in j_to_k(j, net) )
+                -sum( Pij[(i,j)][t] for i in i_to_j(j, net) )
+                + sum( lij[(i,j)][t] * rij(i,j,net) for i in i_to_j(j, net) ) 
+                + sum( Pij[(j,k)][t] for k in j_to_k(j, net) )
             )
             Qj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                -sum( Qij[(i,j), t] for i in i_to_j(j, net) ) 
-                + sum( lij[(i,j), t] * xij(i,j,net) for i in i_to_j(j, net) )
-                + sum( Qij[(j,k), t] for k in j_to_k(j, net) ) 
+                -sum( Qij[(i,j)][t] for i in i_to_j(j, net) ) 
+                + sum( lij[(i,j)][t] * xij(i,j,net) for i in i_to_j(j, net) )
+                + sum( Qij[(j,k)][t] for k in j_to_k(j, net) ) 
                 # + p.shunt_susceptance[j] * m[:vsqrd][j,t]
             )
         end
@@ -133,11 +138,11 @@ end
 function constrain_substation_voltage(m, net::Network)
     if typeof(net.v0) <: Real
         @constraint(m, con_substationV[t = 1:net.Ntimesteps],
-            m[:vsqrd][net.substation_bus, t] == net.v0^2
+            m[:vsqrd][net.substation_bus][t] == net.v0^2
         )
     else  # vector of time
         @constraint(m, con_substationV[t = 1:net.Ntimesteps],
-            m[:vsqrd][net.substation_bus, t] == net.v0[t]^2
+            m[:vsqrd][net.substation_bus][t] == net.v0[t]^2
         )
     end
     nothing
@@ -156,9 +161,9 @@ function constrain_KVL(m, net::Network)
                 rᵢⱼ = rij(i,j,net)
                 xᵢⱼ = xij(i,j,net)
                 m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
-                    w[j,t] == w[i,t]
-                        - 2*(rᵢⱼ * P[(i,j),t] + xᵢⱼ * Q[(i,j),t])
-                        + (rᵢⱼ^2 + xᵢⱼ^2) * l[(i,j), t]
+                    w[j][t] == w[i][t]
+                        - 2*(rᵢⱼ * P[(i,j)][t] + xᵢⱼ * Q[(i,j)][t])
+                        + (rᵢⱼ^2 + xᵢⱼ^2) * l[(i,j)][t]
                 )
             # else
             #     if has_vreg(p, j)
@@ -189,7 +194,7 @@ function constrain_cone(m, net::Network)
             #     w[i,t] * l[(i,j), t] ≥ P[(i,j),t]^2 + Q[(i,j),t]^2
             # )
             @constraint(m, [t = 1:net.Ntimesteps], 
-                [w[i,t]/2, l[(i,j), t], P[(i,j),t], Q[(i,j),t]] in JuMP.RotatedSecondOrderCone()
+                [w[i][t]/2, l[(i,j)][t], P[(i,j)][t], Q[(i,j)][t]] in JuMP.RotatedSecondOrderCone()
             )
         end
     end
@@ -204,7 +209,7 @@ function constrain_bilinear(m, net::Network)
     for j in busses(net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
             @constraint(m, [t = 1:net.Ntimesteps],
-                w[i,t] * l[(i,j), t] == P[(i,j),t]^2 + Q[(i,j),t]^2
+                w[i][t] * l[(i,j)][t] == P[(i,j)][t]^2 + Q[(i,j)][t]^2
             )
         end
     end

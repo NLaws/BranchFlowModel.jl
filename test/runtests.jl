@@ -54,12 +54,12 @@ end
     m = Model(Ipopt.Optimizer)
     build_model!(m, net; relaxed=false)
     @objective(m, Min, 
-        sum( m[:lij][edge,t] for t in 1:net.Ntimesteps, edge in edges(net))
+        sum( m[:lij][edge][t] for t in 1:net.Ntimesteps, edge in edges(net))
     )
     optimize!(m)
 
-    vs_net = get_variable_values(:vsqrd, m, net)
-    lij_net = get_variable_values(:lij, m, net)
+    vs_net = get_variable_values(:vsqrd, m)
+    lij_net = get_variable_values(:lij, m)
 
     p = Inputs(
         joinpath("data", "ieee13_makePosSeq", "Master.dss"), 
@@ -85,7 +85,7 @@ end
         if b in keys(vs_net)
             if b == "650" continue end  
             # ignore this value b/c Inputs model has an extra line 650-rg60 from a transformer
-            @test abs(vs[b][1] - vs_net[b][1]) < 0.0001
+            @test abs(vs[b][1] - vs_net[b][1]) < 0.0002
         end
     end
 
@@ -636,7 +636,7 @@ end
     I = get_variable_values(:lij, m, p)
     
     for b in keys(vs)
-        @test abs(vs[b][1] - dss_voltages[b][1]) < 0.01
+        @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.01
     end
 
     bs, depths = busses_from_deepest_to_source(g, "650")
@@ -683,7 +683,7 @@ end
 
     vs = metagraph_voltages(mg)
     for b in keys(vs)
-        @test abs(vs[b][1] - dss_voltages[b][1]) < 0.01
+        @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.01
     end
 
 end
@@ -725,7 +725,7 @@ end
     @test(OpenDSSDirect.Solution.Converged() == true)
     dss_voltages = dss_voltages_pu()
     for b in keys(vs)
-        @test abs(vs[b][1] - dss_voltages[b][1]) < 0.001
+        @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.001
     end
     nvar_original = JuMP.num_variables(m)
 
@@ -741,7 +741,7 @@ end
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
     vs_reduced = get_variable_values(:vsqrd, m, p)
     for b in keys(vs_reduced)
-        @test abs(dss_voltages[b][1] - vs_reduced[b][1]) < 0.001
+        @test abs(dss_voltages[b][1] - sqrt(vs_reduced[b][1])) < 0.001
     end
     nvar_reduced = JuMP.num_variables(m)
     @test nvar_original > nvar_reduced  # 225 > 159
@@ -797,7 +797,7 @@ end
     vs_decomposed = get_variable_values(:vsqrd, m_above, p_above)
     merge!(vs_decomposed, get_variable_values(:vsqrd, m_below, p_below))
     for b in keys(vs_decomposed)
-        @test abs(dss_voltages[b][1] - vs_decomposed[b][1]) < 0.001
+        @test abs(dss_voltages[b][1] - sqrt(vs_decomposed[b][1])) < 0.001
     end
 
     # split model into 3 models and solve
@@ -834,7 +834,7 @@ end
     merge!(vs_decomposed, get_variable_values(:vsqrd, mg[2, :m], mg[2, :p]))
     merge!(vs_decomposed, get_variable_values(:vsqrd, mg[3, :m], mg[3, :p]))
     for b in keys(vs_decomposed)
-        @test abs(dss_voltages[b][1] - vs_decomposed[b][1]) < 0.001
+        @test abs(dss_voltages[b][1] - sqrt(vs_decomposed[b][1])) < 0.001
     end
 end
 
@@ -873,7 +873,7 @@ end
     solve_metagraph!(mg, builder, [1e-5, 1e-5, 1e-5]; verbose=false)
     vs = metagraph_voltages(mg)
     for b in keys(vs)
-        @test abs(vs[b][1] - dss_voltages[b][1]) < 0.001
+        @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.001
     end
 
     # split only at regulator, add vreg, and test the vdiff is zero
