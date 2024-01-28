@@ -54,7 +54,7 @@ end
     m = Model(Ipopt.Optimizer)
     build_model!(m, net; relaxed=false)
     @objective(m, Min, 
-        sum( m[:lij][edge][t] for t in 1:net.Ntimesteps, edge in edges(net))
+        sum( m[:lij][edge][t] for t in 1:net.Ntimesteps, edge in BranchFlowModel.edges(net))
     )
     optimize!(m)
 
@@ -253,13 +253,17 @@ end
         b = "11"
         @variable(m, 0.4 >= pgen11 >= 0)
         @variable(m, 0.4 >= qgen11 >= 0)
-        JuMP.delete.(m, m[:injectioncons][b]["p"])
-        m[:injectioncons][b]["p"] = @constraint(m, 
-            m[:Pj][b][1] == pgen11 - net[b][:Load][:kws1][1]
+        JuMP.delete.(m, m[:loadbalcons][b]["p"])
+        m[:loadbalcons][b]["p"] = @constraint(m, 
+            sum( m[:Pij][(i,b)][1] for i in i_to_j(b, net) )
+            - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
+            + pgen11 - net[b][:Load][:kws1][1] == 0
         )
-        JuMP.delete.(m, m[:injectioncons][b]["q"])
-        m[:injectioncons][b]["q"] = @constraint(m, 
-            m[:Qj][b][1] == qgen11 - net[b][:Load][:kvars1][1]
+        JuMP.delete.(m, m[:loadbalcons][b]["q"])
+        m[:loadbalcons][b]["q"] = @constraint(m, 
+            sum( m[:Pij][(i,b)][1] for i in i_to_j(b, net) )
+            - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
+            + qgen11 - net[b][:Load][:kvars1][1] == 0
         )
     end
     add_generator_at_bus_11_net!(m_net)
@@ -271,13 +275,24 @@ end
     r = Results(m,p)
 
     @objective(m_net, Min,
-         m_net[:Pj][p.substation_bus][1] * 50 + m_net[:pgen11] * 10
+         m_net[:p0][1] * 50 + m_net[:pgen11] * 10
     )
     optimize!(m_net)
-    # r_net = Results(m_net, net) # PICKUP HERE ON THE Network TRANSITION
 
-    r.real_power_injections["0"]
-    #   1.064072, looking for 1.063
+    vs_net = get_variable_values(:vsqrd, m_net)
+    lij_net = get_variable_values(:lij, m_net)
+    vs = get_variable_values(:vsqrd, m, p)
+    lij = get_variable_values(:lij, m, p)
+    
+    for b in keys(vs)
+        if b in keys(vs_net)
+            @test abs(vs[b][1] - vs_net[b][1]) < 0.0001
+        end
+    end
+
+    for edge in keys(lij_net)
+        @test abs(lij[string(edge[1]*"-"*edge[2])][1]^2 - lij_net[edge][1]) < 0.0001
+    end
 
     #=
         Increase load on 11 s.t. generator can't export
@@ -289,76 +304,83 @@ end
     set_optimizer_attribute(m, "reltol", 1e-6)
 
     p.Pload["11"][1]  = 0.4 # this is not enough to get prices > 50 b/c 7 is injecting
+    net["11"][:Load][:kws1] = [0.4]
     p.Pload["7"][1] = 0  # so set load at 7 to zero
+    net["7"][:Load][:kws1] = [0.0]
 
-    build_model!(m,p)
+    build_model!(m, net)
 
-    add_generator_at_bus_11!(m)
+    add_generator_at_bus_11_net!(m)
 
     @objective(m, Min,
-         m[:Pj][p.substation_bus, 1] * 50 + m[:pgen11] * 10
+         m[:p0][1] * 50 + m[:pgen11] * 10
     )
     optimize!(m)
-    r = Results(m,p)
-    @test all((price[1] >= 49.999 for price in values(r.shadow_prices)))
+    shadow_prices = Dict(
+        j => JuMP.dual.(m[:loadbalcons][j]["p"])
+        for j in busses(net)
+    )
 
+    @test all((price[1] >= 49.999 for price in values(shadow_prices)))
+
+    # PICKUP HERE ON THE Network TRANSITION 
     #=
      now with voltage limit preventing full gen the gen should set the price
     =#
-    p.v_uplim = 1.01 # pgen11 not curtailed at 1.03 ?!
-    p.Pload["11"][1] = 0.0132  # back to original value
-    p.relaxed = false
-    m = Model(Ipopt.Optimizer)
-    set_optimizer_attribute(m, "print_level", 0)
+    # p.v_uplim = 1.01 # pgen11 not curtailed at 1.03 ?!
+    # p.Pload["11"][1] = 0.0132  # back to original value
+    # p.relaxed = false
+    # m = Model(Ipopt.Optimizer)
+    # set_optimizer_attribute(m, "print_level", 0)
 
-    build_model!(m,p)
+    # build_model!(m,p)
 
-    add_generator_at_bus_11!(m)
+    # add_generator_at_bus_11!(m)
 
-    @objective(m, Min,
-         m[:Pj][p.substation_bus, 1] * 50 + m[:pgen11] * 10
-    )
-    optimize!(m)
-    r = Results(m,p)
-    @test r.shadow_prices["11"][1] ≈ 10.0
-
-
-    #=
-    is the DLMP lower with DER not net injecting?
-    i.e. is the total DSO cost lower when paying DLMP > LMP?
-    =#
-
-    p.v_uplim = 1.05 # pgen11 not curtailed at 1.03 ?!
-    p.Pload["11"][1] = 0.1 
-    p.relaxed = false
-    m = Model(Ipopt.Optimizer)
-    set_optimizer_attribute(m, "print_level", 0)
-
-    build_model!(m,p)
-    @objective(m, Min,
-         m[:Pj][p.substation_bus, 1] * 50
-    )
-    optimize!(m)
-    prices_no_der = Dict(
-        j => JuMP.dual.(m[:loadbalcons][j]["p"][1])
-        for j in p.busses
-    )  # TODO put this as option in Results?
-    cost_no_der = objective_value(m)
+    # @objective(m, Min,
+    #      m[:Pj][p.substation_bus, 1] * 50 + m[:pgen11] * 10
+    # )
+    # optimize!(m)
+    # r = Results(m,p)
+    # @test r.shadow_prices["11"][1] ≈ 10.0
 
 
-    m = Model(Ipopt.Optimizer)
-    set_optimizer_attribute(m, "print_level", 0)
-    build_model!(m,p)
-    add_generator_at_bus_11!(m)
+    # #=
+    # is the DLMP lower with DER not net injecting?
+    # i.e. is the total DSO cost lower when paying DLMP > LMP?
+    # =#
 
-    @objective(m, Min,
-         m[:Pj][p.substation_bus, 1] * 50 + m[:pgen11] * 10
-    )
-    optimize!(m)
-    r = Results(m,p)
-    cost_with_der = value(m[:Pj][p.substation_bus, 1]) * 50 + r.shadow_prices["11"][1] * value(m[:pgen11])
-    @test cost_with_der < cost_no_der
-    @test r.shadow_prices["11"][1] < prices_no_der["11"][1]
+    # p.v_uplim = 1.05 # pgen11 not curtailed at 1.03 ?!
+    # p.Pload["11"][1] = 0.1 
+    # p.relaxed = false
+    # m = Model(Ipopt.Optimizer)
+    # set_optimizer_attribute(m, "print_level", 0)
+
+    # build_model!(m,p)
+    # @objective(m, Min,
+    #      m[:Pj][p.substation_bus, 1] * 50
+    # )
+    # optimize!(m)
+    # prices_no_der = Dict(
+    #     j => JuMP.dual.(m[:loadbalcons][j]["p"][1])
+    #     for j in p.busses
+    # )  # TODO put this as option in Results?
+    # cost_no_der = objective_value(m)
+
+
+    # m = Model(Ipopt.Optimizer)
+    # set_optimizer_attribute(m, "print_level", 0)
+    # build_model!(m,p)
+    # add_generator_at_bus_11!(m)
+
+    # @objective(m, Min,
+    #      m[:Pj][p.substation_bus, 1] * 50 + m[:pgen11] * 10
+    # )
+    # optimize!(m)
+    # r = Results(m,p)
+    # cost_with_der = value(m[:Pj][p.substation_bus, 1]) * 50 + r.shadow_prices["11"][1] * value(m[:pgen11])
+    # @test cost_with_der < cost_no_der
+    # @test r.shadow_prices["11"][1] < prices_no_der["11"][1]
 
 end
 

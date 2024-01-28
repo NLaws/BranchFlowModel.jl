@@ -17,7 +17,6 @@ function build_model!(m::JuMP.AbstractModel, net::Network{SinglePhase}; relaxed:
     constrain_power_balance(m, net)
     constrain_substation_voltage(m, net)
     constrain_KVL(m, net)
-    constrain_loads(m, net)
     if relaxed
         constrain_cone(m, net)
     else
@@ -71,70 +70,105 @@ end
 """
     function constrain_power_balance(m, net::Network)
 
-Pij in - losses == sum of line flows out + net injection
-NOTE: using sum over Pij for future expansion to mesh grids
+Define the m[:loadbalcons][bus] ∀ bus ∈ busses(net) as a Dict of constraints. The keys are "p" and
+"q" for real and reactive power balance respectively. The values are the JuMP constraints.
+
+    ∑ Pij in - losses + net injection - ∑ Pjk out = 0
+
+The net injection are user defined loads. If one wishes to make the net injection a decision
+variable then delete the constraint and redefine the constraint with your decision variable.
+
+NOTE: using sum over Pij for future expansion to mesh grids and the convention:
 i -> j -> k
 """
 function constrain_power_balance(m, net::Network)
     Pij = m[:Pij]
     Qij = m[:Qij]
     lij = m[:lij]
-    Pj = m[:Pj] = Dict()  # we fill these in with expression indexed on bus and time
-    Qj = m[:Qj] = Dict()
-    # NOTE with Pj and Qj as expressions (instead of variables) the # of variables is reduced by
-    # (Nnodes - 1)*8760 and number of constraints by 6*(Nnodes - 1)*8760 
-    # Later in constrain_loads we set the expressions to zero or to the known load values.
+
+    m[:loadbalcons] = Dict()
+
+    m[:loadbalcons][net.substation_bus] = Dict()
+
+    # NOTE defining flows in as positive and flows out as negative makes the marginal prices positive
     
-    # TODO using expressions for net injections means that we do not have to delete and redifine
-    # constraints? i.e. can just define another expression for Pj when it is a function of a DER ?
     for j in busses(net)
+
+        m[:loadbalcons][j] = Dict()
+
+        # check for shunt admittance TODO account for shunt conductance
         shunt_susceptance = 0.0
         if :ShuntAdmittance in keys(net[j])
             shunt_susceptance = net[j][:ShuntAdmittance][:b]
         end
+
+        # check for loads
+        pj = zeros(net.Ntimesteps)
+        qj = zeros(net.Ntimesteps)
+        if j in real_load_busses(net)
+            pj = -net[j][:Load][:kws1] * 1e3 / net.Sbase
+        end
+        if j in reactive_load_busses(net)
+            qj = -net[j][:Load][:kvars1] * 1e3 / net.Sbase
+        end
+
+        # define the constraints
         # source nodes, injection = flows out
         if isempty(i_to_j(j, net)) && !isempty(j_to_k(j, net))
-            Pj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                sum( Pij[(j,k)][t] for k in j_to_k(j, net) )
-            )
-            Qj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                sum( Qij[(j,k)][t] for k in j_to_k(j, net) )
-            )
+
+            if j == net.substation_bus  # include the slack power variables
+                m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
+                    m[:p0][t] + pj[t] - sum( Pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
+                )
+                m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
+                    m[:q0][t] + qj[t] - sum( Qij[(j,k)][t] for k in j_to_k(j, net) ) == 0 
+                )
+            else  # a source node with known injection
+                m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
+                    pj[t] - sum( Pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
+                )
+                m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
+                    qj[t] - sum( Qij[(j,k)][t] for k in j_to_k(j, net) ) == 0
+                )
+            end
         
-        # unconnected nodes
+        # unconnected nodes (should not exist so we warn)
         elseif isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
-            @warn "Bus $j has no edges, setting Pj and Qj to zero."
-            Pj[j] = zeros(net.Ntimesteps)
-            Qj[j] = zeros(net.Ntimesteps)
+            @warn "Bus $j has no edges, setting loadbalcons to zero."
+            m[:loadbalcons][j]["p"] = zeros(net.Ntimesteps)
+            m[:loadbalcons][j]["q"] = zeros(net.Ntimesteps)
 
         # leaf nodes / sinks, flows in = draw out
         elseif !isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
-            Pj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                -sum( Pij[(i,j)][t] for i in i_to_j(j, net) ) +
-                sum( lij[(i,j)][t] * rij(i,j,net) for i in i_to_j(j, net) ) 
+            m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
+                sum( Pij[(i,j)][t] for i in i_to_j(j, net) )
+                - sum( lij[(i,j)][t] * rij(i,j,net) for i in i_to_j(j, net) ) 
+                + pj[t] == 0
             )
-            Qj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                -sum( Qij[(i,j)][t] for i in i_to_j(j, net) ) +
-                sum( lij[(i,j)][t] * xij(i,j,net) for i in i_to_j(j, net) )
-                + shunt_susceptance * m[:vsqrd][j][t]
+            m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
+                sum( Qij[(i,j)][t] for i in i_to_j(j, net) )
+                - sum( lij[(i,j)][t] * xij(i,j,net) for i in i_to_j(j, net) )
+                - shunt_susceptance * m[:vsqrd][j][t]
+                + qj[t] == 0
             )
         
         # intermediate nodes
         else
-            Pj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                -sum( Pij[(i,j)][t] for i in i_to_j(j, net) )
-                + sum( lij[(i,j)][t] * rij(i,j,net) for i in i_to_j(j, net) ) 
-                + sum( Pij[(j,k)][t] for k in j_to_k(j, net) )
+            m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
+                sum( Pij[(i,j)][t] for i in i_to_j(j, net) )
+                - sum( lij[(i,j)][t] * rij(i,j,net) for i in i_to_j(j, net) ) 
+                - sum( Pij[(j,k)][t] for k in j_to_k(j, net) )
+                + pj[t] == 0
             )
-            Qj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                -sum( Qij[(i,j)][t] for i in i_to_j(j, net) ) 
-                + sum( lij[(i,j)][t] * xij(i,j,net) for i in i_to_j(j, net) )
-                + sum( Qij[(j,k)][t] for k in j_to_k(j, net) ) 
-                + shunt_susceptance * m[:vsqrd][j][t]
+            m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
+                sum( Qij[(i,j)][t] for i in i_to_j(j, net) ) 
+                - sum( lij[(i,j)][t] * xij(i,j,net) for i in i_to_j(j, net) )
+                - sum( Qij[(j,k)][t] for k in j_to_k(j, net) ) 
+                - shunt_susceptance * m[:vsqrd][j][t]
+                + qj[t] == 0
             )
         end
     end
-    # TODO Farivar and Low have b*v and q*v in these equations for shunts? neglected for now
 
     nothing
 end
@@ -218,62 +252,4 @@ function constrain_bilinear(m, net::Network)
             )
         end
     end
-end
-
-
-"""
-    constrain_loads(m, net::Network)
-
-- set expressions Pj/Qj to negative of :Load or zero if no load, effectively making load balance
-  constraints
-- Inputs.substation_bus is unconstrained, slack bus
-
-TODO this method is same as LinDistFlow single phase: should it be moved to CommonOPF?
-"""
-function constrain_loads(m, net::Network)
-    Pj = m[:Pj]
-    Qj = m[:Qj]
-    m[:loadbalcons] = Dict()
-
-    m[:loadbalcons][net.substation_bus] = Dict()
-
-    substation_Pload = zeros(net.Ntimesteps)
-    substation_Qload = zeros(net.Ntimesteps)
-    if net.substation_bus in real_load_busses(net)
-        substation_Pload = net[net.substation_bus][:Load][:kws1] * 1e3 / net.Sbase
-        substation_Qload = net[net.substation_bus][:Load][:kvars1] * 1e3 / net.Sbase
-    end
-
-    m[:loadbalcons][net.substation_bus]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
-        Pj[net.substation_bus][t] == m[:p0][t] - substation_Pload[t]
-    )
-
-    m[:loadbalcons][net.substation_bus]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
-        Qj[net.substation_bus][t] == m[:q0][t] - substation_Qload[t]
-    )
-
-    for j in setdiff(busses(net), [net.substation_bus])
-        m[:loadbalcons][j] = Dict()
-        if j in real_load_busses(net)
-            con = @constraint(m, [t = 1:net.Ntimesteps],
-                Pj[j][t] == -net[j][:Load][:kws1][t] * 1e3 / net.Sbase
-            )
-        else
-            con = @constraint(m, [t = 1:net.Ntimesteps],
-                Pj[j][t] == 0
-            )
-        end
-        m[:loadbalcons][j]["p"] = con
-        if j in reactive_load_busses(net)
-            con = @constraint(m, [t = 1:net.Ntimesteps],
-                Qj[j][t] == -net[j][:Load][:kvars1][t] * 1e3 / net.Sbase
-            )
-        else
-            con = @constraint(m, [t = 1:net.Ntimesteps],
-                Qj[j][t] == 0
-            )
-        end
-        m[:loadbalcons][j]["q"] = con
-    end
-    nothing
 end
