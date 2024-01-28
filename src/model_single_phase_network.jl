@@ -28,7 +28,6 @@ end
 function add_variables(m, net::Network{SinglePhase})
     bs = collect(busses(net))
     es = collect(edges(net))
-    # bus injections are expressions, defined in constrain_power_balance
 
     # TODO warn when applying power injection lower bounds and SDP, radial b/c for radial
     # networks with power injections unbounded below (voltage angle relaxation) the SOCP (more
@@ -40,7 +39,7 @@ function add_variables(m, net::Network{SinglePhase})
         JuMP.set_lower_bound.(m[:vsqrd][bus], (net.v_lolim)^2)
         JuMP.set_upper_bound.(m[:vsqrd][bus], (net.v_uplim)^2)
     end
-    # TODO upper bounds
+    # TODO more bounds
     
     # line flows, net power sent from i to j
     # @variable(m, net.P_lo_bound <= Pij[edges(net), T] <= p.P_up_bound )

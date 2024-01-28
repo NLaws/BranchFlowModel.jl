@@ -52,6 +52,8 @@ end
     net = Network_IEEE13_SinglePhase()
     net.v0 = 1.0435118162902168
     m = Model(Ipopt.Optimizer)
+    set_optimizer_attribute(m, "print_level", 0)
+
     build_model!(m, net; relaxed=false)
     @objective(m, Min, 
         sum( m[:lij][edge][t] for t in 1:net.Ntimesteps, edge in BranchFlowModel.edges(net))
@@ -323,85 +325,12 @@ end
 
     @test all((price[1] >= 49.999 for price in values(shadow_prices)))
 
-    # PICKUP HERE ON THE Network TRANSITION 
     #=
-     now with voltage limit preventing full gen the gen should set the price
+     with voltage limit preventing full gen the gen should set the price
+     TODO translate Papavasiliou power limits to line limits and test
+     NOTE have not got the same results as Papavasiliou yet because the network definition is unclear
     =#
-    # p.v_uplim = 1.01 # pgen11 not curtailed at 1.03 ?!
-    # p.Pload["11"][1] = 0.0132  # back to original value
-    # p.relaxed = false
-    # m = Model(Ipopt.Optimizer)
-    # set_optimizer_attribute(m, "print_level", 0)
 
-    # build_model!(m,p)
-
-    # add_generator_at_bus_11!(m)
-
-    # @objective(m, Min,
-    #      m[:Pj][p.substation_bus, 1] * 50 + m[:pgen11] * 10
-    # )
-    # optimize!(m)
-    # r = Results(m,p)
-    # @test r.shadow_prices["11"][1] ≈ 10.0
-
-
-    # #=
-    # is the DLMP lower with DER not net injecting?
-    # i.e. is the total DSO cost lower when paying DLMP > LMP?
-    # =#
-
-    # p.v_uplim = 1.05 # pgen11 not curtailed at 1.03 ?!
-    # p.Pload["11"][1] = 0.1 
-    # p.relaxed = false
-    # m = Model(Ipopt.Optimizer)
-    # set_optimizer_attribute(m, "print_level", 0)
-
-    # build_model!(m,p)
-    # @objective(m, Min,
-    #      m[:Pj][p.substation_bus, 1] * 50
-    # )
-    # optimize!(m)
-    # prices_no_der = Dict(
-    #     j => JuMP.dual.(m[:loadbalcons][j]["p"][1])
-    #     for j in p.busses
-    # )  # TODO put this as option in Results?
-    # cost_no_der = objective_value(m)
-
-
-    # m = Model(Ipopt.Optimizer)
-    # set_optimizer_attribute(m, "print_level", 0)
-    # build_model!(m,p)
-    # add_generator_at_bus_11!(m)
-
-    # @objective(m, Min,
-    #      m[:Pj][p.substation_bus, 1] * 50 + m[:pgen11] * 10
-    # )
-    # optimize!(m)
-    # r = Results(m,p)
-    # cost_with_der = value(m[:Pj][p.substation_bus, 1]) * 50 + r.shadow_prices["11"][1] * value(m[:pgen11])
-    # @test cost_with_der < cost_no_der
-    # @test r.shadow_prices["11"][1] < prices_no_der["11"][1]
-
-end
-
-
-@testset "Results" begin
-    Sbase = 1e6
-    Vbase = 12.47e3
-    p = Inputs(
-        joinpath("data", "singlephase38lines", "master.dss"), 
-        "0";
-        Sbase=Sbase, 
-        Vbase=Vbase, 
-        v0 = 1.00,
-        v_uplim = 1.05,
-        v_lolim = 0.95,
-        relaxed = false,
-    );
-    m = build_min_loss_model(p)
-    optimize!(m)
-    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
-    r = Results(m, p)
 end
 
 
