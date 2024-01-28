@@ -60,7 +60,6 @@ reg_busses
 turn_ratio
 vreg
 has_vreg
-combine_parallel_lines!
 remove_bus!
 paths_between
 Results(m::JuMP.AbstractModel, p::Inputs{SinglePhase}; digits=8)
