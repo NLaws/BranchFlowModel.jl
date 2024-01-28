@@ -39,6 +39,7 @@ function add_variables(m, net::Network{SinglePhase})
     CommonOPF.add_time_vector_variables!(m, net, :vsqrd, bs)
     for bus in busses(net)
         JuMP.set_lower_bound.(m[:vsqrd][bus], (net.v_lolim)^2)
+        JuMP.set_upper_bound.(m[:vsqrd][bus], (net.v_uplim)^2)
     end
     # TODO upper bounds
     
@@ -50,10 +51,18 @@ function add_variables(m, net::Network{SinglePhase})
 
     # current squared (non-negative)
     CommonOPF.add_time_vector_variables!(m, net, :lij, es)
+    for edge in es
+        JuMP.set_lower_bound.(m[:lij][edge], 0.0)
+    end
 
     # @constraint(m, [edge in net.edge_keys, t in T],
     #     lij[edge, t] <= net.amps_limit[edge]
     # )
+
+    # TODO slack bus variables in CommonOPF
+    # slack bus variables, not really necessary, defined for convenience
+    @variable(m, p0[1:net.Ntimesteps])
+    @variable(m, q0[1:net.Ntimesteps])
 
     nothing
 end
@@ -74,26 +83,22 @@ function constrain_power_balance(m, net::Network)
     Qj = m[:Qj] = Dict()
     # NOTE with Pj and Qj as expressions (instead of variables) the # of variables is reduced by
     # (Nnodes - 1)*8760 and number of constraints by 6*(Nnodes - 1)*8760 
+    # Later in constrain_loads we set the expressions to zero or to the known load values.
     
     # TODO using expressions for net injections means that we do not have to delete and redifine
     # constraints? i.e. can just define another expression for Pj when it is a function of a DER ?
     for j in busses(net)
-
+        shunt_susceptance = 0.0
+        if :ShuntAdmittance in keys(net[j])
+            shunt_susceptance = net[j][:ShuntAdmittance][:b]
+        end
         # source nodes, injection = flows out
         if isempty(i_to_j(j, net)) && !isempty(j_to_k(j, net))
-            substation_Pload = zeros(net.Ntimesteps)
-            if j in real_load_busses(net)
-                substation_Pload = net[j][:Load][:kws1] * 1e3 / net.Sbase
-            end
             Pj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                - substation_Pload[t] - sum( Pij[(j,k)][t] for k in j_to_k(j, net) )
+                sum( Pij[(j,k)][t] for k in j_to_k(j, net) )
             )
-            substation_Qload = zeros(net.Ntimesteps)
-            if j in reactive_load_busses(net)
-                substation_Qload = net[j][:Load][:kvars1] * 1e3 / net.Sbase
-            end
             Qj[j] = @expression(m, [t = 1:net.Ntimesteps],
-                - substation_Qload[t] - sum( Qij[(j,k)][t] for k in j_to_k(j, net) )
+                sum( Qij[(j,k)][t] for k in j_to_k(j, net) )
             )
         
         # unconnected nodes
@@ -111,7 +116,7 @@ function constrain_power_balance(m, net::Network)
             Qj[j] = @expression(m, [t = 1:net.Ntimesteps],
                 -sum( Qij[(i,j)][t] for i in i_to_j(j, net) ) +
                 sum( lij[(i,j)][t] * xij(i,j,net) for i in i_to_j(j, net) )
-                # + p.shunt_susceptance[j] * m[:vsqrd][j,t]
+                + shunt_susceptance * m[:vsqrd][j][t]
             )
         
         # intermediate nodes
@@ -125,7 +130,7 @@ function constrain_power_balance(m, net::Network)
                 -sum( Qij[(i,j)][t] for i in i_to_j(j, net) ) 
                 + sum( lij[(i,j)][t] * xij(i,j,net) for i in i_to_j(j, net) )
                 + sum( Qij[(j,k)][t] for k in j_to_k(j, net) ) 
-                # + p.shunt_susceptance[j] * m[:vsqrd][j,t]
+                + shunt_susceptance * m[:vsqrd][j][t]
             )
         end
     end
@@ -219,8 +224,8 @@ end
 """
     constrain_loads(m, net::Network)
 
-- set net injections Pj/Qj to negative of Inputs.Pload/Qload, which are normalized by Sbase when creating Inputs
-- keys of P/Qload must match Inputs.busses. Any missing keys have load set to zero.
+- set expressions Pj/Qj to negative of :Load or zero if no load, effectively making load balance
+  constraints
 - Inputs.substation_bus is unconstrained, slack bus
 
 TODO this method is same as LinDistFlow single phase: should it be moved to CommonOPF?
@@ -228,9 +233,27 @@ TODO this method is same as LinDistFlow single phase: should it be moved to Comm
 function constrain_loads(m, net::Network)
     Pj = m[:Pj]
     Qj = m[:Qj]
-    m[:injectioncons] = Dict()
+    m[:loadbalcons] = Dict()
+
+    m[:loadbalcons][net.substation_bus] = Dict()
+
+    substation_Pload = zeros(net.Ntimesteps)
+    substation_Qload = zeros(net.Ntimesteps)
+    if net.substation_bus in real_load_busses(net)
+        substation_Pload = net[net.substation_bus][:Load][:kws1] * 1e3 / net.Sbase
+        substation_Qload = net[net.substation_bus][:Load][:kvars1] * 1e3 / net.Sbase
+    end
+
+    m[:loadbalcons][net.substation_bus]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
+        Pj[net.substation_bus][t] == m[:p0][t] - substation_Pload[t]
+    )
+
+    m[:loadbalcons][net.substation_bus]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
+        Qj[net.substation_bus][t] == m[:q0][t] - substation_Qload[t]
+    )
+
     for j in setdiff(busses(net), [net.substation_bus])
-        m[:injectioncons][j] = Dict()
+        m[:loadbalcons][j] = Dict()
         if j in real_load_busses(net)
             con = @constraint(m, [t = 1:net.Ntimesteps],
                 Pj[j][t] == -net[j][:Load][:kws1][t] * 1e3 / net.Sbase
@@ -240,7 +263,7 @@ function constrain_loads(m, net::Network)
                 Pj[j][t] == 0
             )
         end
-        m[:injectioncons][j]["p"] = con
+        m[:loadbalcons][j]["p"] = con
         if j in reactive_load_busses(net)
             con = @constraint(m, [t = 1:net.Ntimesteps],
                 Qj[j][t] == -net[j][:Load][:kvars1][t] * 1e3 / net.Sbase
@@ -250,7 +273,7 @@ function constrain_loads(m, net::Network)
                 Qj[j][t] == 0
             )
         end
-        m[:injectioncons][j]["q"] = con
+        m[:loadbalcons][j]["q"] = con
     end
     nothing
 end
