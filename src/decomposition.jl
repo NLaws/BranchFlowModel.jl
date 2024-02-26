@@ -345,8 +345,8 @@ end
 Determine the busses to split a tree graph on by searching upward from the deepest leafs first
 and gathering the nearest busses until threshold is met for each subgraph.
 
-Returns a `Vector{String}` for the bus names and `Vector{Vector{String}}` for the corresponding
-busses within each sub-graph.
+Returns a `Vector{String}` for the bus names to split on and `Vector{Vector{String}}` for the 
+corresponding busses within each sub-graph.
 
 !!! note
     It is not enough to have only the splitting busses to obey the `max_busses` limit because
