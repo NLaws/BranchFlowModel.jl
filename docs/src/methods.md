@@ -44,10 +44,6 @@ init_inputs!
 set_inputs!
 split_at_busses
 get_diffs
-all_outneighbors
-all_inneighbors
-busses_from_deepest_to_source
-vertices_from_deepest_to_source
 splitting_busses
 connect_subgraphs_at_busses
 split_inputs

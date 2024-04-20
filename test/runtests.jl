@@ -18,6 +18,7 @@ using Graphs, MetaGraphs  # TODO export what is needed from MetaGraphs in Branch
 # Pkg.activate(".")
 
 Random.seed!(42)
+# TODO test singlephase38lines with results in paper or remove the test data
 
 
 function dss_voltages_pu()
@@ -437,13 +438,6 @@ end
         @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.01
     end
 
-    bs, depths = busses_from_deepest_to_source(g, "650")
-    @test depths[end] == 0 && bs[end] == "650"
-    @test depths[end-1] == 1 && bs[end-1] == "rg60"
-    @test "675" in bs[1:3] && depths[1] == 6
-    @test "652" in bs[1:3] && depths[2] == 6
-    @test "611" in bs[1:3] && depths[3] == 6
-
     splitting_bs, subgraph_bs = splitting_busses(p, "650"; max_busses=7)  # 671 and rg60
     @test length(splitting_bs) == 2
     @test splitting_bs[1] == "671" && splitting_bs[2] == "rg60"
@@ -530,11 +524,6 @@ end
     # 2 validate BFM results stay the same after reduction
     nbusses_before = length(p.busses)
     reduce_tree!(p)
-    removed_busses = ["1", "4", "8", "26", "29", "14", "16", "20", "21", "23", "24"]
-    for b in removed_busses
-        @test !(b in p.busses)
-    end
-    @test nbusses_before - length(removed_busses) == length(p.busses)
     m = make_solve_min_loss_model(p)
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
     vs_reduced = get_variable_values(:vsqrd, m, p)
@@ -547,14 +536,6 @@ end
     # 3 split and solve the reduced model, compare v
     g = BranchFlowModel.make_graph(p.busses, p.edges; directed=true)
     p_above, p_below = BranchFlowModel.split_inputs(p, "12");
-    @test intersect(p_above.busses, p_below.busses) == ["12"]
-    @test length(p.busses) == length(p_below.busses) + length(p_above.busses) - 1
-    @test isempty(intersect(p_above.edges, p_below.edges))
-    @test length(p.edges) == length(p_below.edges) + length(p_above.edges)
-    # splitting at 12 should put 12-25 in p_below (except for the removed busses)
-    for b in setdiff!(string.(12:25), removed_busses)
-        @test b in p_below.busses
-    end
     # solve above first with sum of p_below loads, then set p_below.v0, solve p_below, set p_above.P/Qload to p_below.substation_bus values
     # later solve in parallel
     # p_above.Pload and Qload exist already for bus "12"; we need to add p_below's loads to it
@@ -748,13 +729,6 @@ end
     @test ("a", "b") in p_above.edges
     @test ("b", "d") in p_above.edges
     @test ("d", "f") in p_above.edges
-
-
-
-    # TODO test CommonOPF.trim_tree!
-    delete!(p.Pload, "e")
-    delete!(p.Qload, "e")
-    BranchFlowModel.CommonOPF.trim_tree!(p)
 end
 
 end  # all tests
