@@ -4,7 +4,7 @@ using CommonOPF
 import CommonOPF: rij, xij  # extending to MultiPhase, need to consolidate into CommonOPF
 using JuMP
 using LinearAlgebra
-using Graphs, MetaGraphs
+import Graphs, MetaGraphsNext
 using JSON
 import SparseArrays: sparse
 
@@ -33,7 +33,6 @@ export
     constrain_KVL,
     constrain_loads,
     constrain_bounds,
-    check_rank_one,
     get_variable_values,
     get_edge_values, 
     get_ijlinecode,
@@ -41,8 +40,6 @@ export
     get_ij_idx,
     # recover_voltage_current,  # TODO validate this method
     zij,
-    check_soc_inequalities,
-    get_load_bal_shadow_prices,
     voltage_values_by_time_bus,
     current_values_by_time_edge,
     line_flow_values_by_time_edge,
@@ -50,15 +47,10 @@ export
     make_graph,
     init_inputs!,
     set_inputs!,
-    split_at_busses,
     get_diffs,
-    splitting_busses,
-    connect_subgraphs_at_busses,
     split_inputs,
-    build_metagraph,
     solve_metagraph!,
     metagraph_voltages,
-    check_unique_solution_conditions,
     check_statuses,
     reg_busses,
     turn_ratio,
@@ -70,11 +62,8 @@ export
 
 include("inputs.jl")
 include("utils.jl")
-include("results.jl")
 include("checks.jl")
-include("model_single_phase.jl")
 include("model_single_phase_network.jl")
-include("model_multi_phase.jl")
 include("decomposition.jl")
 
 end

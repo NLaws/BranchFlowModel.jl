@@ -9,7 +9,7 @@ Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-MetaGraphs = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
+MetaGraphsNext = "fa8bd995-216d-47f1-8a91-f3b68fbeb377"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
@@ -17,7 +17,6 @@ CommonOPF = "0.4"
 Graphs = "1.8"
 JSON = "0.21"
 JuMP = "1"
-MetaGraphs = "0.7"
 julia = "1.7"
 
 [extras]

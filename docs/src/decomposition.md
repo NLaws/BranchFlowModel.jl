@@ -5,12 +5,8 @@ equations and are only valid(?) in radial networks.
 ```@docs
 init_inputs!
 set_inputs!
-split_at_busses
 get_diffs
-splitting_busses
-connect_subgraphs_at_busses
 split_inputs
-build_metagraph
 ```
 
 ### [2]

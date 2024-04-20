@@ -1,5 +1,5 @@
 """
-    build_model!(m::JuMP.AbstractModel, p::Inputs{MultiPhase})
+    build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase})
 
 Add variables and constraints to `m` using the values in `p`. Calls the following functions:
 ```julia
@@ -10,7 +10,7 @@ constrain_KVL(m, p)
 constrain_loads(m, p)
 ```
 """
-function build_model!(m::JuMP.AbstractModel, p::Inputs{MultiPhase})
+function build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase})
     add_variables(m, p)  # PSD done in add_variables
     constrain_power_balance(m, p)
     constrain_KVL(m, p)
@@ -24,7 +24,7 @@ zero(::Type{Union{Float64, GenericAffExpr}}) = 0.0
 
 
 """
-    add_variables(m, p::Inputs{MultiPhase})
+    add_variables(m, net::Network{MultiPhase})
 
 Create complex variables:
 - `m[:w]` are 3x3 Hermitian matrices of voltage squared (V*V^T)
@@ -38,7 +38,7 @@ The positive semi-definite constraints are also defined and stored as
 All of the variable containers have typeof `Dict{Int, Dict{String, AbstractVecOrMat}}``.
 - The first index is time step (integer)
 - The second index is bus or line (string)
-- and finally a matrix of complex variables
+- and finally a matrix or vector of complex variables
 
 
 Some examples of using variables:
@@ -59,7 +59,7 @@ end
 fix(variable_by_name(m, "real(Sj_1_645_3)"), 0.0, force=true)
 ```
 """
-function add_variables(m, p::Inputs{MultiPhase})
+function add_variables(m, net::Network{MultiPhase})
     # type for inner dicts of variable containers, which are dicts with time and bus keys
     S = Dict{String, AbstractVecOrMat}
     # voltage squared is Hermitian
@@ -73,21 +73,21 @@ function add_variables(m, p::Inputs{MultiPhase})
     # Hermitian PSD matrices
     m[:H] = Dict{Int64, S}()
 
-    # fix head voltage at p.v0; if real values provided we assume 120deg phase shift
-    if typeof(p.v0) <: Real
-        v0 = [p.v0 + 0im; -0.5*p.v0 + im*sqrt(3)/2*p.v0; -0.5*p.v0 - im*sqrt(3)/2*p.v0]
+    # fix head voltage at net.v0; if real values provided we assume 120deg phase shift
+    if typeof(net.v0) <: Real
+        v0 = [net.v0 + 0im; -0.5*net.v0 + im*sqrt(3)/2*net.v0; -0.5*net.v0 - im*sqrt(3)/2*net.v0]
         v0 =  v0*cj(v0)
-    elseif typeof(p.v0) <: AbstractVector{<:Real}
+    elseif typeof(net.v0) <: AbstractVector{<:Real}
         v0 = [
-            p.v0[1] + 0im; 
-            -0.5*p.v0[2] + im*sqrt(3)/2*p.v0[2]; 
-            -0.5*p.v0[3] - im*sqrt(3)/2*p.v0[3]
+            net.v0[1] + 0im; 
+            -0.5*net.v0[2] + im*sqrt(3)/2*net.v0[2]; 
+            -0.5*net.v0[3] - im*sqrt(3)/2*net.v0[3]
         ]
         v0 = v0*cj(v0)
-    elseif typeof(p.v0) <: AbstractVector{<:Complex}
-        v0 = p.v0*cj(p.v0)
+    elseif typeof(net.v0) <: AbstractVector{<:Complex}
+        v0 = net.v0*cj(net.v0)
     else  # matrix provided
-        v0 = p.v0
+        v0 = net.v0
     end
 
     for t in 1:p.Ntimesteps
@@ -98,14 +98,14 @@ function add_variables(m, p::Inputs{MultiPhase})
         # slack bus power injection
         m[:Sj][t] = Dict(p.substation_bus =>  @variable(m, [1:3] in ComplexPlane(), 
             base_name="Sj_" * string(t) *"_"* p.substation_bus,
-            lower_bound = p.P_lo_bound + p.Q_lo_bound*im, 
-            upper_bound = p.P_up_bound + p.Q_up_bound*im
+            # lower_bound = p.P_lo_bound + p.Q_lo_bound*im, 
+            # upper_bound = p.P_up_bound + p.Q_up_bound*im
         ))
         m[:H][t] = Dict()
 
         # inner method to loop over
-        function define_vars_downstream(i::String, t::Int, m::JuMP.AbstractModel, p::Inputs)
-            for j in j_to_k(i, p)  # i -> j -> k
+        function define_vars_downstream(i::String, t::Int, m::JuMP.AbstractModel, net::Network)
+            for j in j_to_k(i, net)  # i -> j -> k
                 i_j = string(i * "-" * j)  # for radial network there is only one i in i_to_j
 
                 # initialize line flows and injections as zeros that will remain for undefined phases
@@ -114,8 +114,8 @@ function add_variables(m, p::Inputs{MultiPhase})
                 for phs1 in p.phases_into_bus[j], phs2 in p.phases_into_bus[j]
                     m[:Sij][t][i_j][phs1, phs2] = @variable(m, 
                         set = ComplexPlane(), base_name="Sij_" * string(t) *"_"* i_j *"_"*  string(phs1) * string(phs2), 
-                        lower_bound = p.P_lo_bound + p.Q_lo_bound*im,
-                        upper_bound = p.P_up_bound + p.Q_up_bound*im,
+                        # lower_bound = p.P_lo_bound + p.Q_lo_bound*im,
+                        # upper_bound = p.P_up_bound + p.Q_up_bound*im,
                     )
                 end
 
@@ -208,8 +208,8 @@ function add_variables(m, p::Inputs{MultiPhase})
         i = p.substation_bus
         define_vars_downstream(i, t, m, p)
 
-        function recursive_variables(i::String, t::Int, m::JuMP.AbstractModel, p::Inputs)
-            for j in j_to_k(i, p)
+        function recursive_variables(i::String, t::Int, m::JuMP.AbstractModel, net::Network)
+            for j in j_to_k(i, net)
                 define_vars_downstream(j, t, m, p)
                 recursive_variables(j, t, m, p)
             end
@@ -222,7 +222,7 @@ end
 
 
 """
-    function constrain_power_balance(m, p::Inputs{MultiPhase})
+    function constrain_power_balance(m, net::Network{MultiPhase})
 
 Sij in - losses == sum of line flows out + net injection
 NOTE: using sum over Pij for future expansion to mesh grids
@@ -232,7 +232,7 @@ All of the power balance constraints are stored in `m[:loadbalcons]` with the bu
 as the first index. For example `m[:loadbalcons]["busname"]` will give the constrain container
 from JuMP for all time steps.
 """
-function constrain_power_balance(m, p::Inputs{MultiPhase})
+function constrain_power_balance(m, net::Network{MultiPhase})
     Sj = m[:Sj]
     Sij = m[:Sij]
     lij = m[:l]
@@ -289,11 +289,11 @@ end
 
 
 """
-    constrain_KVL(m, p::Inputs{MultiPhase})
+    constrain_KVL(m, net::Network{MultiPhase})
 
 Add the voltage drop definintions between busses.
 """
-function constrain_KVL(m, p::Inputs{MultiPhase})
+function constrain_KVL(m, net::Network{MultiPhase})
     w = m[:w]
     Sij = m[:Sij]
     lij = m[:l]
@@ -319,7 +319,7 @@ end
 
 
 """
-    constrain_loads(m, p::Inputs{MultiPhase})
+    constrain_loads(m, net::Network{MultiPhase})
 
 - set loads to negative of Inputs.Pload and Inputs.Qload, 
     which are normalized by Sbase when creating Inputs.
@@ -333,7 +333,7 @@ m[:injectioncons]["busname"][t,phs]
 ```
 where `t` is the integer time step and `phs` is the integer phase.
 """
-function constrain_loads(m, p::Inputs{BranchFlowModel.MultiPhase})
+function constrain_loads(m, net::Network{BranchFlowModel.MultiPhase})
     Sj = m[:Sj]
     m[:injectioncons] = Dict()
     for j in setdiff(p.busses, [p.substation_bus])

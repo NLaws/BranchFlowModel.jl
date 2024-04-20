@@ -98,17 +98,17 @@ function constrain_power_balance(m, net::Network)
         # check for shunt admittance TODO account for shunt conductance
         shunt_susceptance = 0.0
         if :ShuntAdmittance in keys(net[j])
-            shunt_susceptance = net[j][:ShuntAdmittance][:b]
+            shunt_susceptance = net[j][:ShuntAdmittance].b
         end
 
         # check for loads
         pj = zeros(net.Ntimesteps)
         qj = zeros(net.Ntimesteps)
         if j in real_load_busses(net)
-            pj = -net[j][:Load][:kws1] * 1e3 / net.Sbase
+            pj = -net[j][:Load].kws1 * 1e3 / net.Sbase
         end
         if j in reactive_load_busses(net)
-            qj = -net[j][:Load][:kvars1] * 1e3 / net.Sbase
+            qj = -net[j][:Load].kvars1 * 1e3 / net.Sbase
         end
 
         # define the constraints
@@ -195,7 +195,7 @@ function constrain_KVL(m, net::Network)
     m[:vcons] = Dict()
     for j in busses(net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
-            # if !( (i,j) in keys(p.regulators) )
+            if !( isa(net[(i,j)], CommonOPF.VoltageRegulator) )
                 rᵢⱼ = rij(i,j,net)
                 xᵢⱼ = xij(i,j,net)
                 m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
@@ -203,17 +203,18 @@ function constrain_KVL(m, net::Network)
                         - 2*(rᵢⱼ * P[(i,j)][t] + xᵢⱼ * Q[(i,j)][t])
                         + (rᵢⱼ^2 + xᵢⱼ^2) * l[(i,j)][t]
                 )
-            # else
-            #     if has_vreg(p, j)
-            #         m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
-            #             w[j,t] == p.regulators[(i,j)][:vreg]^2
-            #         )
-            #     else  # default turn_ratio is 1.0
-            #         m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
-            #             w[j,t] == w[i,t] * p.regulators[(i,j)][:turn_ratio]^2 
-            #         )
-            #     end
-            # end
+            else
+                reg = net[(i,j)]
+                if !ismissing(reg.vreg_pu)
+                    m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
+                        w[j,t] == reg.vreg_pu^2
+                    )
+                else  # use turn ratio
+                    m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
+                        w[j,t] == w[i,t] * reg.turn_ratio^2 
+                    )
+                end
+            end
         end
     end
     nothing
