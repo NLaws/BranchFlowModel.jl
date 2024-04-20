@@ -31,7 +31,6 @@ rij
 xij
 zij
 check_soc_inequalities
-check_connected_graph
 get_load_bal_shadow_prices
 voltage_values_by_time_bus
 current_values_by_time_edge

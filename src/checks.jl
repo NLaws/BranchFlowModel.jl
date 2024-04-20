@@ -41,23 +41,6 @@ end
 
 
 """
-    check_connected_graph(p::Inputs{SinglePhase})
-
-return true if only one connected graph; false otherwise
-
-this is a good check to do before attempting to solve a model because
-if there is more than one sub-graph then it is likely the model will be infeasible
-"""
-function check_connected_graph(p::Inputs{SinglePhase})
-    g = make_graph(p.busses, p.edges; directed=true)
-    if length(connected_components(g)) == 1
-        return true
-    end
-    return false
-end
-
-
-"""
     check_any_results_at_bounds(r::Results, p::Inputs{SinglePhase})
 
 warn if any results are at their bounds

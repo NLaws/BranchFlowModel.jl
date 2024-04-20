@@ -420,7 +420,6 @@ end
         Ntimesteps = 1,
         relaxed = false  # NLP
     );
-    @test check_connected_graph(p) == true
     g = make_graph(p.busses, p.edges; directed=true)
     @test g.graph.ne == Graphs.nv(g) - 1  # a radial network has n_edges = n_vertices - 1
     @test_warn "The per unit impedance values should be much less than one" check_unique_solution_conditions(p)
