@@ -3,12 +3,13 @@ using Test
 using Random
 using ECOS
 using JuMP
-using OpenDSSDirect
+import OpenDSSDirect as OpenDSS
 using SCS
 using LinearAlgebra
 using COSMO
 using CSDP
 using Ipopt
+import Graphs
 
 # # hack for local testing
 # using Pkg
@@ -22,19 +23,21 @@ Random.seed!(42)
 
 function dss_voltages_pu()
     d = Dict()
-    for b in OpenDSSDirect.Circuit.AllBusNames() 
-        OpenDSSDirect.Circuit.SetActiveBus(b)
-        d[b] = OpenDSSDirect.Bus.puVmagAngle()[1:2:end]
+    for b in OpenDSS.Circuit.AllBusNames() 
+        OpenDSS.Circuit.SetActiveBus(b)
+        d[b] = OpenDSS.Bus.puVmagAngle()[1:2:end]
     end
     return d
 end
 
 
-function build_min_loss_model(p)
+function build_min_loss_model(net)
     m = Model(Ipopt.Optimizer)
-    build_model!(m,p)
+    BranchFlowModel.build_model!(m, net; relaxed=false)
     @objective(m, Min, 
-        sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
+        sum( 
+            m[:lij][i_j][t] for t in 1:net.Ntimesteps, i_j in BranchFlowModel.CommonOPF.edges(net)
+        )
     )
     set_optimizer_attribute(m, "print_level", 0)
     return m
@@ -134,80 +137,23 @@ end
 end
 
 
-# @testset "ieee13 unbalanced MultiPhase" begin
-
-#     # make the dss solution to compare
-#     dss("Redirect data/ieee13/IEEE13Nodeckt.dss")
-#     @test(OpenDSSDirect.Solution.Converged() == true)
-
-#     dss_voltages = dss_voltages_pu()
-
-#     vbase = 4160/sqrt(3)
-#     p = Inputs(
-#         joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), 
-#         "rg60";
-#         Sbase=1_000_000, 
-#         Vbase=vbase, 
-#         v0 = dss_voltages["rg60"],  # openDSS rg60 values
-#         v_uplim = 1.06,
-#         v_lolim = 0.94,
-#         Ntimesteps = 1
-#     );
-#     # p.Isquared_up_bounds = Dict(
-#     #     lc => 100 for lc in Set(p.linecodes)
-#     # )
-#     p.P_lo_bound = -10
-#     p.Q_lo_bound = -10
-#     p.P_up_bound = 10
-#     p.Q_up_bound = 10
-
-#     m = Model(CSDP.Optimizer)
-#     set_attribute(m, "printlevel", 0)
-
-#     # m = Model(COSMO.Optimizer)
-
-#     # m = Model(SCS.Optimizer)
-
-#     build_model!(m,p)
-
-#     @objective(m, Min, 
-#         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
-#     )
-
-#     optimize!(m)
-    
-#     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
-
-#     @test_nowarn(check_rank_one(m,p))
-
-#     vs = Dict(k => real.(diag(v)) for (k,v) in voltage_values_by_time_bus(m,p)[1])
-
-#     # I = get_variable_values(:l, m, p)  # TODO method for multiphase results
-
-#     # for b in keys(vs)
-#     #     for (i,phsv) in enumerate(filter(v -> v != 0, vs[b]))
-#     #         # @assert abs(phsv - dss_voltages[b][i]) < 1e-2 "bus $b phase $i failed"
-#     #         println("$b - $i  $(phsv - dss_voltages[b][i])")
-#     #     end
-#     # end
-    
-
-#     # TODO why are BFM voltages not matching openDSS well?
-
-# end
-
-
 # @testset "ieee13 balanced SinglePhase" begin
 
-#     # make the dss solution to compare
-#     dss("clear")
-#     dss("Redirect data/ieee13_makePosSeq/Master.dss")
-#     dss("Solve")
-#     @test(OpenDSSDirect.Solution.Converged() == true)
+    # make the dss solution to compare
+    dssfilepath = "data/ieee13_makePosSeq/Master.dss"
+    work_dir = pwd()
+    OpenDSS.dss("""
+        clear
+        compile $dssfilepath
+        solve
+    """)
+    cd(work_dir)
+    @test(OpenDSS.Solution.Converged() == true)
 
-#     dss_voltages = dss_voltages_pu()
+    dss_voltages = dss_voltages_pu()
 
-#     vbase = 4160/sqrt(3)
+    vbase = 4160/sqrt(3)
+    net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
 #     p = Inputs(
 #         joinpath("data", "ieee13_makePosSeq", "Master.dss"), 
 #         "650";
@@ -220,11 +166,13 @@ end
 #         relaxed = false  # NLP
 #     );
 #     g = make_graph(p.busses, p.edges; directed=true)
-#     @test g.graph.ne == Graphs.nv(g) - 1  # a radial network has n_edges = n_vertices - 1
-#     @test_warn "The per unit impedance values should be much less than one" check_unique_solution_conditions(p)
-#     p.regulators[("650", "rg60")][:turn_ratio] = dss_voltages["rg60"][1]
+    
+    # a radial network has n_edges = n_vertices - 1
+    @test net.graph.graph.ne == Graphs.nv(net.graph) - 1  
 
-#     m = build_min_loss_model(p)
+    net[("650", "rg60")].turn_ratio = dss_voltages["rg60"][1]
+
+    m = build_min_loss_model(net)
 #     optimize!(m)
     
 #     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
@@ -286,6 +234,69 @@ end
 # end
 
 
+# @testset "ieee13 unbalanced MultiPhase" begin
+
+#     # make the dss solution to compare
+#     OpenDSS.Text.Command("Redirect data/ieee13/IEEE13Nodeckt.dss")
+#     @test(OpenDSS.Solution.Converged() == true)
+
+#     dss_voltages = dss_voltages_pu()
+
+#     vbase = 4160/sqrt(3)
+#     p = Inputs(
+#         joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), 
+#         "rg60";
+#         Sbase=1_000_000, 
+#         Vbase=vbase, 
+#         v0 = dss_voltages["rg60"],  # openDSS rg60 values
+#         v_uplim = 1.06,
+#         v_lolim = 0.94,
+#         Ntimesteps = 1
+#     );
+#     # p.Isquared_up_bounds = Dict(
+#     #     lc => 100 for lc in Set(p.linecodes)
+#     # )
+#     p.P_lo_bound = -10
+#     p.Q_lo_bound = -10
+#     p.P_up_bound = 10
+#     p.Q_up_bound = 10
+
+#     m = Model(CSDP.Optimizer)
+#     set_attribute(m, "printlevel", 0)
+
+#     # m = Model(COSMO.Optimizer)
+
+#     # m = Model(SCS.Optimizer)
+
+#     build_model!(m,p)
+
+#     @objective(m, Min, 
+#         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
+#     )
+
+#     optimize!(m)
+    
+#     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
+
+#     @test_nowarn(check_rank_one(m,p))
+
+#     vs = Dict(k => real.(diag(v)) for (k,v) in voltage_values_by_time_bus(m,p)[1])
+
+#     # I = get_variable_values(:l, m, p)  # TODO method for multiphase results
+
+#     # for b in keys(vs)
+#     #     for (i,phsv) in enumerate(filter(v -> v != 0, vs[b]))
+#     #         # @assert abs(phsv - dss_voltages[b][i]) < 1e-2 "bus $b phase $i failed"
+#     #         println("$b - $i  $(phsv - dss_voltages[b][i])")
+#     #     end
+#     # end
+    
+
+#     # TODO why are BFM voltages not matching openDSS well?
+
+# end
+
+
 # @testset "SinglePhase network reduction" begin
 
 #     function make_solve_min_loss_model(p)
@@ -320,7 +331,7 @@ end
     # dss("clear")
     # dss("Redirect data/singlephase38lines/master.dss")
     # dss("Solve")
-    # @test(OpenDSSDirect.Solution.Converged() == true)
+    # @test(OpenDSS.Solution.Converged() == true)
     # dss_voltages = dss_voltages_pu()
     # for b in keys(vs)
     #     @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.001
@@ -427,7 +438,7 @@ end
 # @testset "Single phase regulators at network splits" begin
 #     Sbase = 1e6
 #     Vbase = 12.47e3
-#     # use OpenDSSDirect to replace a line 20-21 with a transformer/regulator and test solution convergence
+#     # use OpenDSS to replace a line 20-21 with a transformer/regulator and test solution convergence
 #     p = Inputs(
 #         joinpath("data", "singlephase38lines", "master_extra_trfx.dss"), 
 #         "0";
@@ -444,7 +455,7 @@ end
 #     dss("clear")
 #     dss("Redirect data/singlephase38lines/master_extra_trfx.dss")
 #     dss("Solve")
-#     @test(OpenDSSDirect.Solution.Converged() == true)
+#     @test(OpenDSS.Solution.Converged() == true)
 #     dss_voltages = dss_voltages_pu()
 
 #     p.regulators[("20","21")][:turn_ratio] = dss_voltages["21"][1] / dss_voltages["20"][1]

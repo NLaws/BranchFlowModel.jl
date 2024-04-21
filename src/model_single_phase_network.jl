@@ -7,8 +7,11 @@ add_variables(m, net)
 constrain_power_balance(m, net)
 constrain_substation_voltage(m, net)
 constrain_KVL(m, net)
-constrain_cone(m, net)
-constrain_loads(m, net)
+if relaxed
+    constrain_cone(m, net)
+else
+    constrain_bilinear(m, net)
+end
 ```
 """
 function build_model!(m::JuMP.AbstractModel, net::Network{SinglePhase}; relaxed::Bool=true)
@@ -207,11 +210,11 @@ function constrain_KVL(m, net::Network)
                 reg = net[(i,j)]
                 if !ismissing(reg.vreg_pu)
                     m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
-                        w[j,t] == reg.vreg_pu^2
+                        w[j][t] == reg.vreg_pu^2
                     )
                 else  # use turn ratio
                     m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
-                        w[j,t] == w[i,t] * reg.turn_ratio^2 
+                        w[j][t] == w[i][t] * reg.turn_ratio^2 
                     )
                 end
             end
@@ -230,7 +233,7 @@ function constrain_cone(m, net::Network)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
             # # equivalent but maybe not handled as well in JuMP ?
             # @constraint(m, [t = 1:net.Ntimesteps],
-            #     w[i,t] * l[(i,j), t] ≥ P[(i,j),t]^2 + Q[(i,j),t]^2
+            #     w[i][t] * l[(i,j)][t] ≥ P[(i,j)][t]^2 + Q[(i,j)][t]^2
             # )
             @constraint(m, [t = 1:net.Ntimesteps], 
                 [w[i][t]/2, l[(i,j)][t], P[(i,j)][t], Q[(i,j)][t]] in JuMP.RotatedSecondOrderCone()
