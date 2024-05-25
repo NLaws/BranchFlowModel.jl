@@ -137,7 +137,7 @@ end
 end
 
 
-# @testset "ieee13 balanced SinglePhase" begin
+@testset "ieee13 balanced SinglePhase" begin
 
     # make the dss solution to compare
     dssfilepath = "data/ieee13_makePosSeq/Master.dss"
@@ -152,8 +152,12 @@ end
 
     dss_voltages = dss_voltages_pu()
 
-    vbase = 4160/sqrt(3)
     net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
+    net.Vbase = 2400
+    net.Sbase = 1_000_000
+    net.Zbase = net.Vbase^2/net.Sbase
+    net.v_lolim = 0.95
+    net.v_uplim = 1.05
 #     p = Inputs(
 #         joinpath("data", "ieee13_makePosSeq", "Master.dss"), 
 #         "650";
@@ -170,19 +174,24 @@ end
     # a radial network has n_edges = n_vertices - 1
     @test net.graph.graph.ne == Graphs.nv(net.graph) - 1  
 
-    net[("650", "rg60")].turn_ratio = dss_voltages["rg60"][1]
+    net[("650", "rg60")].vreg_pu = dss_voltages["rg60"][1]
 
     m = build_min_loss_model(net)
-#     optimize!(m)
+    optimize!(m)
     
-#     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
 
-#     vs = get_variable_values(:vsqrd, m, p)
+    vsqrd = get_variable_values(:vsqrd, m)
+    vs = Dict(k => sqrt.(v) for (k,v) in vsqrd)
+
 #     I = get_variable_values(:lij, m, p)
-    
-#     for b in keys(vs)
-#         @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.01
-#     end
+    for b in keys(vs)
+        try
+            @test abs(vs[b][1] - dss_voltages[b][1]) < 0.005
+        catch
+            println("bus $b failed with difference $(vs[b][1] - dss_voltages[b][1])")
+        end
+    end
 
 #     splitting_bs, subgraph_bs = splitting_busses(p, "650"; max_busses=7)  # 671 and rg60
 #     @test length(splitting_bs) == 2
@@ -231,7 +240,7 @@ end
 #         @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.01
 #     end
 
-# end
+end
 
 
 # @testset "ieee13 unbalanced MultiPhase" begin

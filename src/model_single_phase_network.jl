@@ -98,10 +98,16 @@ function constrain_power_balance(m, net::Network)
 
         m[:loadbalcons][j] = Dict()
 
-        # check for shunt admittance TODO account for shunt conductance
+        # check for shunt admittance
         shunt_susceptance = 0.0
         if :ShuntAdmittance in keys(net[j])
             shunt_susceptance = net[j][:ShuntAdmittance].b
+        end
+
+        # check for capacitors (only fixed for now)
+        var = 0.0
+        if :Capacitor in keys(net[j])
+            var = net[j][:Capacitor].var
         end
 
         # check for loads
@@ -144,30 +150,30 @@ function constrain_power_balance(m, net::Network)
         elseif !isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
             m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
                 sum( Pij[(i,j)][t] for i in i_to_j(j, net) )
-                - sum( lij[(i,j)][t] * rij(i,j,net) for i in i_to_j(j, net) ) 
+                - sum( lij[(i,j)][t] * rij_per_unit(i,j,net) for i in i_to_j(j, net) ) 
                 + pj[t] == 0
             )
             m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
                 sum( Qij[(i,j)][t] for i in i_to_j(j, net) )
-                - sum( lij[(i,j)][t] * xij(i,j,net) for i in i_to_j(j, net) )
+                - sum( lij[(i,j)][t] * xij_per_unit(i,j,net) for i in i_to_j(j, net) )
                 - shunt_susceptance * m[:vsqrd][j][t]
-                + qj[t] == 0
+                + qj[t] + var == 0
             )
         
         # intermediate nodes
         else
             m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
                 sum( Pij[(i,j)][t] for i in i_to_j(j, net) )
-                - sum( lij[(i,j)][t] * rij(i,j,net) for i in i_to_j(j, net) ) 
+                - sum( lij[(i,j)][t] * rij_per_unit(i,j,net) for i in i_to_j(j, net) ) 
                 - sum( Pij[(j,k)][t] for k in j_to_k(j, net) )
                 + pj[t] == 0
             )
             m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
                 sum( Qij[(i,j)][t] for i in i_to_j(j, net) ) 
-                - sum( lij[(i,j)][t] * xij(i,j,net) for i in i_to_j(j, net) )
+                - sum( lij[(i,j)][t] * xij_per_unit(i,j,net) for i in i_to_j(j, net) )
                 - sum( Qij[(j,k)][t] for k in j_to_k(j, net) ) 
                 - shunt_susceptance * m[:vsqrd][j][t]
-                + qj[t] == 0
+                + qj[t] + var == 0
             )
         end
     end
@@ -199,8 +205,8 @@ function constrain_KVL(m, net::Network)
     for j in busses(net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
             if !( isa(net[(i,j)], CommonOPF.VoltageRegulator) )
-                rᵢⱼ = rij(i,j,net)
-                xᵢⱼ = xij(i,j,net)
+                rᵢⱼ = rij_per_unit(i,j,net)
+                xᵢⱼ = xij_per_unit(i,j,net)
                 m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
                     w[j][t] == w[i][t]
                         - 2*(rᵢⱼ * P[(i,j)][t] + xᵢⱼ * Q[(i,j)][t])

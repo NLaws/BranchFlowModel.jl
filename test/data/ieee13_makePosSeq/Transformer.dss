@@ -1,12 +1,13 @@
-New Transformer.sub windings=2 XHL=0.008 buses=[sourcebus, 650] conns=[wye, wye] kVs=[66.39528, 2.401777] kVAs=[1666.667, 1666.667] taps=[1, 1] 
+New Transformer.sub windings=2 XHL=0.008 buses=[sourcebus, 650] conns=[wye, wye] kVs=[66.39528, 2.40] kVAs=[1666.667, 1666.667] taps=[1, 1] 
 ~ wdg=1 %R=0.0005 RdcOhms=[0.01124125 ]
 ~ wdg=2 %R=0.0005 RdcOhms=[0.00001470976] phases=1 
 ~ normhkVA=1833.33333333333 emerghkVA=2500
 
 New Transformer.reg1 bank=reg1 XHL=0.01 %loadloss=0.01 phases=1 conns=[wye, wye] buses=[650, rg60] kVs=[2.4, 2.4] kVAs=[1666, 1666] normhkVA=1832.6 emerghkVA=2499
 
+
 New Transformer.xfm1 windings=2 XHL=2 XHT=1 buses=[633, 634] conns=[wye, wye] 
-~ kVs=[2.401777, 0.2771281] kVAs=[166.6667, 166.6667] taps=[1, 1] 
+~ kVs=[2.40, 0.277] kVAs=[166.6667, 166.6667] taps=[1, 1] 
 ~ wdg=1 %R=0.55  RdcOhms=[0.1618074] 
 ~ wdg=2 %R=0.55 RdcOhms=[0.00215424] XLT=1 phases=1 
 ~ normhkVA=183.333333333333 emerghkVA=250
