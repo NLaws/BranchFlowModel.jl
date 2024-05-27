@@ -41,35 +41,35 @@ Set the shared values in each subgraph / vertex of mg:
 function set_inputs!(mg::MetaGraphsNext.MetaGraph; α::R=0.0) where R <: Real
     for v in mg.graph_data[:load_sum_order] # ~breadth first search of vertices
         # if v has inneighbors use their voltages at connections
-        p_below = mg[v]
+        net_below = mg[v]
         for v_above in inneighbors(mg, v)
-            m_above = get_prop(mg, v_above, :m)
-            if p_below.substation_bus in reg_busses(p_below) || α == 0.0 
-                # then p_below.v0 is exactly the voltage at the same bus in graph above 
-                p_below.v0 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data
+            m_above = mg.graph_data[:models][v_above]
+            if α == 0.0 # TODO || net_below.substation_bus in reg_busses(net_below)
+                # then net_below.v0 is exactly the voltage at the same bus in graph above 
+                net_below.v0 = sqrt.(value.(m_above[:vsqrd][net_below.substation_bus]))
             else # use weighted average of new and old values
-                m_below = get_prop(mg, v, :m)
-                v_kp1 = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :])).data
-                v_k   = sqrt.(value.(m_below[:vsqrd][p_below.substation_bus, :])).data
-                p_below.v0 = (v_kp1 + α .* v_k) ./ (1 + α)
+                m_below =  mg.graph_data[:models][v]
+                v_kp1 = sqrt.(value.(m_above[:vsqrd][net_below.substation_bus]))
+                v_k   = sqrt.(value.(m_below[:vsqrd][net_below.substation_bus]))
+                net_below.v0 = (v_kp1 + α .* v_k) ./ (1 + α)
             end
         end
-        # if v has outneighbors then use v_below's m[:Pj][p_below.substation_bus,:] * p_above.Sbase as v's Pload at the same bus
+        # if v has outneighbors then use v_below's m[:p0] as v's load at the same bus
         # have set the loads from deepest vertices to shallowest to get correct sums
-        p_above = mg[v]
+        net_above = mg[v]
         for v_below in outneighbors(mg, v)
-            m_below = get_prop(mg, v_below, :m)
-            p_below = get_prop(mg, v_below, :p)
+            m_below =  mg.graph_data[:models][v_below]
+            net_below = mg[v_below]
             if α == 0.0
-                p_above.Pload[p_below.substation_bus] = value.(m_below[:Pj][p_below.substation_bus, :]).data * p_above.Sbase
-                p_above.Qload[p_below.substation_bus] = value.(m_below[:Qj][p_below.substation_bus, :]).data * p_above.Sbase
+                net_above[net_below.substation_bus][:Load].kws1 = value.(m_below[:p0]) * net_above.Sbase / 1e3
+                net_above[net_below.substation_bus][:Load].kvars1 = value.(m_below[:q0]) * net_above.Sbase / 1e3
             else
-                p_kp1 = value.(m_below[:Pj][p_below.substation_bus, :]).data * p_above.Sbase
-                q_kp1 = value.(m_below[:Qj][p_below.substation_bus, :]).data * p_above.Sbase
-                p_k = copy(p_above.Pload[p_below.substation_bus])
-                q_k = copy(p_above.Qload[p_below.substation_bus])
-                p_above.Pload[p_below.substation_bus] = (p_kp1 + α .* p_k) ./ (1 + α)
-                p_above.Qload[p_below.substation_bus] = (q_kp1 + α .* q_k) ./ (1 + α)
+                p_kp1 = value.(m_below[:p0]) * net_above.Sbase / 1e3
+                q_kp1 = value.(m_below[:q0]) * net_above.Sbase / 1e3
+                p_k = copy(net_above[net_below.substation_bus][:Load].kws1)
+                q_k = copy(net_above[net_below.substation_bus][:Load].kvars1)
+                net_above[net_below.substation_bus][:Load].kws1 = (p_kp1 + α .* p_k) ./ (1 + α)
+                net_above[net_below.substation_bus][:Load].kvars1 = (q_kp1 + α .* q_k) ./ (1 + α)
             end
         end
     end
@@ -109,8 +109,8 @@ end
 function check_statuses(mg::MetaGraphsNext.MetaGraph)
     good_status = [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
     for v in vertices(mg)
-        if !(termination_status(mg[v, :m]) in good_status)
-            @warn("vertex $v status: $(termination_status(mg[v, :m]))")
+        if !(termination_status(mg.graph_data[:models][v]) in good_status)
+            @warn("vertex $v status: $(termination_status(mg.graph_data[:models][v]))")
         end
     end
 end
@@ -120,8 +120,8 @@ end
 """
     get_diffs(mg::MetaGraphsNext.MetaGraph)
 
-Uses the JuMP Models stored in mg[:m] to calculate the difference between Pj, Qj, and |v| at every
-leaf/substation connection. 
+Uses the JuMP Models stored in mg.graph_data[:models] to calculate the difference between power
+injections/loads, and |v| at every leaf/substation connection. 
 
 returns three `Float64[]`
 """
@@ -129,29 +129,23 @@ function get_diffs(mg::MetaGraphsNext.MetaGraph)
     pdiffs, qdiffs, vdiffs = Float64[], Float64[], Float64[]
     for v in mg.graph_data[:load_sum_order] # ~breadth first search of vertices
         # if v has inneighbors use their voltages at connections
-        p_below = mg[v]
+        net_below = mg[v]
         for v_above in inneighbors(mg, v)
-            m_above = get_prop(mg, v_above, :m)
-            volts_above = sqrt.(value.(m_above[:vsqrd][p_below.substation_bus, :]))  # vector of time
-            if has_vreg(p_below, p_below.substation_bus)
-                # the voltage at p_below.substation_bus is fixed and known, essentially starts new problem
-                # however, the NLP can lead to violation of the substation voltage constraint
-                v_below = sqrt.(value.(mg[v, :m][:vsqrd][p_below.substation_bus, :])).data
-                push!(vdiffs, sum(vreg(p_below, p_below.substation_bus) .- v_below) / p_below.Ntimesteps)
-            else
-                push!(vdiffs, sum(abs.(p_below.v0 .- volts_above)) / p_below.Ntimesteps)
-            end
+            m_above = mg.graph_data[:models][v_above]
+            volts_above = sqrt.(value.(m_above[:vsqrd][net_below.substation_bus]))  # vector of time
+            push!(vdiffs, sum(abs.(net_below.v0 .- volts_above)) / net_below.Ntimesteps)
+            # TODO? need to account for fixed vreg_pu here?
         end
 
-        m_above = get_prop(mg, v, :m)
+        net_above = mg[v]
         for v_below in outneighbors(mg, v)
-            m_below = get_prop(mg, v_below, :m)
-            b = get_prop(mg, v_below, :p).substation_bus
+            m_below =  mg.graph_data[:models][v_below]
+            sub = mg[v_below].substation_bus
             push!(pdiffs, 
-                sum(abs.(value.(m_below[:Pj][b,:]).data + value.(m_above[:Pj][b,:]).data)) / p_below.Ntimesteps
+                sum(abs.(value.(m_below[:p0]) * net_above.Sbase / 1e3 - net_above[sub][:Load].kws1)) / net_below.Ntimesteps
             )
             push!(qdiffs, 
-                sum(abs.(value.(m_below[:Qj][b,:]).data + value.(m_above[:Qj][b,:]).data)) / p_below.Ntimesteps
+                sum(abs.(value.(m_below[:q0]) * net_above.Sbase / 1e3 - net_above[sub][:Load].kvars1)) / net_below.Ntimesteps
             )
         end
     end
@@ -185,10 +179,10 @@ end
 """
     solve_metagraph!(mg::MetaGraphsNext.MetaGraph, builder::Function, tol::T; α::T=0.5, verbose=false) where T <: Real
 
-Given a MetaGraphsNext.MetaGraph and a JuMP Model `builder` method iteratively solve the models until the `tol` is 
-met for the differences provided by `BranchFlowModel.get_diffs`. 
+Given a MetaGraphsNext.MetaGraph and a JuMP Model `builder` method iteratively solve the models
+until the `tol` is met for the differences provided by `BranchFlowModel.get_diffs`. 
 
-The `builder` must accept only one argument of type `BranchFlowModel.AbstractInputs` that returns 
+The `builder` must accept only one argument of type `CommonOPF.AbstractNetwork` that returns 
 a `JuMP.AbstractModel`. Each model returned from the `builder` is stored as an `:m` property in 
 each vertex of `mg`.
 
@@ -199,13 +193,15 @@ function solve_metagraph!(mg::MetaGraphsNext.MetaGraph, builder::Function, tol::
     CommonOPF.init_split_networks!(mg)
     diff = abs(tol) * 10
     i = 0
+    models = Dict{Int64, Any}()
     while diff > abs(tol)
-        for (p, vertex) in mg[:p]
-            m = builder(p)
+        for vertex in MetaGraphsNext.vertices(mg)
+            m = builder[vertex](mg[vertex])
             optimize!(m)
-            set_prop!(mg, vertex, :m, m)
+            models[vertex] = m
         end
-        set_indexing_prop!(mg, :m)
+        # TODO getter for mg[vertex][:model]
+        mg.graph_data[:models] = models
         pdiffs, qdiffs, vdiffs = get_diffs(mg)
         maxp = maximum(abs.(pdiffs))
         maxq = maximum(abs.(qdiffs))
@@ -230,29 +226,30 @@ end
 """
     solve_metagraph!(mg::MetaGraphsNext.MetaGraph, builder::Function, tols::Vector{T}; α::T=0.5, verbose=false) where T <: Real
     
-Given a MetaGraphsNext.MetaGraph and a JuMP Model `builder` method iteratively solve the models until the `tols` are 
-met for the differences provided by `BranchFlowModel.get_diffs`. 
+Given a MetaGraphsNext.MetaGraph and a JuMP Model `builder` method iteratively solve the models
+until the `tols` are met for the differences provided by `BranchFlowModel.get_diffs`. 
 
-The `builder` must accept only one argument of type `BranchFlowModel.AbstractInputs` that returns 
+The `builder` must accept only one argument of type `CommonOPF.AbstractNetwork` that returns 
 a `JuMP.AbstractModel`. Each model returned from the `builder` is stored as an `:m` property in 
 each vertex of `mg`.
 
 !!! note 
-    The `tols` should have a length of three. The first value is compared to the maximum absolute difference
-    in Pj, the second for Qj, and the third for |v|. All differences are calculated at the leaf/substation
-    connections.
+    The `tols` should have a length of three. The first value is compared to the maximum absolute
+    difference in real power, the second for reactive power, and the third for |v|. All differences
+    are calculated at the leaf/substation connections.
 """
 function solve_metagraph!(mg::MetaGraphsNext.MetaGraph, builder::Function, tols::Vector{R}; α::T=0.5, verbose=false) where {T <: Real, R <: Real}
     CommonOPF.init_split_networks!(mg)
     tol_not_met = true
     i = 0
+    models = Dict{Int64, Any}()
     while tol_not_met
-        for (p, vertex) in mg[:p]
-            m = builder(p)
+        for vertex in MetaGraphsNext.vertices(mg)
+            m = builder[vertex](mg[vertex])
             optimize!(m)
-            set_prop!(mg, vertex, :m, m)
+            models[vertex] = m
         end
-        set_indexing_prop!(mg, :m)
+        mg.graph_data[:models] = models
         pdiffs, qdiffs, vdiffs = get_diffs(mg)
         maxp = maximum(abs.(pdiffs))
         maxq = maximum(abs.(qdiffs))
@@ -277,30 +274,31 @@ end
 """
     solve_metagraph!(mg::MetaGraphsNext.MetaGraph, builder::Dict{Int64, Function}, tols::Vector{T}; α::T=0.5, verbose=false) where T <: Real
     
-Given a MetaGraphsNext.MetaGraph and a JuMP Model `builder` method iteratively solve the models until the `tols` are 
-met for the differences provided by `BranchFlowModel.get_diffs`. 
-The `builder` dict is used to build each model for the corresponding vertex key.
+Given a MetaGraphsNext.MetaGraph and a JuMP Model `builder` method iteratively solve the models
+until the `tols` are met for the differences provided by `BranchFlowModel.get_diffs`. The `builder`
+dict is used to build each model for the corresponding vertex key.
 
-Each function in the `builder` dict must accept only one argument of type `BranchFlowModel.AbstractInputs` that returns 
-a `JuMP.AbstractModel`. Each model returned from the builder function is stored as an `:m` property in 
-each vertex of `mg`.
+Each function in the `builder` dict must accept only one argument of type
+`CommonOPF.AbstractNetwork` that returns a `JuMP.AbstractModel`. Each model returned from the
+builder function is stored as an `:m` property in each vertex of `mg`.
 
 !!! note 
-    The `tols` should have a length of three. The first value is compared to the maximum absolute difference
-    in Pj, the second for Qj, and the third for |v|. All differences are calculated at the leaf/substation
-    connections.
+    The `tols` should have a length of three. The first value is compared to the maximum absolute
+    difference in real power, the second for reactive power, and the third for |v|. All differences
+    are calculated at the leaf/substation connections.
 """
 function solve_metagraph!(mg::MetaGraphsNext.MetaGraph, builder::Dict{Int64, <:Function}, tols::Vector{R}; α::T=0.5, verbose=false) where {T <: Real, R <: Real}
     CommonOPF.init_split_networks!(mg)
     tol_not_met = true
     i = 0
+    models = Dict{Int64, Any}()
     while tol_not_met
-        for (p, vertex) in mg[:p]
-            m = builder[vertex](p)
+        for vertex in MetaGraphsNext.vertices(mg)
+            m = builder[vertex](mg[vertex])
             optimize!(m)
-            set_prop!(mg, vertex, :m, m)
+            models[vertex] = m
         end
-        set_indexing_prop!(mg, :m)
+        mg.graph_data[:models] = models
         pdiffs, qdiffs, vdiffs = get_diffs(mg)
         maxp = maximum(abs.(pdiffs))
         maxq = maximum(abs.(qdiffs))

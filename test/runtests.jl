@@ -193,52 +193,29 @@ end
         end
     end
 
-#     splitting_bs, subgraph_bs = splitting_busses(p, "650"; max_busses=7)  # 671 and rg60
-#     @test length(splitting_bs) == 2
-#     @test splitting_bs[1] == "671" && splitting_bs[2] == "rg60"
-#     @test length(subgraph_bs) == 2
-#     @test length(subgraph_bs[1]) == 7
-#     @test length(subgraph_bs[2]) == 7
-#     @test isempty(intersect(subgraph_bs[1], subgraph_bs[2]))
+    splitting_bs, subgraph_bs = splitting_busses(net, "650"; max_busses=7)  # 671 and rg60
 
-#     # the subgraph_bs do not include over laps if add_connections=false
-#     mg = split_at_busses(p, splitting_bs, subgraph_bs; add_connections=false)
-#     @test !("671" in mg[3,:p].busses)
+    mg = split_at_busses(net, splitting_bs, subgraph_bs)
 
-#     mg = split_at_busses(p, splitting_bs, subgraph_bs; add_connections=true)
-#     @test length(mg[1,:p].busses) == 2
-#     @test length(mg[2,:p].busses) == 7
-#     @test length(mg[3,:p].busses) == 8  # get one more bus then max_busses from adding connection @ 671
+    # test the decomposed solution against openDSS
+    builder = Dict(
+        v => build_min_loss_model for v in vertices(mg)
+    )
 
-#     # to get overlaps use connect_subgraphs_at_busses (which is an option in split_at_busses)
-#     new_subgraphs = CommonOPF.connect_subgraphs_at_busses(p, splitting_bs, subgraph_bs)
-#     mg = split_at_busses(p, splitting_bs, new_subgraphs; add_connections=false)
-#     @test length(mg[1,:p].busses) == 2
-#     @test length(mg[2,:p].busses) == 7
-#     @test length(mg[3,:p].busses) == 8  # get one more bus then max_busses from adding connection @ 671
+    solve_metagraph!(mg, builder, [1e-3, 1e-4, 1e-4]; verbose=false)
 
-#     @test length(new_subgraphs) == 2
-#     @test intersect(new_subgraphs[1], new_subgraphs[2])[1] == "671"
-#     @test intersect(mg[2,:p].busses, mg[3,:p].busses)[1] == "671"
-#     @test intersect(mg[1,:p].busses, mg[3,:p].busses)[1] == "rg60"
+    function metagraph_voltages(mg)
+        d = Dict()
+        for v in vertices(mg)
+            merge!(d, get_variable_values(:vsqrd, mg.graph_data[:models][v]))
+        end
+        return d
+    end
 
-#     # test the decomposed solution against openDSS
-#     builder = Dict(
-#         v => build_min_loss_model for v in vertices(mg)
-#     )
-#     solve_metagraph!(mg, builder, [1e-3, 1e-4, 1e-4]; verbose=false)
-    # function metagraph_voltages(mg::MetaGraphsNext.MetaGraph)
-    #     d = Dict()
-    #     for v in vertices(mg)
-    #         merge!(d, get_variable_values(:vsqrd, mg[v, :m], mg[v, :p]))
-    #     end
-    #     return d
-    # end
-
-#     vs = metagraph_voltages(mg)
-#     for b in keys(vs)
-#         @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.01
-#     end
+    vs = metagraph_voltages(mg)
+    for b in keys(vs)
+        @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.005
+    end
 
 end
 
@@ -406,11 +383,11 @@ end
     # end
 
     # # split model into 3 models and solve
-    # mg = split_at_busses(p, ["7", "13"])
+    # mg = CommonOPF.split_at_busses(p, ["7", "13"])
     # @test mg[1, :p].substation_bus == "0"
     # @test mg[2, :p].substation_bus == "7"
     # @test mg[3, :p].substation_bus == "13"
-    # # init_inputs!(mg)  # done in split_at_busses
+    # # init_inputs!(mg)  # done in CommonOPF.split_at_busses
     # for v in get_prop(mg, :load_sum_order)
     #     set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
     # end
@@ -471,7 +448,7 @@ end
 #     @test turn_ratio(p, "21") == dss_voltages["21"][1] / dss_voltages["20"][1]
 
 #     # split at two busses including the regulator and compare against openDSS
-#     mg = split_at_busses(p, ["14","21"])
+#     mg = CommonOPF.split_at_busses(p, ["14","21"])
 #     builder = Dict(
 #         v => build_min_loss_model for v in vertices(mg)
 #     )
@@ -484,7 +461,7 @@ end
 #     # split only at regulator, add vreg, and test the vdiff is zero
 #     # (because using vreg makes the regulator voltage equal to the setting)
 #     p.regulators[("20","21")][:vreg] = 1.02
-#     mg = split_at_busses(p, ["21"])
+#     mg = CommonOPF.split_at_busses(p, ["21"])
 
 #     builder = Dict(
 #         v => build_min_loss_model for v in vertices(mg)

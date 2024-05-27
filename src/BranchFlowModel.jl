@@ -5,6 +5,7 @@ import CommonOPF: rij, xij  # extending to MultiPhase, need to consolidate into 
 using JuMP
 using LinearAlgebra
 import Graphs, MetaGraphsNext
+import MetaGraphsNext: vertices
 using JSON
 import SparseArrays: sparse
 
@@ -19,7 +20,9 @@ export
     get_variable_values,
     i_to_j,
     j_to_k,
-    rij, 
+    rij,
+    split_at_busses,
+    splitting_busses,
     xij,
     Network_IEEE13_SinglePhase,
     Network_Papavasiliou_2018,
@@ -58,7 +61,9 @@ export
     has_vreg,
     remove_bus!,
     paths_between,
-    Results
+    Results,
+    # MetaGraphsNext
+    vertices
 
 include("inputs.jl")
 include("utils.jl")

@@ -32,11 +32,11 @@ build_model!
 
 ## Single Phase Model
 Let `m` be the JuMP.Model provided by the user, then the variables can be accessed via:
-- `m[:vsqrd]` voltage magnitude squared, indexed on busses, time
-- `m[:Pj], m[:Qj]` net real, reactive power injection, indexed on busses, time
-- `m[:Pij], m[:Qij]` net real, reactive line flow, indexed on edges, time
-- `m[:lij]` current magnitude squared, indexed on edges, time
-Note that the `m[:Pj], m[:Qj]` are not truly variables since they are defined by the loads (unless you modify the model to make them decisions).
+- `m[:vsqrd]` voltage magnitude squared, indexed on busses
+- `m[:p0], m[:q0]` net real, reactive power injection at the substation bus
+- `m[:Pij], m[:Qij]` net real, reactive line flow, indexed on edges
+- `m[:lij]` current magnitude squared, indexed on edges
+
 After a model has been solved using `JuMP.optimize!` variable values can be extracted with `JuMP.value`. For more see [Getting started with JuMP](https://jump.dev/JuMP.jl/stable/tutorials/getting_started/getting_started_with_JuMP/#Getting-started-with-JuMP).
 
 ## MultiPhase Model
