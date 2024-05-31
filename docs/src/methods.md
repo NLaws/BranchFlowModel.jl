@@ -22,14 +22,6 @@ constrain_bounds
 check_rank_one
 get_bus_values 
 get_edge_values 
-get_ijlinecode
-get_ijlinelength
-get_ij_idx
-i_to_j 
-j_to_k 
-rij 
-xij
-zij
 check_soc_inequalities
 get_load_bal_shadow_prices
 voltage_values_by_time_bus

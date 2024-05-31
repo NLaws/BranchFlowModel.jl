@@ -158,18 +158,6 @@ end
     net.Zbase = net.Vbase^2/net.Sbase
     net.v_lolim = 0.95
     net.v_uplim = 1.05
-#     p = Inputs(
-#         joinpath("data", "ieee13_makePosSeq", "Master.dss"), 
-#         "650";
-#         Sbase=1_000_000, 
-#         Vbase=vbase, 
-#         v0 = 1.0,
-#         v_uplim = 1.05,
-#         v_lolim = 0.95,
-#         Ntimesteps = 1,
-#         relaxed = false  # NLP
-#     );
-#     g = make_graph(p.busses, p.edges; directed=true)
     
     # a radial network has n_edges = n_vertices - 1
     @test net.graph.graph.ne == Graphs.nv(net.graph) - 1  
@@ -184,7 +172,7 @@ end
     vsqrd = get_variable_values(:vsqrd, m)
     vs = Dict(k => sqrt.(v) for (k,v) in vsqrd)
 
-#     I = get_variable_values(:lij, m, p)
+    #  I = get_variable_values(:lij, m, p)
     for b in keys(vs)
         try
             @test abs(vs[b][1] - dss_voltages[b][1]) < 0.005
@@ -220,15 +208,18 @@ end
 end
 
 
-# @testset "ieee13 unbalanced MultiPhase" begin
+@testset "ieee13 unbalanced MultiPhase" begin
 
-#     # make the dss solution to compare
-#     OpenDSS.Text.Command("Redirect data/ieee13/IEEE13Nodeckt.dss")
-#     @test(OpenDSS.Solution.Converged() == true)
+    # make the dss solution to compare
+    dssfilepath = "data/ieee13/IEEE13Nodeckt.dss"
+    OpenDSS.Text.Command("Redirect $dssfilepath")
+    @test(OpenDSS.Solution.Converged() == true)
 
-#     dss_voltages = dss_voltages_pu()
+    dss_voltages = dss_voltages_pu()
 
-#     vbase = 4160/sqrt(3)
+    vbase = 4160/sqrt(3)
+    net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
+    
 #     p = Inputs(
 #         joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), 
 #         "rg60";
@@ -247,14 +238,14 @@ end
 #     p.P_up_bound = 10
 #     p.Q_up_bound = 10
 
-#     m = Model(CSDP.Optimizer)
+    m = Model(CSDP.Optimizer)
 #     set_attribute(m, "printlevel", 0)
 
 #     # m = Model(COSMO.Optimizer)
 
 #     # m = Model(SCS.Optimizer)
 
-#     build_model!(m,p)
+    build_model!(m, net)
 
 #     @objective(m, Min, 
 #         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
@@ -280,7 +271,7 @@ end
 
 #     # TODO why are BFM voltages not matching openDSS well?
 
-# end
+end
 
 
 # @testset "SinglePhase network reduction" begin

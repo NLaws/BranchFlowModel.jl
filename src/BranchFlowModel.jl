@@ -38,11 +38,7 @@ export
     constrain_loads,
     constrain_bounds,
     get_edge_values, 
-    get_ijlinecode,
-    get_ijlinelength,
-    get_ij_idx,
     # recover_voltage_current,  # TODO validate this method
-    zij,
     voltage_values_by_time_bus,
     current_values_by_time_edge,
     line_flow_values_by_time_edge,
@@ -69,6 +65,7 @@ include("inputs.jl")
 include("utils.jl")
 include("checks.jl")
 include("model_single_phase_network.jl")
+include("model_multi_phase_network.jl")
 include("decomposition.jl")
 
 end
