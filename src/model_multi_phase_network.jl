@@ -62,17 +62,18 @@ fix(variable_by_name(m, "real(Sj_1_645_3)"), 0.0, force=true)
 function add_variables(m, net::Network{MultiPhase})
     # TODO complex model containers in CommonOPF
     # type for inner dicts of variable containers, which are dicts with time and bus keys
-    S = Dict{String, AbstractVecOrMat}
+    S_bus = Dict{String, AbstractVecOrMat}
+    S_edge = Dict{Tuple{String, String}, AbstractVecOrMat}
     # voltage squared is Hermitian
-    m[:w] = Dict{Int64, S}()
+    m[:w] = Dict{Int64, S_bus}()
     # current squared is Hermitian
-    m[:l] = Dict{Int64, S}()
+    m[:l] = Dict{Int64, S_edge}()
     # complex line powers (at the sending end)
-    m[:Sij] = Dict{Int64, S}()
+    m[:Sij] = Dict{Int64, S_edge}()
     # complex net powers injections 
-    m[:Sj] = Dict{Int64, S}()
+    m[:Sj] = Dict{Int64, S_bus}()
     # Hermitian PSD matrices
-    m[:H] = Dict{Int64, S}()
+    m[:H] = Dict{Int64, S_bus}()
 
     # fix head voltage at net.v0; if real values provided we assume 120deg phase shift
     if typeof(net.v0) <: Real
@@ -107,14 +108,14 @@ function add_variables(m, net::Network{MultiPhase})
         # inner method to loop over
         function define_vars_downstream(i::String, t::Int, m::JuMP.AbstractModel, net::Network)
             for j in j_to_k(i, net)  # i -> j -> k
-                i_j = string(i * "-" * j)  # for radial network there is only one i in i_to_j
+                i_j = (i, j)  # for radial network there is only one i in i_to_j
 
                 # initialize line flows and injections as zeros that will remain for undefined phases
                 # Sij is 3x3
                 m[:Sij][t][i_j] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
                 for phs1 in phases_into_bus(net, j), phs2 in phases_into_bus(net, j)
                     m[:Sij][t][i_j][phs1, phs2] = @variable(m, 
-                        set = ComplexPlane(), base_name="Sij_" * string(t) *"_"* i_j *"_"*  string(phs1) * string(phs2), 
+                        set = ComplexPlane(), base_name="Sij_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2), 
                         # lower_bound = p.P_lo_bound + p.Q_lo_bound*im,
                         # upper_bound = p.P_up_bound + p.Q_up_bound*im,
                     )
@@ -159,7 +160,7 @@ function add_variables(m, net::Network{MultiPhase})
                         if phs1 == phs2 # diagonal terms are real
                             # TODO THE BOUNDS LEAD TO INFEASIBLE PROBLEMS
                             m[:l][t][i_j][phs1, phs2] = @variable(m, 
-                                base_name="l_" * string(t) *"_"* i_j *"_"*  string(phs1) * string(phs2), 
+                                base_name="l_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2), 
                                 # lower_bound = 0.0,  # diagonal value are real, positive
                                 # upper_bound = l_up_bound
                             )
@@ -173,7 +174,7 @@ function add_variables(m, net::Network{MultiPhase})
 
                         else
                             m[:l][t][i_j][phs1, phs2] = @variable(m, 
-                                set = ComplexPlane(), base_name="l_" * string(t) *"_"* i_j *"_"*  string(phs1) * string(phs2), 
+                                set = ComplexPlane(), base_name="l_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2), 
                                 # lower_bound = 0.0 + 0.0*im,  # must have negative imaginary parts in Hermitian matrix
                                 # upper_bound = l_up_bound + l_up_bound*im
                             )
@@ -243,7 +244,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
     for j in busses(net)
         if isempty(i_to_j(j, net)) && !isempty(j_to_k(j, net)) # source nodes, injection = flows out
             con = @constraint(m,  [t in 1:net.Ntimesteps],
-                Sj[t][j] - sum( diag( Sij[t][string(j*"-"*k)] ) for k in j_to_k(j, net) ) .== 0
+                Sj[t][j] - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) .== 0
             )
         elseif isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))  # unconnected nodes
             @warn "Bus $j has no edges, setting Sj and Qj to zero."
@@ -253,7 +254,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
         elseif !isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))  # leaf nodes / sinks, flows in = draw out
             con = @constraint(m, [t in 1:net.Ntimesteps],
                 sum( diag( 
-                    Sij[t][string(i*"-"*j)] - zij(i,j,net) * lij[t][string(i*"-"*j)]
+                    Sij[t][(i,j)] - zij(i,j,net) * lij[t][(i,j)]
                 ) for i in i_to_j(j, net) )
                 + Sj[t][j] .== 0
             )
@@ -261,10 +262,10 @@ function constrain_power_balance(m, net::Network{MultiPhase})
             # TODO failing for IEEE13 with i = "632", j = "645"
             con =  @constraint(m, [t in 1:net.Ntimesteps],
                 sum( diag( 
-                    Sij[t][string(i*"-"*j)] - zij(i,j,net) * lij[t][string(i*"-"*j)]
+                    Sij[t][(i,j)] - zij(i,j,net) * lij[t][(i,j)]
                 ) for i in i_to_j(j, net) )
                 + Sj[t][j]
-                - sum( diag( Sij[t][string(j*"-"*k)] ) for k in j_to_k(j, net) ) .== 0
+                - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) .== 0
             )
         end
         m[:loadbalcons][j] = con
@@ -305,7 +306,7 @@ function constrain_KVL(m, net::Network{MultiPhase})
     for j in busses(net)  # substation_bus in here but has empty i_to_j(j, net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
             phs = phases_into_bus(net, j)
-            i_j = string(i*"-"*j)
+            i_j = (i, j)
             z = zij(i,j,net)
             # need to slice w[t][i] by phases in i_j
             con = @constraint(m, [t in 1:net.Ntimesteps],

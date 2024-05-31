@@ -24,7 +24,6 @@ get_bus_values
 get_edge_values 
 check_soc_inequalities
 get_load_bal_shadow_prices
-voltage_values_by_time_bus
 current_values_by_time_edge
 line_flow_values_by_time_edge
 reduce_tree!

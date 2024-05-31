@@ -39,7 +39,6 @@ export
     constrain_bounds,
     get_edge_values, 
     # recover_voltage_current,  # TODO validate this method
-    voltage_values_by_time_bus,
     current_values_by_time_edge,
     line_flow_values_by_time_edge,
     reduce_tree!,

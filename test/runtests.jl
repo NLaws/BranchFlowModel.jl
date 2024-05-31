@@ -241,32 +241,36 @@ end
     m = Model(CSDP.Optimizer)
 #     set_attribute(m, "printlevel", 0)
 
-#     # m = Model(COSMO.Optimizer)
+    # m = Model(COSMO.Optimizer)
 
-#     # m = Model(SCS.Optimizer)
+    # m = Model(SCS.Optimizer)
 
     build_model!(m, net)
 
-#     @objective(m, Min, 
-#         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
-#     )
+    @objective(m, Min, 
+        sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in  edges(net))
+    )
 
-#     optimize!(m)
+    # need bounds to get solution?
+    # optimize!(m)
     
-#     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
+    # @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
 
-#     @test_nowarn(check_rank_one(m,p))
+    # @test_nowarn(check_rank_one(m,p))
 
-#     vs = Dict(k => real.(diag(v)) for (k,v) in voltage_values_by_time_bus(m,p)[1])
+    # vs = Dict(
+    #     k => sqrt(JuMP.value.(w)) 
+    #     for (k,w) in m[:w][1]
+    # )
 
-#     # I = get_variable_values(:l, m, p)  # TODO method for multiphase results
+    # I = get_variable_values(:l, m, p)  # TODO method for multiphase results
 
-#     # for b in keys(vs)
-#     #     for (i,phsv) in enumerate(filter(v -> v != 0, vs[b]))
-#     #         # @assert abs(phsv - dss_voltages[b][i]) < 1e-2 "bus $b phase $i failed"
-#     #         println("$b - $i  $(phsv - dss_voltages[b][i])")
-#     #     end
-#     # end
+    # for b in keys(vs)
+    #     for (i,phsv) in enumerate(filter(v -> v != 0, vs[b]))
+    #         # @assert abs(phsv - dss_voltages[b][i]) < 1e-2 "bus $b phase $i failed"
+    #         println("$b - $i  $(phsv - dss_voltages[b][i])")
+    #     end
+    # end
     
 
 #     # TODO why are BFM voltages not matching openDSS well?
