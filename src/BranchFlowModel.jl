@@ -35,7 +35,6 @@ export
     constrain_power_balance,
     constrain_substation_voltage,
     constrain_KVL,
-    constrain_loads,
     constrain_bounds,
     get_edge_values, 
     # recover_voltage_current,  # TODO validate this method

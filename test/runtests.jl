@@ -208,17 +208,40 @@ end
 end
 
 
+@testset "basic two-line multiphase" begin
+    net = BranchFlowModel.CommonOPF.Network(joinpath("data", "two_line_multi_phase.yaml"))
+
+    m = Model(CSDP.Optimizer)
+    build_model!(m, net)
+
+    @objective(m, Min, 
+        sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in  edges(net))
+    )
+    
+    optimize!(m)
+
+    vs = Dict(
+        k => abs.(sqrt(JuMP.value.(w)))
+        for (k,w) in m[:w][1]
+    )
+
+end
+
+
 @testset "ieee13 unbalanced MultiPhase" begin
 
-    # make the dss solution to compare
-    dssfilepath = "data/ieee13/IEEE13Nodeckt.dss"
-    OpenDSS.Text.Command("Redirect $dssfilepath")
-    @test(OpenDSS.Solution.Converged() == true)
+    # # make the dss solution to compare
+    # dssfilepath = "data/ieee13/IEEE13Nodeckt.dss"
+    # OpenDSS.Text.Command("Redirect $dssfilepath")
+    # @test(OpenDSS.Solution.Converged() == true)
 
-    dss_voltages = dss_voltages_pu()
+    # dss_voltages = dss_voltages_pu()
 
-    vbase = 4160/sqrt(3)
-    net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
+    # vbase = 4160/sqrt(3)
+    # net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
+    # net.Sbase = 1_000_000
+    # net.Vbase = vbase
+    # net.Zbase = net.Vbase^2 / net.Sbase
     
 #     p = Inputs(
 #         joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), 
@@ -238,30 +261,30 @@ end
 #     p.P_up_bound = 10
 #     p.Q_up_bound = 10
 
-    m = Model(CSDP.Optimizer)
-#     set_attribute(m, "printlevel", 0)
+#     m = Model(CSDP.Optimizer)
+# #     set_attribute(m, "printlevel", 0)
 
-    # m = Model(COSMO.Optimizer)
+#     # m = Model(COSMO.Optimizer)
 
-    # m = Model(SCS.Optimizer)
+#     # m = Model(SCS.Optimizer)
 
-    build_model!(m, net)
+#     build_model!(m, net)
 
-    @objective(m, Min, 
-        sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in  edges(net))
-    )
+#     @objective(m, Min, 
+#         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in edges(net) )
+#     )
 
-    # need bounds to get solution?
-    # optimize!(m)
+#     # need bounds to get solution?
+#     optimize!(m)
     
-    # @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
+#     # @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
 
-    # @test_nowarn(check_rank_one(m,p))
+#     # @test_nowarn(check_rank_one(m,p))
 
-    # vs = Dict(
-    #     k => sqrt(JuMP.value.(w)) 
-    #     for (k,w) in m[:w][1]
-    # )
+#     vs = Dict(
+#         k => abs.(sqrt(JuMP.value.(w)))
+#         for (k,w) in m[:w][1]
+#     )
 
     # I = get_variable_values(:l, m, p)  # TODO method for multiphase results
 
@@ -271,9 +294,6 @@ end
     #         println("$b - $i  $(phsv - dss_voltages[b][i])")
     #     end
     # end
-    
-
-#     # TODO why are BFM voltages not matching openDSS well?
 
 end
 

@@ -1,0 +1,39 @@
+Network:
+  substation_bus: b1
+  Sbase: 1e3
+  Vbase: 1e3
+  Ntimesteps: 1
+
+Conductor:
+  - name: cond1-symmetric
+    busses: 
+      - b1
+      - b2
+    r0: 0.766
+    x0: 1.944
+    r1: 0.301
+    x1: 0.627
+    length: 10
+    phases: [1, 2, 3]
+  - name: cond2-copy-cond1
+    busses:
+      - b2
+      - b3
+    template: cond1-symmetric
+    length: 10
+    phases: [1, 2, 3]
+
+Load:
+  - bus: b3
+    kws1: 
+      - 5.6
+    kvars1: 
+      - 1.2
+    kws2: 
+      - 5.6
+    kvars2: 
+      - 1.2
+    kws3: 
+      - 5.6
+    kvars3: 
+      - 1.2

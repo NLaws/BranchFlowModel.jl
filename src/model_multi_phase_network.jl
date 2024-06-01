@@ -7,14 +7,12 @@ add_variables(m, net)
 constrain_power_balance(m, net)
 constrain_substation_voltage(m, net)
 constrain_KVL(m, net)
-constrain_loads(m, net)
 ```
 """
 function build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase})
     add_variables(m, net)  # PSD done in add_variables
     constrain_power_balance(m, net)
     constrain_KVL(m, net)
-    constrain_loads(m, net)
 end
 
 # hack for zero problem in MutableArithmetics
@@ -93,7 +91,7 @@ function add_variables(m, net::Network{MultiPhase})
     end
 
     for t in 1:net.Ntimesteps
-        m[:w][t] = Dict(net.substation_bus => v0)
+        m[:w][t] = Dict(net.substation_bus => v0 * cj(v0))
         # empty dicts for line values in each time step to fill
         m[:l][t] = Dict()
         m[:Sij][t] = Dict()
@@ -118,30 +116,6 @@ function add_variables(m, net::Network{MultiPhase})
                         set = ComplexPlane(), base_name="Sij_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2), 
                         # lower_bound = p.P_lo_bound + p.Q_lo_bound*im,
                         # upper_bound = p.P_up_bound + p.Q_up_bound*im,
-                    )
-                end
-
-                # Sj is 3x1
-                m[:Sj][t][j] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, reshape([0.0im; 0im; 0im], 3, 1))
-                for phs in phases_into_bus(net, j)  # fill in Sj vector with variables for phases going into bus j
-                    real_load = 0.0
-                   if j in real_load_busses(net)
-                        if phs in 1:3
-                            real_load = net[j, :kws, phs][t]
-                        end
-                    end
-            
-                    reactive_load = 0.0
-                    if j in reactive_load_busses(net)
-                        if phs in 1:3
-                            reactive_load = net[j, :kvars, phs][t]
-                        end
-                    end
-                    m[:Sj][t][j][phs] = @variable(m, 
-                        set = ComplexPlane(), base_name="Sj_" * string(t) *"_"* j *"_"* string(phs), 
-                        # lower_bound = p.P_lo_bound + p.Q_lo_bound*im,
-                        # upper_bound = p.P_up_bound + p.Q_up_bound*im,
-                        start = -real_load - reactive_load*im
                     )
                 end
 
@@ -210,10 +184,10 @@ function add_variables(m, net::Network{MultiPhase})
         i = net.substation_bus
         define_vars_downstream(i, t, m, net)
 
-        function recursive_variables(i::String, t::Int, m::JuMP.AbstractModel, net::Network)
-            for j in j_to_k(i, net)
-                define_vars_downstream(j, t, m, net)
-                recursive_variables(j, t, m, net)
+        function recursive_variables(j::String, t::Int, m::JuMP.AbstractModel, net::Network)
+            for k in j_to_k(j, net)
+                define_vars_downstream(k, t, m, net)
+                recursive_variables(k, t, m, net)
             end
         end
         recursive_variables(i, t, m, net)
@@ -235,40 +209,66 @@ as the first index. For example `m[:loadbalcons]["busname"]` will give the const
 from JuMP for all time steps.
 """
 function constrain_power_balance(m, net::Network{MultiPhase})
-    Sj = m[:Sj]
     Sij = m[:Sij]
     lij = m[:l]
     m[:loadbalcons] = Dict()
-    # TODO change Pj and Qj to expressions, make P₀ and Q₀ dv's, which will reduce # of variables
-    # by (Nnodes - 1)*8760 and number of constraints by 6*(Nnodes - 1)*8760
+    
     for j in busses(net)
-        if isempty(i_to_j(j, net)) && !isempty(j_to_k(j, net)) # source nodes, injection = flows out
-            con = @constraint(m,  [t in 1:net.Ntimesteps],
-                Sj[t][j] - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) .== 0
-            )
-        elseif isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))  # unconnected nodes
-            @warn "Bus $j has no edges, setting Sj and Qj to zero."
-            con = @constraint(m, [t in 1:net.Ntimesteps],
-                diag(Sj[t][j]) .== 0
-            )
-        elseif !isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))  # leaf nodes / sinks, flows in = draw out
-            con = @constraint(m, [t in 1:net.Ntimesteps],
+
+        # check for loads
+        Pj = [zeros(net.Ntimesteps) for _ in 1:3] # first dim is phase, like Pj[phs][t]
+        Qj = [zeros(net.Ntimesteps) for _ in 1:3]
+        if j in real_load_busses(net)
+            for phs in 1:3  # put an Sj method in CommonOPF? to make complex vector of phases
+                Pj[phs] = -net[j, :kws, phs] * 1e3 / net.Sbase
+            end
+        end
+        if j in reactive_load_busses(net)
+            for phs in 1:3 
+                Qj[phs] = -net[j, :kvars, phs] * 1e3 / net.Sbase
+            end
+        end
+        Sj = Pj + im * Qj
+        Sj = hcat(Sj...)  # time X phase
+
+        # source nodes, injection = flows out
+        if isempty(i_to_j(j, net)) && !isempty(j_to_k(j, net))
+
+            if j == net.substation_bus   # include the slack power variables
+                m[:loadbalcons][j] = @constraint(m,  [t in 1:net.Ntimesteps],
+                    m[:Sj][t][j] + Sj[t, :] - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) .== 0
+                )
+            else  # a source node with known injection
+                m[:loadbalcons][j] = @constraint(m,  [t in 1:net.Ntimesteps],
+                    Sj[t, :] - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) .== 0
+                )
+
+            end
+        
+        # unconnected nodes
+        elseif isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
+            @warn "Bus $j has no edges. Setting loadbalcons to zeros"
+            m[:loadbalcons][j] = zeros(net.Ntimesteps)
+
+        # leaf nodes / sinks, flows in = draw out
+        elseif !isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
+            m[:loadbalcons][j] = @constraint(m, [t in 1:net.Ntimesteps],
                 sum( diag( 
-                    Sij[t][(i,j)] - zij(i,j,net) * lij[t][(i,j)]
+                    Sij[t][(i,j)] - zij_per_unit(i,j,net) * lij[t][(i,j)]
                 ) for i in i_to_j(j, net) )
-                + Sj[t][j] .== 0
+                + Sj[t, :] .== 0
             )
-        else  # node with lines in and out
-            # TODO failing for IEEE13 with i = "632", j = "645"
-            con =  @constraint(m, [t in 1:net.Ntimesteps],
+
+        # node with lines in and out
+        else
+            m[:loadbalcons][j] = @constraint(m, [t in 1:net.Ntimesteps],
                 sum( diag( 
-                    Sij[t][(i,j)] - zij(i,j,net) * lij[t][(i,j)]
+                    Sij[t][(i,j)] - zij_per_unit(i,j,net) * lij[t][(i,j)]
                 ) for i in i_to_j(j, net) )
-                + Sj[t][j]
+                + Sj[t, :]
                 - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) .== 0
             )
         end
-        m[:loadbalcons][j] = con
     end
     # TODO add shunts, diag( openDSS-cmatrix * m[:w][t][j] ) ?
 
@@ -282,7 +282,7 @@ end
 Used in defining the KVL constraints, this method returns `M` for only
 the indices in `phases`.
 """
-function matrix_phases_to_vec(M::AbstractMatrix{T}, phases::AbstractSet{Int}) where T
+function matrix_phases_to_vec(M::AbstractMatrix{T}, phases::AbstractVector{Int}) where T
     v = T[]
     for i in phases, j in phases 
         push!(v, M[i,j])
@@ -305,64 +305,20 @@ function constrain_KVL(m, net::Network{MultiPhase})
     m[:kvl] = Dict{String, AbstractArray}()
     for j in busses(net)  # substation_bus in here but has empty i_to_j(j, net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
-            phs = phases_into_bus(net, j)
-            i_j = (i, j)
-            z = zij(i,j,net)
-            # need to slice w[t][i] by phases in i_j
+            phases = phases_into_bus(net, j)
+            z = zij_per_unit(i,j,net)
+            # need to slice w[t][i] by phases in edge (i, j)
             con = @constraint(m, [t in 1:net.Ntimesteps],
-                T(w[t][j], phs) .== T(w[t][i], phs)
-                    - T(Sij[t][i_j] * cj(z) + z * cj(Sij[t][i_j]), phs)
-                    + T(z * lij[t][i_j] * cj(z), phs)
+                T( w[t][j], phases ) .== T( w[t][i], phases )
+                    - T(
+                        Sij[t][(i, j)] * cj(z) + z * cj(Sij[t][(i, j)]),
+                    phases)
+                    + T(
+                        z * lij[t][(i, j)] * cj(z), 
+                    phases)
             );
             m[:kvl][j] = con
         end
-    end
-    nothing
-end
-
-
-"""
-    constrain_loads(m, net::Network{MultiPhase})
-
-- set loads to negative of Inputs.Pload and Inputs.Qload, 
-    which are normalized by Sbase when creating Inputs.
-- keys of Pload and Qload must match Inputs.busses. Any missing keys have load set to zero.
-- Inputs.substation_bus is unconstrained, slack bus
-
-Each of the power injection constraints are stored in the model under `m[:injectioncons]`.
-To acces the constraints you can:
-```julia
-m[:injectioncons]["busname"][t,phs]
-```
-where `t` is the integer time step and `phs` is the integer phase.
-"""
-function constrain_loads(m, net::Network{BranchFlowModel.MultiPhase})
-    Sj = m[:Sj]
-    m[:injectioncons] = Dict()
-    for j in setdiff(busses(net), [net.substation_bus])
-
-        # default to zero injection
-        real_load = Dict(phs => zeros(net.Ntimesteps) for phs in [1,2,3])
-
-        if j in real_load_busses(net)
-            for phs in 1:3
-                real_load[phs] = net[j, :kws, phs] * 1e3
-            end
-        end
-
-        # default to zero injection
-        reactive_load = Dict(phs => zeros(net.Ntimesteps) for phs in [1,2,3])
-
-        if j in reactive_load_busses(net)
-            for phs in 1:3
-                reactive_load[phs] = net[j, :kvars, phs] * 1e3
-            end
-        end
-
-        con = @constraint(m, [t in 1:net.Ntimesteps, phs in 1:3],
-            Sj[t][j][phs] == (-real_load[phs][t] - reactive_load[phs][t]im ) / net.Sbase
-        )
-        m[:injectioncons][j] = con
     end
     nothing
 end

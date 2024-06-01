@@ -17,7 +17,6 @@ add_variables
 constrain_power_balance
 constrain_substation_voltage
 constrain_KVL
-constrain_loads
 constrain_bounds
 check_rank_one
 get_bus_values 
