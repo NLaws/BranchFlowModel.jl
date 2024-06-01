@@ -225,12 +225,44 @@ end
         for (k,w) in m[:w][1]
     )
 
+    Sijs = Dict(
+        k => abs.(JuMP.value.(w))
+        for (k,w) in m[:Sij][1]
+    )
+
+    # abs(5.6+im*1.2)  # load magnitude per phase
+
+    S0 = abs.(value.(m[:Sj][1][net.substation_bus]))
+
+    # slack bus injection equals flow out on each phase
+    for phs in 1:3
+        @test S0[phs] ≈ Sijs[("b1", "b2")][phs, phs]
+    end
+
 end
 
 
 @testset "ieee13 unbalanced MultiPhase" begin
 
-    # # make the dss solution to compare
+    # p = Inputs(
+    #     joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), 
+    #     "rg60";
+    #     Sbase=1_000_000, 
+    #     Vbase=vbase, 
+    #     v0 = dss_voltages["rg60"],  # openDSS rg60 values
+    #     v_uplim = 1.06,
+    #     v_lolim = 0.94,
+    #     Ntimesteps = 1
+    # );
+    # # p.Isquared_up_bounds = Dict(
+    # #     lc => 100 for lc in Set(p.linecodes)
+    # # )
+    # p.P_lo_bound = -10
+    # p.Q_lo_bound = -10
+    # p.P_up_bound = 10
+    # p.Q_up_bound = 10
+
+    # ## make the dss solution to compare
     # dssfilepath = "data/ieee13/IEEE13Nodeckt.dss"
     # OpenDSS.Text.Command("Redirect $dssfilepath")
     # @test(OpenDSS.Solution.Converged() == true)
@@ -239,61 +271,45 @@ end
 
     # vbase = 4160/sqrt(3)
     # net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
-    # net.Sbase = 1_000_000
-    # net.Vbase = vbase
+    # net.Sbase = 1e3 # 1_000_000
+    # net.Vbase = 1e3 # vbase
     # net.Zbase = net.Vbase^2 / net.Sbase
+
+    # m = Model(CSDP.Optimizer)
+    # ## set_attribute(m, "printlevel", 0)
+
+    # ## m = Model(COSMO.Optimizer)
+
+    # ## m = Model(SCS.Optimizer)
+
+    # build_model!(m, net)
+
+    # @objective(m, Min, 
+    #     sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in edges(net) )
+    # )
+
+    # ## need bounds to get solution?
+    # optimize!(m)
+
     
-#     p = Inputs(
-#         joinpath("data", "ieee13", "IEEE13Nodeckt.dss"), 
-#         "rg60";
-#         Sbase=1_000_000, 
-#         Vbase=vbase, 
-#         v0 = dss_voltages["rg60"],  # openDSS rg60 values
-#         v_uplim = 1.06,
-#         v_lolim = 0.94,
-#         Ntimesteps = 1
-#     );
-#     # p.Isquared_up_bounds = Dict(
-#     #     lc => 100 for lc in Set(p.linecodes)
-#     # )
-#     p.P_lo_bound = -10
-#     p.Q_lo_bound = -10
-#     p.P_up_bound = 10
-#     p.Q_up_bound = 10
-
-#     m = Model(CSDP.Optimizer)
-# #     set_attribute(m, "printlevel", 0)
-
-#     # m = Model(COSMO.Optimizer)
-
-#     # m = Model(SCS.Optimizer)
-
-#     build_model!(m, net)
-
-#     @objective(m, Min, 
-#         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in edges(net) )
-#     )
-
-#     # need bounds to get solution?
-#     optimize!(m)
+    # vs = Dict(
+    #     k => abs.(sqrt(JuMP.value.(w)))
+    #     for (k,w) in m[:w][1]
+    # )
     
-#     # @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
+    ## @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
 
-#     # @test_nowarn(check_rank_one(m,p))
+    ## @test_nowarn(check_rank_one(m,p))
 
-#     vs = Dict(
-#         k => abs.(sqrt(JuMP.value.(w)))
-#         for (k,w) in m[:w][1]
-#     )
 
-    # I = get_variable_values(:l, m, p)  # TODO method for multiphase results
+    ## I = get_variable_values(:l, m, p)  # TODO method for multiphase results
 
-    # for b in keys(vs)
-    #     for (i,phsv) in enumerate(filter(v -> v != 0, vs[b]))
-    #         # @assert abs(phsv - dss_voltages[b][i]) < 1e-2 "bus $b phase $i failed"
-    #         println("$b - $i  $(phsv - dss_voltages[b][i])")
-    #     end
-    # end
+    ## for b in keys(vs)
+    ##     for (i,phsv) in enumerate(filter(v -> v != 0, vs[b]))
+    ##         # @assert abs(phsv - dss_voltages[b][i]) < 1e-2 "bus $b phase $i failed"
+    ##         println("$b - $i  $(phsv - dss_voltages[b][i])")
+    ##     end
+    ## end
 
 end
 
