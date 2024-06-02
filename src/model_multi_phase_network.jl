@@ -83,15 +83,15 @@ function add_variables(m, net::Network{MultiPhase})
             -0.5 * net.v0[2] + im*sqrt(3)/2 * net.v0[2]; 
             -0.5 * net.v0[3] - im*sqrt(3)/2 * net.v0[3]
         ]
-        v0 = v0*cj(v0)
+        w0 = v0*cj(v0)
     elseif typeof(net.v0) <: AbstractVector{<:Complex}
-        v0 = net.v0 * cj(net.v0)
+        w0 = net.v0 * cj(net.v0)
     else  # matrix provided
-        v0 = net.v0
+        w0 = net.v0 * cj(net.v0)
     end
 
     for t in 1:net.Ntimesteps
-        m[:w][t] = Dict(net.substation_bus => v0 * cj(v0))
+        m[:w][t] = Dict(net.substation_bus => v0)
         # empty dicts for line values in each time step to fill
         m[:l][t] = Dict()
         m[:Sij][t] = Dict()

@@ -212,6 +212,8 @@ end
     net = BranchFlowModel.CommonOPF.Network(joinpath("data", "two_line_multi_phase.yaml"))
 
     m = Model(CSDP.Optimizer)
+    # set_attribute(m, "printlevel", 0)
+    # TODO add pieces of IEEE13 one at a time, starting with two phase lateral with load
     build_model!(m, net)
 
     @objective(m, Min, 
@@ -220,14 +222,21 @@ end
     
     optimize!(m)
 
+    # TODO do these vs match the eigen method values? (and should sqrt come last always?)
+    # TODO results methods in CommonOPF for multiphase models
     vs = Dict(
-        k => abs.(sqrt(JuMP.value.(w)))
+        k => sqrt.(abs.(JuMP.value.(w)))
         for (k,w) in m[:w][1]
     )
 
     Sijs = Dict(
-        k => abs.(JuMP.value.(w))
-        for (k,w) in m[:Sij][1]
+        k => abs.(JuMP.value.(sij))
+        for (k, sij) in m[:Sij][1]
+    )
+
+    Lijs = Dict(
+        k => abs.(JuMP.value.(lij))
+        for (k, lij) in m[:l][1]
     )
 
     # abs(5.6+im*1.2)  # load magnitude per phase
@@ -238,6 +247,34 @@ end
     for phs in 1:3
         @test S0[phs] ≈ Sijs[("b1", "b2")][phs, phs]
     end
+
+    # bus b4 has no load so should have approximately same voltage as b2
+    for phs in [1, 3]
+        @test vs["b2"][phs, phs] ≈ vs["b4"][phs, phs]
+    end
+
+    # no phase 2 at b4
+    @test vs["b4"][2, :] == [0,0,0]
+    @test vs["b4"][:, 2] == [0,0,0]
+
+    # H = value.(m[:w][1]["b4"])
+
+    # # Step 3: Perform eigenvalue decomposition
+    # eig = eigen(H)
+
+    # # Eigenvalues and eigenvectors
+    # eigenvalues = eig.values
+    # eigenvectors = eig.vectors
+
+    # # Step 4: Select a non-zero eigenvalue and corresponding eigenvector
+    # non_zero_indices = findall(x -> abs(x) > 1e-8, eigenvalues)
+    # lambda_i = eigenvalues[non_zero_indices[1]]
+    # u_i = eigenvectors[:, non_zero_indices[1]]
+
+    # # Step 5: Construct the vector v
+    # v = sqrt(lambda_i) * u_i
+    # abs.(v)
+
 
 end
 
