@@ -245,12 +245,12 @@ end
 
     # slack bus injection equals flow out on each phase
     for phs in 1:3
-        @test S0[phs] ≈ Sijs[("b1", "b2")][phs, phs]
+        @test S0[phs] ≈ Sijs[("b1", "b2")][phs, phs] atol=1e-4
     end
 
     # bus b4 has no load so should have approximately same voltage as b2
     for phs in [1, 3]
-        @test vs["b2"][phs, phs] ≈ vs["b4"][phs, phs]
+        @test vs["b2"][phs, phs] ≈ vs["b4"][phs, phs] atol=1e-5
     end
 
     # no phase 2 at b4

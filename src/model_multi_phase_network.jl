@@ -98,8 +98,8 @@ function add_variables(m, net::Network{MultiPhase})
         # slack bus power injection
         m[:Sj][t] = Dict(net.substation_bus =>  @variable(m, [1:3] in ComplexPlane(), 
             base_name="Sj_" * string(t) *"_"* net.substation_bus,
-            # lower_bound = p.P_lo_bound + p.Q_lo_bound*im, 
-            # upper_bound = p.P_up_bound + p.Q_up_bound*im
+            upper_bound = net.bounds.s_upper + net.bounds.s_upper*im, 
+            lower_bound = net.bounds.s_lower + net.bounds.s_lower*im
         ))
         m[:H][t] = Dict()
 
@@ -114,8 +114,8 @@ function add_variables(m, net::Network{MultiPhase})
                 for phs1 in phases_into_bus(net, j), phs2 in phases_into_bus(net, j)
                     m[:Sij][t][i_j][phs1, phs2] = @variable(m, 
                         set = ComplexPlane(), base_name="Sij_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2), 
-                        # lower_bound = p.P_lo_bound + p.Q_lo_bound*im,
-                        # upper_bound = p.P_up_bound + p.Q_up_bound*im,
+                        upper_bound = net.bounds.s_upper + net.bounds.s_upper*im, 
+                        lower_bound = net.bounds.s_lower + net.bounds.s_lower*im
                     )
                 end
 
@@ -124,39 +124,36 @@ function add_variables(m, net::Network{MultiPhase})
                 m[:w][t][j]   = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
 
                 # fill in variables for all combinations of phases
-                # TODO better bounds
                 for phs1 in phases_into_bus(net, j), phs2 in phases_into_bus(net, j)
-
-                    # l_up_bound = p.Isquared_up_bounds[get_ijlinecode(i,j,p)]
 
                     if phs1 <= phs2  # upper triangle of Hermitian matrices
 
-                        if phs1 == phs2 # diagonal terms are real
-                            # TODO THE BOUNDS LEAD TO INFEASIBLE PROBLEMS
+                        # real diagonal terms
+                        if phs1 == phs2
                             m[:l][t][i_j][phs1, phs2] = @variable(m, 
-                                base_name="l_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2), 
-                                # lower_bound = 0.0,  # diagonal value are real, positive
-                                # upper_bound = l_up_bound
+                                base_name="l_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2),
+                                upper_bound = net.bounds.i_upper^2,
+                                lower_bound = 0.0,  # diagonal values are real, positive
                             )
 
                             m[:w][t][j][phs1, phs2] = @variable(m, 
-                                base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2), 
-                                lower_bound = net.bounds.v_lower^2,
+                                base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2),
                                 upper_bound = net.bounds.v_upper^2,
+                                lower_bound = net.bounds.v_lower^2,
                                 start = 1.0
                             )
-
+                        # complex off-diagonal terms
                         else
                             m[:l][t][i_j][phs1, phs2] = @variable(m, 
-                                set = ComplexPlane(), base_name="l_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2), 
-                                # lower_bound = 0.0 + 0.0*im,  # must have negative imaginary parts in Hermitian matrix
-                                # upper_bound = l_up_bound + l_up_bound*im
+                                set = ComplexPlane(), base_name="l_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2),
+                                upper_bound =  net.bounds.i_upper^2 + im * net.bounds.i_upper^2,
+                                lower_bound =  net.bounds.i_lower^2 + im * net.bounds.i_lower^2,  # must have negative imaginary parts in Hermitian matrix
                             )
 
                             m[:w][t][j][phs1, phs2] = @variable(m, 
-                                set = ComplexPlane(), base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2), 
+                                set = ComplexPlane(), base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2),
+                                upper_bound = net.bounds.v_upper^2 + net.bounds.v_upper^2*im,
                                 # lower_bound = net.bounds.v_lower^2 + net.bounds.v_lower^2*im,  # must have negative imaginary parts in Hermitian matrix
-                                # upper_bound = net.bounds.v_upper^2 + net.bounds.v_upper^2*im,
                                 start = 1.0 + 0.0im
                             )
                         end
