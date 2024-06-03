@@ -156,8 +156,8 @@ end
     net.Vbase = 2400
     net.Sbase = 1_000_000
     net.Zbase = net.Vbase^2/net.Sbase
-    net.v_lolim = 0.95
-    net.v_uplim = 1.05
+    net.bounds.v_lower = 0.95
+    net.bounds.v_upper = 1.05
     
     # a radial network has n_edges = n_vertices - 1
     @test net.graph.graph.ne == Graphs.nv(net.graph) - 1  
@@ -287,8 +287,8 @@ end
     #     Sbase=1_000_000, 
     #     Vbase=vbase, 
     #     v0 = dss_voltages["rg60"],  # openDSS rg60 values
-    #     v_uplim = 1.06,
-    #     v_lolim = 0.94,
+    #    .bounds.v_upper = 1.06,
+    #    .bounds.v_lower = 0.94,
     #     Ntimesteps = 1
     # );
     # # p.Isquared_up_bounds = Dict(
@@ -298,6 +298,7 @@ end
     # p.Q_lo_bound = -10
     # p.P_up_bound = 10
     # p.Q_up_bound = 10
+    # NEXT variable names and bounds in CommonOPF, e.g. sij_uplim/lolim - use the names to get Results
 
     # ## make the dss solution to compare
     # dssfilepath = "data/ieee13/IEEE13Nodeckt.dss"
@@ -373,8 +374,8 @@ end
 #         Sbase=Sbase, 
 #         Vbase=Vbase, 
 #         v0 = 1.00,
-#         v_uplim = 1.05,
-#         v_lolim = 0.95,
+#        .bounds.v_upper = 1.05,
+#        .bounds.v_lower = 0.95,
 #         relaxed = false,
 #     );
 #     m = make_solve_min_loss_model(p)
@@ -499,8 +500,8 @@ end
 #         Sbase=Sbase, 
 #         Vbase=Vbase, 
 #         v0 = 1.00,
-#         v_uplim = 1.05,
-#         v_lolim = 0.95,
+#        .bounds.v_upper = 1.05,
+#        .bounds.v_lower = 0.95,
 #         relaxed = false,
 #     );
 #     @test ("20","21") in keys(p.regulators)

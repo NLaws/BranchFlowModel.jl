@@ -39,8 +39,8 @@ function add_variables(m, net::Network{SinglePhase})
     # voltage squared
     CommonOPF.add_time_vector_variables!(m, net, :vsqrd, bs)
     for bus in busses(net)
-        JuMP.set_lower_bound.(m[:vsqrd][bus], (net.v_lolim)^2)
-        JuMP.set_upper_bound.(m[:vsqrd][bus], (net.v_uplim)^2)
+        JuMP.set_lower_bound.(m[:vsqrd][bus], (net.bounds.v_lower)^2)
+        JuMP.set_upper_bound.(m[:vsqrd][bus], (net.bounds.v_upper)^2)
     end
     # TODO more bounds
     

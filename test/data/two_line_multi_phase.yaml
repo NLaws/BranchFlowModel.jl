@@ -3,6 +3,8 @@ Network:
   Sbase: 1e3
   Vbase: 1e3
   Ntimesteps: 1
+  v_upper: 1.1
+  v_lower: 0.9
 
 Conductor:
   - name: cond1-symmetric

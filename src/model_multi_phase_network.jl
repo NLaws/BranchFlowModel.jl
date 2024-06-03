@@ -141,8 +141,8 @@ function add_variables(m, net::Network{MultiPhase})
 
                             m[:w][t][j][phs1, phs2] = @variable(m, 
                                 base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2), 
-                                lower_bound = net.v_lolim^2,
-                                upper_bound = net.v_uplim^2,
+                                lower_bound = net.bounds.v_lower^2,
+                                upper_bound = net.bounds.v_upper^2,
                                 start = 1.0
                             )
 
@@ -155,8 +155,8 @@ function add_variables(m, net::Network{MultiPhase})
 
                             m[:w][t][j][phs1, phs2] = @variable(m, 
                                 set = ComplexPlane(), base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2), 
-                                # lower_bound = net.v_lolim^2 + net.v_lolim^2*im,  # must have negative imaginary parts in Hermitian matrix
-                                # upper_bound = net.v_uplim^2 + net.v_uplim^2*im,
+                                # lower_bound = net.bounds.v_lower^2 + net.bounds.v_lower^2*im,  # must have negative imaginary parts in Hermitian matrix
+                                # upper_bound = net.bounds.v_upper^2 + net.bounds.v_upper^2*im,
                                 start = 1.0 + 0.0im
                             )
                         end
