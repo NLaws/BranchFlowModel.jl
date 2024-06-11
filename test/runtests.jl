@@ -257,25 +257,6 @@ end
     @test vs["b4"][2, :] == [0,0,0]
     @test vs["b4"][:, 2] == [0,0,0]
 
-    # H = value.(m[:w][1]["b4"])
-
-    # # Step 3: Perform eigenvalue decomposition
-    # eig = eigen(H)
-
-    # # Eigenvalues and eigenvectors
-    # eigenvalues = eig.values
-    # eigenvectors = eig.vectors
-
-    # # Step 4: Select a non-zero eigenvalue and corresponding eigenvector
-    # non_zero_indices = findall(x -> abs(x) > 1e-8, eigenvalues)
-    # lambda_i = eigenvalues[non_zero_indices[1]]
-    # u_i = eigenvectors[:, non_zero_indices[1]]
-
-    # # Step 5: Construct the vector v
-    # v = sqrt(lambda_i) * u_i
-    # abs.(v)
-
-
 end
 
 
@@ -300,42 +281,70 @@ end
     # p.Q_up_bound = 10
     # NEXT variable names and bounds in CommonOPF, e.g. sij_uplim/lolim - use the names to get Results
 
-    # ## make the dss solution to compare
-    # dssfilepath = "data/ieee13/IEEE13Nodeckt.dss"
-    # OpenDSS.Text.Command("Redirect $dssfilepath")
-    # @test(OpenDSS.Solution.Converged() == true)
+    ## make the dss solution to compare
+    dssfilepath = "data/ieee13/IEEE13Nodeckt.dss"
+    OpenDSS.Text.Command("Redirect $dssfilepath")
+    @test(OpenDSS.Solution.Converged() == true)
 
-    # dss_voltages = dss_voltages_pu()
+    dss_voltages = dss_voltages_pu()
 
-    # vbase = 4160/sqrt(3)
-    # net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
-    # net.Sbase = 1e3 # 1_000_000
-    # net.Vbase = 1e3 # vbase
-    # net.Zbase = net.Vbase^2 / net.Sbase
+    net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
+    net.Vbase = 2400
+    net.Sbase = 1_000_000
+    net.Zbase = net.Vbase^2/net.Sbase
+    net.bounds.v_upper = 1.1
+    net.bounds.v_lower = 0.0
+    net.bounds.s_upper =  100
+    net.bounds.s_lower = -100
+    net.bounds.i_upper = 100
 
-    # m = Model(CSDP.Optimizer)
-    # ## set_attribute(m, "printlevel", 0)
+    net[("650", "rg60")].vreg_pu = dss_voltages["rg60"]
 
-    # ## m = Model(COSMO.Optimizer)
+    m = Model(CSDP.Optimizer)
+    ## set_attribute(m, "printlevel", 0)
 
-    # ## m = Model(SCS.Optimizer)
+    # using HiGHS
+    # m = Model(HiGHS.Optimizer)
 
-    # build_model!(m, net)
+    ## m = Model(COSMO.Optimizer)
 
-    # @objective(m, Min, 
-    #     sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in edges(net) )
-    # )
+    ## m = Model(SCS.Optimizer)
 
-    # ## need bounds to get solution?
-    # optimize!(m)
+    build_model!(m, net; PSD=true)
 
+    @objective(m, Min, 
+        sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in edges(net) )
+    )
+
+    optimize!(m)
     
-    # vs = Dict(
-    #     k => abs.(sqrt(JuMP.value.(w)))
-    #     for (k,w) in m[:w][1]
-    # )
-    
-    ## @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
+
+    function hermitian_variable_to_vector(m::JuMP.AbstractModel, var::Symbol, t::Int, bus::String)
+
+        H = value.(m[var][t][bus])
+
+        # Perform eigenvalue decomposition
+        eig = eigen(H)
+
+        # # Eigenvalues and eigenvectors
+        eigenvalues = eig.values
+        eigenvectors = eig.vectors
+
+        # Select a non-zero eigenvalue and corresponding eigenvector
+        non_zero_indices = findall(x -> abs(x) > 1e-2, eigenvalues)
+        lambda_i = eigenvalues[non_zero_indices[1]]
+        u_i = eigenvectors[:, non_zero_indices[1]]
+
+        # Construct the vector v
+        v = sqrt(lambda_i) * u_i
+        return v
+    end
+
+    vs = Dict(
+        k => abs.(hermitian_variable_to_vector(m, :w, 1, k))
+        for (k,w) in m[:w][1]
+    )
 
     ## @test_nowarn(check_rank_one(m,p))
 
