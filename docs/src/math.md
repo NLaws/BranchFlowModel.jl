@@ -20,7 +20,9 @@ w_i \ell_{ij} = P_{ij}^2 + Q_{ij}^2 \forall (i,j) \in \mathcal{E} \\
 ```
 
 # Three Phase BranchFlowModel
-TODO
+```@docs
+constrain_KVL(m, net::Network{MultiPhase})
+```
 
 
 # References
