@@ -227,7 +227,7 @@ from JuMP for all time steps.
 """
 function constrain_power_balance(m, net::Network{MultiPhase})
     Sij = m[:Sij]
-    lij = m[:l]
+    Lij = m[:l]
     m[:loadbalcons] = Dict()
     
     for j in busses(net)
@@ -271,7 +271,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
         elseif !isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
             m[:loadbalcons][j] = @constraint(m, [t in 1:net.Ntimesteps],
                 sum( diag( 
-                    Sij[t][(i,j)] - zij_per_unit(i,j,net) * lij[t][(i,j)]
+                    Sij[t][(i,j)] - zij_per_unit(i,j,net) * Lij[t][(i,j)]
                 ) for i in i_to_j(j, net) )
                 + Sj[t, :] .== 0
             )
@@ -280,7 +280,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
         else
             m[:loadbalcons][j] = @constraint(m, [t in 1:net.Ntimesteps],
                 sum( diag( 
-                    Sij[t][(i,j)] - zij_per_unit(i,j,net) * lij[t][(i,j)]
+                    Sij[t][(i,j)] - zij_per_unit(i,j,net) * Lij[t][(i,j)]
                 ) for i in i_to_j(j, net) )
                 + Sj[t, :]
                 - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) .== 0
@@ -320,7 +320,7 @@ Add the voltage drop definitions between busses.
 function constrain_KVL(m, net::Network{MultiPhase})
     w = m[:w]
     Sij = m[:Sij]
-    lij = m[:l]
+    Lij = m[:l]
 
     T = matrix_phases_to_vec  # "T" for transform
     m[:kvl] = Dict{String, AbstractArray}()
@@ -330,13 +330,13 @@ function constrain_KVL(m, net::Network{MultiPhase})
             phases = phases_into_bus(net, j)
 
             if !( isa(net[(i,j)], CommonOPF.VoltageRegulator) )
-                z = zij_per_unit(i,j,net)
+                Z = zij_per_unit(i,j,net)
                 # slice w[t][i] by phases in edge (i, j)
                 m[:kvl][j] = @constraint(m, [t in 1:net.Ntimesteps],
-                    T( w[t][j], phases ) .== T( w[t][i], phases )
-                        - T( Sij[t][(i, j)] * cj(z),     phases )
-                        - T( z * cj(Sij[t][(i, j)]),     phases )
-                        + T( z * lij[t][(i, j)] * cj(z), phases )
+                    T( w[t][j], phases ) .== T( w[t][i]
+                        - (Sij[t][(i, j)] * cj(Z)
+                           + Z * cj(Sij[t][(i, j)]))
+                        + Z * Lij[t][(i, j)] * cj(Z), phases )
                 );
 
             else

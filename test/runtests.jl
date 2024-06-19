@@ -17,6 +17,8 @@ import Graphs
 # using BranchFlowModel
 # Pkg.activate(".")
 
+CPF = BranchFlowModel.CommonOPF
+
 Random.seed!(42)
 # TODO test singlephase38lines with results in paper or remove the test data
 
@@ -44,7 +46,111 @@ function build_min_loss_model(net)
 end
 
 
+function hermitian_variable_to_vector(m::JuMP.AbstractModel, var::Symbol, t::Int, bus::String)
+
+    H = value.(m[var][t][bus])
+
+    # Perform eigenvalue decomposition
+    eig = eigen(H)
+
+    # # Eigenvalues and eigenvectors
+    eigenvalues = eig.values
+    eigenvectors = eig.vectors
+
+    # Select a non-zero eigenvalue and corresponding eigenvector
+    non_zero_indices = findall(x -> abs(x) > 1e-2, eigenvalues)
+    lambda_i = abs(eigenvalues[non_zero_indices[1]])
+    u_i = eigenvectors[:, non_zero_indices[1]]
+
+    # Construct the vector v
+    v = sqrt(lambda_i) * u_i
+    return v
+end
+
+
 @testset "BranchFlowModel.jl" begin
+
+
+@testset "utilities" begin
+
+    # matrix_phases_to_vec used to build multiphase KVL
+    M = [1 2 3; 4 5 6; 7 8 9]
+
+    phases = [2, 3]
+    v = BranchFlowModel.matrix_phases_to_vec(M, phases)
+    @test v == [5, 6, 8, 9]
+
+    phases = [1]
+    v = BranchFlowModel.matrix_phases_to_vec(M, phases)
+    @test v == [1]
+
+    phases = [1, 2, 3]
+    v = BranchFlowModel.matrix_phases_to_vec(M, phases)
+    @test v == [1, 2, 3, 4, 5, 6, 7, 8, 9]
+end
+
+
+@testset "multiphase KVL" begin
+
+    # simple min loss model
+    net = BranchFlowModel.CommonOPF.Network(joinpath("data", "two_line_multi_phase.yaml"))
+    net.bounds.i_upper *= 10
+
+    m = Model(CSDP.Optimizer)
+    build_model!(m, net)
+    @objective(m, Min, 
+        sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in  edges(net))
+    )
+    
+    optimize!(m)
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
+
+    w = Dict(
+        k => JuMP.value.(w)
+        for (k,w) in m[:w][1]
+    )
+
+    Lijs = Dict(
+        k => JuMP.value.(lij)
+        for (k, lij) in m[:l][1]
+    )
+
+    Sijs = Dict(
+        k => JuMP.value.(Sij)
+        for (k, Sij) in m[:Sij][1]
+    )
+
+    i = "b1"
+    j = "b2"
+    @test CPF.phases_into_bus(net, j) == [1,2,3]
+
+    Z = CPF.zij_per_unit(i, j, net)
+    Sij = Sijs[(i,j)]
+    Lij = Lijs[(i,j)]
+
+    RHS = w[i] - Sij * conj(transpose(Z)) - Z * conj(transpose(Sij)) + Z * Lij * conj(transpose(Z))
+
+    for (a,b) in zip(w[j], RHS)
+        @test a ≈ b atol=1e-5
+    end
+
+    i = "b2"
+    j = "b4"
+    phases = CPF.phases_into_bus(net, j)
+    @test phases == [1,3]
+    T = BranchFlowModel.matrix_phases_to_vec
+
+    Z = CPF.zij_per_unit(i, j, net)
+    Sij = Sijs[(i,j)]
+    Lij = Lijs[(i,j)]
+
+    RHS = w[i] - Sij * conj(transpose(Z)) - Z * conj(transpose(Sij)) + Z * Lij * conj(transpose(Z))
+
+    for (a,b) in zip( T(w[j], phases), T(RHS, phases) )
+        @test a ≈ b atol=1e-5
+    end
+
+end
 
 
 @testset "Papavasiliou 2018 with shunts" begin
@@ -210,6 +316,7 @@ end
 
 @testset "basic two-line multiphase" begin
     net = BranchFlowModel.CommonOPF.Network(joinpath("data", "two_line_multi_phase.yaml"))
+    net.bounds.i_upper *= 10
 
     m = Model(CSDP.Optimizer)
     # set_attribute(m, "printlevel", 0)
@@ -221,6 +328,7 @@ end
     )
     
     optimize!(m)
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
 
     # TODO do these vs match the eigen method values? (and should sqrt come last always?)
     # TODO results methods in CommonOPF for multiphase models
@@ -319,27 +427,6 @@ end
     optimize!(m)
     
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
-
-    function hermitian_variable_to_vector(m::JuMP.AbstractModel, var::Symbol, t::Int, bus::String)
-
-        H = value.(m[var][t][bus])
-
-        # Perform eigenvalue decomposition
-        eig = eigen(H)
-
-        # # Eigenvalues and eigenvectors
-        eigenvalues = eig.values
-        eigenvectors = eig.vectors
-
-        # Select a non-zero eigenvalue and corresponding eigenvector
-        non_zero_indices = findall(x -> abs(x) > 1e-2, eigenvalues)
-        lambda_i = eigenvalues[non_zero_indices[1]]
-        u_i = eigenvectors[:, non_zero_indices[1]]
-
-        # Construct the vector v
-        v = sqrt(lambda_i) * u_i
-        return v
-    end
 
     vs = Dict(
         k => abs.(hermitian_variable_to_vector(m, :w, 1, k))
