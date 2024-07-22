@@ -46,7 +46,7 @@ function build_min_loss_model(net)
 end
 
 
-function hermitian_variable_to_vector(m::JuMP.AbstractModel, var::Symbol, t::Int, bus::String)
+function hermitian_variable_to_vector(m::JuMP.AbstractModel, var::Symbol, t::Int, bus::Union{String, Tuple{String, String}}; tol=1e-5)
 
     H = value.(m[var][t][bus])
 
@@ -58,7 +58,7 @@ function hermitian_variable_to_vector(m::JuMP.AbstractModel, var::Symbol, t::Int
     eigenvectors = eig.vectors
 
     # Select a non-zero eigenvalue and corresponding eigenvector
-    non_zero_indices = findall(x -> abs(x) > 1e-2, eigenvalues)
+    non_zero_indices = findall(x -> abs(x) > tol, eigenvalues)
     lambda_i = abs(eigenvalues[non_zero_indices[1]])
     u_i = eigenvectors[:, non_zero_indices[1]]
 

@@ -228,6 +228,7 @@ from JuMP for all time steps.
 function constrain_power_balance(m, net::Network{MultiPhase})
     Sij = m[:Sij]
     Lij = m[:l]
+    w = m[:w]
     m[:loadbalcons] = Dict()
     
     for j in busses(net)
@@ -253,11 +254,18 @@ function constrain_power_balance(m, net::Network{MultiPhase})
 
             if j == net.substation_bus   # include the slack power variables
                 m[:loadbalcons][j] = @constraint(m,  [t in 1:net.Ntimesteps],
-                    m[:Sj][t][j] + Sj[t, :] - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) .== 0
+                    m[:Sj][t][j] + Sj[t, :] 
+                    - diag(w[t][j] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
+                    - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) )
+                    .== 0
                 )
+
             else  # a source node with known injection
                 m[:loadbalcons][j] = @constraint(m,  [t in 1:net.Ntimesteps],
-                    Sj[t, :] - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) .== 0
+                    Sj[t, :] 
+                    - diag(w[t][j] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
+                    - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) 
+                    .== 0
                 )
 
             end
@@ -273,7 +281,9 @@ function constrain_power_balance(m, net::Network{MultiPhase})
                 sum( diag( 
                     Sij[t][(i,j)] - zij_per_unit(i,j,net) * Lij[t][(i,j)]
                 ) for i in i_to_j(j, net) )
-                + Sj[t, :] .== 0
+                + Sj[t, :] 
+                - diag(w[t][j] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
+                .== 0
             )
 
         # node with lines in and out
@@ -283,11 +293,12 @@ function constrain_power_balance(m, net::Network{MultiPhase})
                     Sij[t][(i,j)] - zij_per_unit(i,j,net) * Lij[t][(i,j)]
                 ) for i in i_to_j(j, net) )
                 + Sj[t, :]
-                - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) .== 0
+                - diag(w[t][j] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
+                - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) 
+                .== 0
             )
         end
     end
-    # TODO add shunts, diag( openDSS-cmatrix * m[:w][t][j] ) ?
 
     nothing
 end

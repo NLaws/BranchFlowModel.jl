@@ -101,7 +101,8 @@ function constrain_power_balance(m, net::Network)
         # check for shunt admittance
         shunt_susceptance = 0.0
         if :ShuntAdmittance in keys(net[j])
-            shunt_susceptance = net[j][:ShuntAdmittance].b
+            # flip sign of susceptance b/c we want complex conjugate
+            shunt_susceptance = -net[j][:ShuntAdmittance].b
         end
 
         # check for capacitors (only fixed for now)
