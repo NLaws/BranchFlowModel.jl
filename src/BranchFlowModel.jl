@@ -57,7 +57,8 @@ export
     paths_between,
     Results,
     # MetaGraphsNext
-    vertices
+    vertices,
+    check_rank_one
 
 include("inputs.jl")
 include("utils.jl")
