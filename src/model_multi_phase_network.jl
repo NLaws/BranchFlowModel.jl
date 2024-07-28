@@ -149,6 +149,7 @@ function add_variables(m, net::Network{MultiPhase}; PSD::Bool=true)
                                 base_name="l_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2),
                                 upper_bound = net.bounds.i_upper^2,
                                 lower_bound = 0.0,  # diagonal values are real, positive
+                                start = 0.01
                             )
 
                             m[:w][t][j][phs1, phs2] = @variable(m, 
@@ -162,7 +163,7 @@ function add_variables(m, net::Network{MultiPhase}; PSD::Bool=true)
                             m[:l][t][i_j][phs1, phs2] = @variable(m, 
                                 set = ComplexPlane(), base_name="l_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2),
                                 upper_bound =  net.bounds.i_upper^2 + im * net.bounds.i_upper^2,
-                                # lower_bound =  net.bounds.i_lower^2 + im * net.bounds.i_lower^2,  # must have negative imaginary parts in Hermitian matrix
+                                lower_bound =  net.bounds.i_lower^2 + im * net.bounds.i_lower^2,  # must have negative imaginary parts in Hermitian matrix
                             )
 
                             m[:w][t][j][phs1, phs2] = @variable(m, 
@@ -190,7 +191,8 @@ function add_variables(m, net::Network{MultiPhase}; PSD::Bool=true)
                     m[:H][t][j] = M
 
                     @constraint(m, M in HermitianPSDCone())
-                else  # SOC?
+                else  
+                    # SOC
 
                 end
             end
@@ -254,7 +256,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
 
             if j == net.substation_bus   # include the slack power variables
                 m[:loadbalcons][j] = @constraint(m,  [t in 1:net.Ntimesteps],
-                    m[:Sj][t][j] + Sj[t, :] 
+                    m[:Sj][t][j] + Sj[t, :]
                     - diag(w[t][j] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
                     - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) )
                     .== 0

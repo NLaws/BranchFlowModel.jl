@@ -30,6 +30,7 @@ Warnings express any values with rank greater than one.
 function check_rank_one(m::JuMP.AbstractModel, net::Network, tol=1e-3)
     for j in busses(net), t in 1:net.Ntimesteps
         if j == net.substation_bus continue end
+        # TODO use LinearAlgebra.rank w/ atol kwarg
         eigs = eigvals!(JuMP.value.(m[:H][t][j]))
         eigs ./= maximum(eigs)
         rank_H = sum(map(x-> x > tol ? 1 : 0, eigs))

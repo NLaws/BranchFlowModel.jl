@@ -5,7 +5,7 @@
 ### transition to CommonOPF.Network (from CommonOPF.Inputs)
 - add model_single_phase_network.jl and test build and solve
     - this will replace model_single_phase.jl in next release
-- remove `combine_parallel_lines!!` (maybe adapt it later for)
+- remove `combine_parallel_lines!!`
 
 ## v0.4.3
 - upgrade CommonOPF to v0.3.8
