@@ -6,14 +6,9 @@ Some various methods used in BranchFlowModel.jl:
     Contributions are welcome via fork and pull request.
 
 ```@docs
-Inputs(::String, ::String)
-Inputs(::AbstractVector{<:Tuple}, ::AbstractVector{<:AbstractString}, ::AbstractVector{<:Real}, ::AbstractVector{<:AbstractVector}, ::String)
-singlephase38linesInputs
 dsstxt_to_sparse_array 
 dss_files_to_dict
-build_model!(m::JuMP.AbstractModel, p::Inputs{BranchFlowModel.SinglePhase})
-build_model!(m::JuMP.AbstractModel, p::Inputs{BranchFlowModel.MultiPhase})
-add_variables
+build_model!(m::JuMP.AbstractModel, net::Network{SinglePhase}; relaxed::Bool=true)build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}; PSD::Bool=true)add_variables
 constrain_power_balance
 constrain_substation_voltage
 constrain_KVL
@@ -36,10 +31,5 @@ metagraph_voltages
 check_unique_solution_conditions
 check_statuses
 reg_busses
-turn_ratio
-vreg
-has_vreg
 remove_bus!
-paths_between
-Results(m::JuMP.AbstractModel, p::Inputs{SinglePhase}; digits=8)
 ```

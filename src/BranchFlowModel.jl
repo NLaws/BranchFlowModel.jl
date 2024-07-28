@@ -12,7 +12,6 @@ import SparseArrays: sparse
 const DEFAULT_AMP_LIMIT = 1000.0
 
 export 
-    Inputs,
     # new CommonOPF methods
     Network,
     edges,
@@ -50,11 +49,7 @@ export
     metagraph_voltages,
     check_statuses,
     reg_busses,
-    turn_ratio,
-    vreg,
-    has_vreg,
     remove_bus!,
-    paths_between,
     Results,
     # MetaGraphsNext
     vertices,

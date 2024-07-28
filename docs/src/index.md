@@ -10,20 +10,9 @@ Dictionaries of constraints are provided so that one can delete and/or modify th
     This package is under development. Contributions are welcome via fork and pull request.
 
 # Inputs
-There are two methods for creating `Inputs`:
-1. Using openDSS files
-2. Providing the network topology
-```@docs
-Inputs(::String, ::String)
-Inputs(::AbstractVector{<:Tuple}, ::AbstractVector{<:AbstractString}, ::AbstractVector{<:Real}, ::AbstractVector{<:AbstractVector}, ::String)
-```
-Both of the `Inputs` functions return a mutable `Inputs` struct:
-```@docs
-Inputs
-```
+Inputs are defined using `CommonOPF.Network` structs. 
 
 # Building a Model
-The `build_ldf!` function takes a `JuMP.Model` and `Inputs` struct as its two arguments and adds the variables and constraints:
 ```@docs
 build_model!
 ```
@@ -57,7 +46,7 @@ where the first key is for the time index and the inner `Dict`:
 ```julia
 S = Dict{String, AbstractVecOrMat}
 ```
-has string keys for either bus names or edge names, (which are stored in the `Inputs` as `Inputs.busses` and `Inputs.edge_keys` respectively).
+has string keys for either bus names or edge names.
 
 # Accessing and Modifying Constraints
 Let the JuMP.Model provided by the user be called `m`. 
@@ -67,7 +56,7 @@ Some constraints are stored in the model dict as anonymous constraints with symb
 BranchFlowModel.jl uses the convention that power injections are positive (and loads are negative). If no load is provided for a given bus (and phase) then the real and reactive power injections at that bus (and phase) are set to zero with an equality constraint.
 
 All power injection constraints are stored in `m[:injection_equalities]`. The constraints are indexed in the following order:
-1. by bus name (string), as provided in `Inputs.busses`;
+1. by bus name (string), as provided in `CommonOPF.busses`;
 2. by `"p"` or `"q"` for real and reactive power respectively;
 3. by phase number (integer); and
 4. by time (integer).
@@ -81,15 +70,10 @@ Note that the time index was not provided in the `delete` command in this exampl
 
 The deleted constraints can then be replaced with a new set of constraints. For example:
 ```julia
-m[:cons][:injection_equalities]["680"]["p"][1] = @constraint(m, [t in 1:p.Ntimesteps],
-    m[:Pj]["680",1,t] == -1e3 / p.Sbase
+m[:cons][:injection_equalities]["680"]["p"][1] = @constraint(m, [t in 1:net.Ntimesteps],
+    m[:Pj]["680",1,t] == -1e3 / net.Sbase
 )
 ```
-where `p` is short for "parameters" and is the `Inputs` struct for the problem of interest. Note that it is not necessary to store the new constraints in the `m[:cons][:injection_equalities]`.
+where `net` is the `CommonOPF.Network` struct for the problem of interest. Note that it is not necessary to store the new constraints in the `m[:cons][:injection_equalities]`.
 
 See the [JuMP documentation](https://jump.dev/JuMP.jl/stable/manual/constraints/#Delete-a-constraint) for more on deleting constraints.
-
-# Results
-```@docs
-Results(m::JuMP.AbstractModel, p::Inputs{SinglePhase}; digits=8)
-```

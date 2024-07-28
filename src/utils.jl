@@ -19,7 +19,7 @@ end
 
 
 """
-    phi_ij(j::String, p::Inputs, M::AbstractMatrix)
+    phi_ij(j::String, net::Network, M::AbstractMatrix)
 
 Down-select the matrix M by the phase from i -> j
 """
