@@ -432,7 +432,7 @@ end
     m = Model(CSDP.Optimizer)
     set_attribute(m, "printlevel", 0)
 
-    build_model!(m, net; PSD=true)
+    build_model!(m, net)
 
     @objective(m, Min, 
         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in edges(net) )
@@ -496,7 +496,7 @@ end
 #     set_attribute(m, "maxiter", 10_000)
     
 
-#     build_model!(m, net; PSD=true)
+#     build_model!(m, net)
 
 #     @objective(m, Min, 
 #         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in edges(net) )
@@ -543,7 +543,7 @@ end
 #     set_attribute(m, "maxiter", 10_000)
     
 
-#     build_model!(m, net; PSD=true)
+#     build_model!(m, net
 
 #     @objective(m, Min, 
 #         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in edges(net) )

@@ -9,7 +9,13 @@ import MetaGraphsNext: vertices
 using JSON
 import SparseArrays: sparse
 
-const DEFAULT_AMP_LIMIT = 1000.0
+
+@enum ModelType begin
+    Unrelaxed
+    Semidefinite
+    SecondOrderCone
+end
+
 
 export 
     # new CommonOPF methods

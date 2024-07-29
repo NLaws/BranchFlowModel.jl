@@ -1,19 +1,30 @@
 """
-    build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase})
+    build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, mtype::ModelType=Semidefinite)
+
+Top-level builder that dispatches the ModelType enum
+TODO make default mtype Unrelaxed (and define the methods)
+"""
+function build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, mtype::ModelType=Semidefinite)
+    build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, Val(mtype))
+end
+
+
+"""
+    build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Semidefinite})
 
 Add variables and constraints to `m` using the values in `net`. Calls the following functions:
 ```julia
-add_variables(m, net)
+add_sdp_variables(m, net)
 constrain_power_balance(m, net)
-constrain_substation_voltage(m, net)
 constrain_KVL(m, net)
 ```
 """
-function build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}; PSD::Bool=true)
-    add_variables(m, net; PSD=PSD)  # PSD done in add_variables
+function build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Semidefinite})
+    add_sdp_variables(m, net)  # PSD done in add_variables
     constrain_power_balance(m, net)
     constrain_KVL(m, net)
 end
+
 
 # hack for zero problem in MutableArithmetics
 import Base: zero
@@ -54,7 +65,7 @@ end
 
 
 """
-    add_variables(m, net::Network{MultiPhase}; PSD::Bool=true)
+    add_sdp_variables(m, net::Network{MultiPhase})
 
 Create complex variables:
 - `m[:w]` are 3x3 Hermitian matrices of voltage squared (V*V^T)
@@ -89,7 +100,7 @@ end
 fix(variable_by_name(m, "real(Sj_1_645_3)"), 0.0, force=true)
 ```
 """
-function add_variables(m, net::Network{MultiPhase}; PSD::Bool=true)
+function add_sdp_variables(m, net::Network{MultiPhase})
     # TODO complex model containers in CommonOPF
     # type for inner dicts of variable containers, which are dicts with time and bus keys
     S_bus = Dict{String, AbstractVecOrMat}
@@ -119,7 +130,7 @@ function add_variables(m, net::Network{MultiPhase}; PSD::Bool=true)
         m[:H][t] = Dict()
 
         # inner method to loop over
-        function define_vars_downstream(i::String, t::Int, m::JuMP.AbstractModel, net::Network; PSD::Bool)
+        function define_vars_downstream(i::String, t::Int, m::JuMP.AbstractModel, net::Network)
             for j in j_to_k(i, net)  # i -> j -> k
                 i_j = (i, j)  # for radial network there is only one i in i_to_j
 
@@ -182,30 +193,25 @@ function add_variables(m, net::Network{MultiPhase}; PSD::Bool=true)
 
                 w_i =  phi_ij(j, net, m[:w][t][i])
 
-                if PSD
-                    M = Hermitian([
-                        w_i                  m[:Sij][t][i_j];
-                        cj(m[:Sij][t][i_j])  m[:l][t][i_j]
-                    ])
+                M = Hermitian([
+                    w_i                  m[:Sij][t][i_j];
+                    cj(m[:Sij][t][i_j])  m[:l][t][i_j]
+                ])
 
-                    m[:H][t][j] = M
+                m[:H][t][j] = M
 
-                    @constraint(m, M in HermitianPSDCone())
-                else  
-                    # SOC
-
-                end
+                @constraint(m, M in HermitianPSDCone())
             end
             nothing
         end
         
         # have to traverse down the tree in order b/c the semi-definite constraints have i and i_j variables
         i = net.substation_bus
-        define_vars_downstream(i, t, m, net; PSD=PSD)
+        define_vars_downstream(i, t, m, net)
 
         function recursive_variables(j::String, t::Int, m::JuMP.AbstractModel, net::Network)
             for k in j_to_k(j, net)
-                define_vars_downstream(k, t, m, net; PSD=PSD)
+                define_vars_downstream(k, t, m, net)
                 recursive_variables(k, t, m, net)
             end
         end
