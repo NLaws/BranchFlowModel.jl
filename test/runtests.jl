@@ -33,7 +33,7 @@ function dss_voltages_pu()
 end
 
 
-function build_min_loss_model(net)
+function build_min_loss_model(net::CPF.Network{CPF.SinglePhase})
     m = Model(Ipopt.Optimizer)
     BranchFlowModel.build_model!(m, net; relaxed=false)
     @objective(m, Min, 

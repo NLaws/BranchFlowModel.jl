@@ -356,10 +356,16 @@ function constrain_bfm_nlp(m, net::Network{MultiPhase})
         for j in busses(net)
             for i in i_to_j(j, net)
             
+                # sending end power
                 @constraint(m, [t in 1:net.Ntimesteps],
                     S_ij[t][(i,j)] .== ( 
                         phi_ij(j, net, v[t][i]) * cj(i_ij[t][(i,j)]) 
                     )
+                )
+
+                # KVL
+                @constraint(m, [t in 1:net.Ntimesteps],
+                    phi_ij(j, net, v[t][i]) - v[t][j] .== zij_per_unit(i, j, net) * i_ij[t][(i,j)]
                 )
 
             end
@@ -367,6 +373,8 @@ function constrain_bfm_nlp(m, net::Network{MultiPhase})
         end
 
     end
+    constrain_power_balance(m, net)
+    nothing
 end
 
 
@@ -383,8 +391,34 @@ from JuMP for all time steps.
 """
 function constrain_power_balance(m, net::Network{MultiPhase})
     Sij = m[:Sij]
-    Lij = m[:l]
-    w = m[:w]
+
+    if :l in keys(m.obj_dict)
+        Lij = m[:l]
+    else
+        # TODO put the S_edge and S_bus types in CommonOPF for re-use
+        S_edge = Dict{Tuple{String, String}, AbstractVecOrMat}
+        Lij = Dict{Int64, S_edge}()
+        for t in 1:net.Ntimesteps
+            Lij[t] = Dict()
+            for (i,j) in edges(net)
+                Lij[t][(i,j)] = m[:i][t][(i,j)] * cj(m[:i][t][(i,j)])
+            end
+        end
+    end
+
+    if :w in keys(m.obj_dict)
+        w = m[:w]
+    else
+        # TODO put the S_edge and S_bus types in CommonOPF for re-use
+        S_bus = Dict{String, AbstractVecOrMat}
+        w = Dict{Int64, S_bus}()
+        for t in 1:net.Ntimesteps
+            w[t] = Dict()
+            for j in busses(net)
+                w[t][j] = m[:v][t][j] * cj(m[:v][t][j])
+            end
+        end
+    end
     m[:loadbalcons] = Dict()
     
     for j in busses(net)
