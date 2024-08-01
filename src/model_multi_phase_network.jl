@@ -32,14 +32,41 @@ zero(::Type{Any}) = 0.0
 zero(::Type{Union{Float64, GenericAffExpr}}) = 0.0
 
 
+function substation_voltage(net::Network{MultiPhase})::Vector{ComplexF64}
+
+    if typeof(net.v0) <: Real
+        return [
+            net.v0 + 0im; 
+            -0.5*net.v0 + im*sqrt(3)/2 * net.v0; 
+            -0.5*net.v0 - im*sqrt(3)/2 * net.v0
+        ]
+
+    elseif typeof(net.v0) <: AbstractVector{<:Real}
+        return [
+            net.v0[1] + 0im; 
+            -0.5 * net.v0[2] + im*sqrt(3)/2 * net.v0[2]; 
+            -0.5 * net.v0[3] - im*sqrt(3)/2 * net.v0[3]
+        ]
+
+    elseif typeof(net.v0) <: AbstractVector{<:Complex}
+        return net.v0
+
+    else  
+        throw(@error "unsupported type for Network.v0 $(typeof(net.v0))")
+    end
+
+    return w0
+end
+
+
 """
-    function substation_voltage(net::Network{MultiPhase})::Matrix{ComplexF64}
+    function substation_voltage_squared(net::Network{MultiPhase})::Matrix{ComplexF64}
 
 Consruct voltage matrix for substation from `net.v0`. If a real value or vector of real values is
 provided then a 120 degree phase shift is assumed. A vector of complex values is also supported.
 
 """
-function substation_voltage(net::Network{MultiPhase})::Matrix{ComplexF64}
+function substation_voltage_squared(net::Network{MultiPhase})::Matrix{ComplexF64}
 
     if typeof(net.v0) <: Real
         v0 = [net.v0 + 0im; -0.5*net.v0 + im*sqrt(3)/2 * net.v0; -0.5*net.v0 - im*sqrt(3)/2 * net.v0]
@@ -117,7 +144,7 @@ function add_sdp_variables(m, net::Network{MultiPhase})
     m[:H] = Dict{Int64, S_bus}()
 
     for t in 1:net.Ntimesteps
-        m[:w][t] = Dict(net.substation_bus => substation_voltage(net))
+        m[:w][t] = Dict(net.substation_bus => substation_voltage_squared(net))
         # empty dicts for line values in each time step to fill
         m[:l][t] = Dict()
         m[:Sij][t] = Dict()
@@ -219,6 +246,127 @@ function add_sdp_variables(m, net::Network{MultiPhase})
     end
     
     nothing
+end
+
+
+"""
+    add_bfm_variables(m, net::Network{MultiPhase})
+
+Define complex variables for:
+- `:v` bus voltages
+- `:i` branch currents
+- `:sij` branch power flows
+- `:sj` bus net power injections
+
+"""
+function add_bfm_variables(m, net::Network{MultiPhase})
+    # TODO complex model containers in CommonOPF
+    # type for inner dicts of variable containers, which are dicts with time and bus keys
+    S_bus = Dict{String, Vector}
+    S_edge = Dict{Tuple{String, String}, AbstractVecOrMat}
+    # bus voltage vectors by time and phase
+    m[:v] = Dict{Int64, S_bus}()
+    # sending current vectors by time and phase
+    m[:i] = Dict{Int64, S_edge}()
+    # sending line power matrices = v_i i_ij^H
+    m[:Sij] = Dict{Int64, S_edge}()
+    # bus net power injection vectors
+    m[:Sj] = Dict{Int64, S_bus}()
+
+    for t in 1:net.Ntimesteps
+        m[:v][t] = Dict(net.substation_bus => substation_voltage(net))
+        # empty dicts for line values in each time step to fill
+        m[:i][t] = Dict()
+        m[:Sij][t] = Dict()
+        # slack bus power injection
+        m[:Sj][t] = Dict(net.substation_bus =>  @variable(m, [1:3] in ComplexPlane(), 
+            base_name="Sj_" * string(t) *"_"* net.substation_bus,
+            upper_bound = net.bounds.s_upper + net.bounds.s_upper*im, 
+            lower_bound = net.bounds.s_lower + net.bounds.s_lower*im
+        ))
+
+        # inner method to loop over
+        function define_vars_downstream(i::String, t::Int, m::JuMP.AbstractModel, net::Network)
+            for j in j_to_k(i, net)  # i -> j -> k
+                i_j = (i, j)  # for radial network there is only one i in i_to_j
+
+                # initialize line flows and injections as zeros that will remain for undefined phases
+                # Sij is 3x3
+                # TODO some code is shared with SDP method, make sub functions in CommonOPF for defining complex
+                # vectors, matrices
+                m[:Sij][t][i_j] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
+                for phs1 in phases_into_bus(net, j), phs2 in phases_into_bus(net, j)
+                    m[:Sij][t][i_j][phs1, phs2] = @variable(m, 
+                        set = ComplexPlane(), 
+                        # base_name is Sij_t_i_j_phs1phs2 like Sij_1_bus1_bus2_23
+                        base_name="Sij_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2), 
+                        upper_bound = net.bounds.s_upper + net.bounds.s_upper*im, 
+                        lower_bound = net.bounds.s_lower + net.bounds.s_lower*im
+                    )
+                end
+
+                # 3-element vectors
+                m[:i][t][i_j] = convert(Vector{GenericAffExpr{ComplexF64, VariableRef}}, [0im; 0im; 0im])
+                m[:v][t][j]   = convert(Vector{GenericAffExpr{ComplexF64, VariableRef}}, [0im; 0im; 0im])
+
+                # fill in variables for complex vectors of phase
+                for phs1 in phases_into_bus(net, j)
+
+                    m[:i][t][i_j][phs1] = @variable(m, 
+                        set = ComplexPlane(), 
+                        base_name="i_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1),
+                        upper_bound =  net.bounds.i_upper^2 + im * net.bounds.i_upper^2,
+                        lower_bound =  net.bounds.i_lower^2 + im * net.bounds.i_lower^2,  # must have negative imaginary parts in Hermitian matrix
+                    )
+
+                    m[:v][t][j][phs1] = @variable(m, 
+                        set = ComplexPlane(), 
+                        base_name="v_" * string(t) *"_"* j *"_"* string(phs1),
+                        upper_bound = net.bounds.v_upper^2 + net.bounds.v_upper^2*im,
+                        # lower_bound = net.bounds.v_lower^2 + net.bounds.v_lower^2*im,  # must have negative imaginary parts in Hermitian matrix
+                        start = 1.0 + 0.0im
+                    )
+                end
+            end
+            nothing
+        end
+        
+        i = net.substation_bus
+        define_vars_downstream(i, t, m, net)
+
+        function recursive_variables(j::String, t::Int, m::JuMP.AbstractModel, net::Network)
+            for k in j_to_k(j, net)
+                define_vars_downstream(k, t, m, net)
+                recursive_variables(k, t, m, net)
+            end
+        end
+        recursive_variables(i, t, m, net)
+    end
+    
+    nothing
+end
+
+
+function constrain_bfm_nlp(m, net::Network{MultiPhase})
+    v = m[:v]
+    i_ij = m[:i]
+    S_ij = m[:Sij]
+    for t in 1:net.Ntimesteps
+
+        for j in busses(net)
+            for i in i_to_j(j, net)
+            
+                @constraint(m, [t in 1:net.Ntimesteps],
+                    S_ij[t][(i,j)] .== ( 
+                        phi_ij(j, net, v[t][i]) * cj(i_ij[t][(i,j)]) 
+                    )
+                )
+
+            end
+
+        end
+
+    end
 end
 
 

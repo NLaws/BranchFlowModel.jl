@@ -30,3 +30,17 @@ function phi_ij(j::String, net::Network, M::AbstractMatrix)
     end
     return N
 end
+
+
+"""
+    phi_ij(j::String, net::Network, v::AbstractVector)
+
+Down-select the vector v by the phase from i -> j
+"""
+function phi_ij(j::String, net::Network, v::AbstractVector)
+    n = convert(Vector{GenericAffExpr{ComplexF64, VariableRef}}, [0im; 0im; 0im])
+    for x in phases_into_bus(net, j)
+        n[x] = v[x]
+    end
+    return n
+end

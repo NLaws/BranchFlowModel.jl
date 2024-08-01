@@ -22,6 +22,23 @@ w_i \ell_{ij} = P_{ij}^2 + Q_{ij}^2 \forall (i,j) \in \mathcal{E} \\
 # Three Phase BranchFlowModel
 ```@docs
 constrain_KVL(m, net::Network{MultiPhase})
+BranchFlowModel.add_bfm_variables
+```
+
+
+```math
+\begin{aligned}
+\boldsymbol S_{ij} = \boldsymbol v_i^{\Phi_{ij}} \boldsymbol i_{ij}^H
+\quad \forall (i, j) \in \mathcal{E}
+\\
+\boldsymbol v_i^{\Phi_{ij}} - \boldsymbol v_j = Z_{ij} \boldsymbol i_{ij}
+\quad \forall (i, j) \in \mathcal{E}
+\\
+\sum_{i : i \rightarrow j}  \text{diag}( \boldsymbol S_{ij} - \boldsymbol Z_{ij} \left[ \boldsymbol i_{ij} \boldsymbol i_{ij}^H \right]) 
++ \boldsymbol s_j 
+= \sum_{k : j \rightarrow k} \text{diag}( \boldsymbol S_{jk} )^{\Phi_j}
+\quad \forall j \in \mathcal{N}
+\end{aligned}
 ```
 
 

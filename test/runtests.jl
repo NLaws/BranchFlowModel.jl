@@ -90,6 +90,9 @@ end
 end
 
 
+include("test_nlp.jl")
+
+
 @testset "multiphase KVL" begin
 
     # simple min loss model
