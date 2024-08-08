@@ -33,6 +33,18 @@ function dss_voltages_pu()
 end
 
 
+
+function dss_voltages_mag_angle()
+    d = Dict()
+    for b in OpenDSS.Circuit.AllBusNames() 
+        OpenDSS.Circuit.SetActiveBus(b)
+        d[b] = OpenDSS.Bus.VMagAngle()#[1:2:end]
+    end
+    return d
+end
+
+
+
 function build_min_loss_model(net::CPF.Network{CPF.SinglePhase})
     m = Model(Ipopt.Optimizer)
     BranchFlowModel.build_model!(m, net; relaxed=false)
@@ -97,7 +109,7 @@ include("test_nlp.jl")
 
     # simple min loss model
     net = BranchFlowModel.CommonOPF.Network(joinpath("data", "two_line_multi_phase.yaml"))
-    net.bounds.i_upper *= 10
+    net.bounds.i_upper_mag = 15 * net.Sbase / net.Vbase
 
     m = Model(CSDP.Optimizer)
     set_attribute(m, "printlevel", 0)
@@ -267,8 +279,8 @@ end
     net.Vbase = 2400
     net.Sbase = 1_000_000
     net.Zbase = net.Vbase^2/net.Sbase
-    net.bounds.v_lower = 0.95
-    net.bounds.v_upper = 1.05
+    net.bounds.v_lower_mag = 0.95
+    net.bounds.v_upper_mag = 1.05
     
     # a radial network has n_edges = n_vertices - 1
     @test net.graph.graph.ne == Graphs.nv(net.graph) - 1  
@@ -321,7 +333,7 @@ end
 
 @testset "basic two-line multiphase" begin
     net = BranchFlowModel.CommonOPF.Network(joinpath("data", "two_line_multi_phase.yaml"))
-    net.bounds.i_upper *= 10
+    net.bounds.i_upper_mag = 15 * net.Sbase / net.Vbase
 
     m = Model(CSDP.Optimizer)
     set_attribute(m, "printlevel", 0)
@@ -339,7 +351,7 @@ end
     # TODO results methods in CommonOPF for multiphase models
     vs = Dict(
         k => sqrt.(abs.(JuMP.value.(w)))
-        for (k,w) in m[:w][1]
+        for (k, w) in m[:w][1]
     )
 
     Sijs = Dict(
@@ -370,12 +382,53 @@ end
     @test vs["b4"][2, :] == [0,0,0]
     @test vs["b4"][:, 2] == [0,0,0]
 
+
+    # NLP
+    m = Model(Ipopt.Optimizer)
+    set_optimizer_attribute(m, "print_level", 0)
+
+    BranchFlowModel.add_bfm_variables(m, net)
+
+    BranchFlowModel.constrain_bfm_nlp(m, net)
+
+    @objective(m, Min, 
+        sum( 
+            sum(real.(m[:i][t][i_j]) .* real.(m[:i][t][i_j])) 
+            + sum(imag.(m[:i][t][i_j]) .* imag.(m[:i][t][i_j])) 
+            for t in 1:net.Ntimesteps, i_j in edges(net) 
+        )
+    )
+
+    optimize!(m)
+    
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
+
+    vs = Dict(
+        k => abs.(JuMP.value.(v))
+        for (k,v) in m[:v][1]
+    )
+
+    Sijs = Dict(
+        k => abs.(JuMP.value.(sij))
+        for (k, sij) in m[:Sij][1]
+    )
+
+    # slack bus injection equals flow out on each phase
+    for phs in 1:3
+        @test S0[phs] ≈ Sijs[("b1", "b2")][phs, phs] atol=1e-4
+    end
+
+    # bus b4 has no load so should have approximately same voltage as b2
+    for phs in [1, 3]
+        @test vs["b2"][phs] ≈ vs["b4"][phs] atol=1e-5
+    end
+
 end
 
 
 @testset "ieee13 unbalanced MultiPhase" begin
     # testing no load RN b/c SDP does not obey rank 1 constraints (even with light load) so get junk
-    # results. Might be related to bounds?
+    # results. Might be related to bounds? try a light load again later
 
     dssfilepath = "data/ieee13/IEEE13Nodeckt_no_trfxs.dss"
     OpenDSS.Text.Command("Redirect $dssfilepath")
@@ -419,16 +472,17 @@ end
         end
     end
 
+    net.v0 = 1.05
     net.Vbase = 2400
     net.Sbase = 1e3
     net.Zbase = net.Vbase^2/net.Sbase
-    net.bounds.v_upper = 1.1
-    net.bounds.v_lower = 0.9
-    net.bounds.s_upper =  net.Sbase * 100
-    net.bounds.s_lower = -net.Sbase
+    net.bounds.v_upper_mag = 1.1
+    net.bounds.v_lower_mag = 0.9
+    net.bounds.s_upper_real =  net.Sbase * 100
+    net.bounds.s_lower_real = -net.Sbase
 
-    # net.bounds.i_upper = net.Sbase / net.Vbase
-    # net.bounds.i_lower = -net.Sbase / net.Vbase
+    # net.bounds.i_upper_mag = net.Sbase / net.Vbase
+    # net.bounds.i_lower_mag = -net.Sbase / net.Vbase
 
     # net[("650", "rg60")].vreg_pu = dss_voltages["rg60"]
 
@@ -482,16 +536,16 @@ end
 #     net.v0 = 230 * 0.9959
 #     net.Zbase = 1
 
-#     net.bounds.v_upper = 231
-#     net.bounds.v_lower = 0.9 * 230
+#     net.bounds.v_upper_mag = 231
+#     net.bounds.v_lower_mag = 0.9 * 230
 
 #     # negative lower bounds change the results (need negative off diagonal values?)
-#     net.bounds.s_upper = 1e4  #net.Sbase
-#     net.bounds.s_lower = -1e4 #net.Sbase
+#     net.bounds.s_upper_real = 1e4  #net.Sbase
+#     net.bounds.s_lower_real = -1e4 #net.Sbase
     
 #     # lowering i_upper pushes load bus voltage down (starting at Sbase*2)
-#     net.bounds.i_upper = 1e2
-#     net.bounds.i_lower = -1e2
+#     net.bounds.i_upper_mag = 1e2
+#     net.bounds.i_lower_mag = -1e2
 
 #     m = Model(CSDP.Optimizer)
 #     # set_attribute(m, "axtol", 1e-10) # lower tol leads to giving up at primal infeasibility
@@ -527,16 +581,16 @@ end
 
 #     net.Zbase = net.Vbase^2/net.Sbase
 
-#     net.bounds.v_upper = 1.1
-#     net.bounds.v_lower = 0.9
+#     net.bounds.v_upper_mag = 1.1
+#     net.bounds.v_lower_mag = 0.9
 
 #     # negative lower bounds change the results (need negative off diagonal values?)
-#     net.bounds.s_upper = 10  #net.Sbase
-#     net.bounds.s_lower = -10 #net.Sbase
+#     net.bounds.s_upper_real = 10  #net.Sbase
+#     net.bounds.s_lower_real = -10 #net.Sbase
     
 #     # CHANGING I BOUNDS AFFECTS VOLTAGE, ALL THE WAY TO GETTING 0.9 ACROSS THE DECISION VARIABLES
-#     net.bounds.i_upper = 10
-#     net.bounds.i_lower = 0
+#     net.bounds.i_upper_mag = 10
+#     net.bounds.i_lower_mag = 0
 
 #     net.v0 = 0.9959  # TODO set this from OpenDSS.VSource ?
 
@@ -615,8 +669,8 @@ end
 #         Sbase=Sbase, 
 #         Vbase=Vbase, 
 #         v0 = 1.00,
-#        .bounds.v_upper = 1.05,
-#        .bounds.v_lower = 0.95,
+#        .bounds.v_upper_mag = 1.05,
+#        .bounds.v_lower_mag = 0.95,
 #         relaxed = false,
 #     );
 #     m = make_solve_min_loss_model(p)
@@ -741,8 +795,8 @@ end
 #         Sbase=Sbase, 
 #         Vbase=Vbase, 
 #         v0 = 1.00,
-#        .bounds.v_upper = 1.05,
-#        .bounds.v_lower = 0.95,
+#        .bounds.v_upper_mag = 1.05,
+#        .bounds.v_lower_mag = 0.95,
 #         relaxed = false,
 #     );
 #     @test ("20","21") in keys(p.regulators)

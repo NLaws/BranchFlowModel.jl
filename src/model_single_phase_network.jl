@@ -39,10 +39,14 @@ function add_variables(m, net::Network{SinglePhase})
     # voltage squared
     CommonOPF.add_time_vector_variables!(m, net, :vsqrd, bs)
     for bus in busses(net)
-        JuMP.set_lower_bound.(m[:vsqrd][bus], (net.bounds.v_lower)^2)
-        JuMP.set_upper_bound.(m[:vsqrd][bus], (net.bounds.v_upper)^2)
+        if !ismissing(net.bounds.v_lower_mag)
+            JuMP.set_lower_bound.(m[:vsqrd][bus], (net.bounds.v_lower_mag)^2)
+        end
+        if !ismissing(net.bounds.v_upper_mag)
+            JuMP.set_upper_bound.(m[:vsqrd][bus], (net.bounds.v_upper_mag)^2)
+        end
     end
-    # TODO more bounds
+    # TODO more bounds in a centralized fashion
     
     # line flows, net power sent from i to j
     # @variable(m, net.P_lo_bound <= Pij[edges(net), T] <= p.P_up_bound )
