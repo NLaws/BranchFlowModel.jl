@@ -65,8 +65,8 @@ export
 include("inputs.jl")
 include("utils.jl")
 include("checks.jl")
-include("model_single_phase_network.jl")
-include("model_multi_phase_network.jl")
+include("model_single_phase.jl")
+include("model_multi_phase.jl")
 include("decomposition.jl")
 
 end
