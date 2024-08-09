@@ -74,6 +74,7 @@
     OpenDSS.Solution.Solve()
 
     @test(OpenDSS.Solution.Converged() == true)
+    @test(check_opendss_powers() == true)
 
     dss_voltages = dss_voltages_pu()
 
@@ -85,9 +86,5 @@
             # println("$b - $i  $(phsv - dss_voltages[b][i])")
         end
     end
-
-    # OpenDSS.Text.Command("Show powers elems") # TODO test that the OpenDSS converged loads equal
-    # the net bus :Load values (and re-use the method for comparing the loads for all OpenDSS tests
-    # to ensure that we are comparing apples to apples)
 
 end

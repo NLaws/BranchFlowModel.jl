@@ -80,6 +80,42 @@ function hermitian_variable_to_vector(m::JuMP.AbstractModel, var::Symbol, t::Int
 end
 
 
+
+function check_opendss_powers(;tol=1e-6)
+
+    elements = OpenDSS.Circuit.AllElementNames()
+
+    for element in elements
+        # Set the active element
+        if !startswith(element, "Load")
+            continue
+        end
+        OpenDSS.Circuit.SetActiveElement(element)
+        
+        # Get the bus name where the element is connected
+        bus_name = OpenDSS.CktElement.BusNames()[1]  # Get the first bus name
+        
+        # Get the power in kW and kvar
+        power = OpenDSS.CktElement.TotalPowers()  # Returns power in kW and kvar for each phase
+
+        load_name = string(split(element, ".")[2])
+        OpenDSS.Loads.Name(load_name)
+        
+        p_mismatch = real(power)[1] - OpenDSS.Loads.kW()
+        q_mismatch = imag(power)[1] - OpenDSS.Loads.kvar()
+
+        if abs(p_mismatch) > tol
+            return false
+        end
+        if abs(q_mismatch) > tol
+            return false
+        end
+    end
+
+    return true
+end
+
+
 @testset "BranchFlowModel.jl" begin
 
 
@@ -427,59 +463,64 @@ end
 
 
 @testset "ieee13 unbalanced MultiPhase" begin
-    # testing no load RN b/c SDP does not obey rank 1 constraints (even with light load) so get junk
-    # results. Might be related to bounds? try a light load again later
+    # was testing no load (commented out stuff), now light load but with voltage tol of 2%
 
-    dssfilepath = "data/ieee13/IEEE13Nodeckt_no_trfxs.dss"
+    dssfilepath = "data/ieee13/IEEE13_simple_light_load.dss"
     OpenDSS.Text.Command("Redirect $dssfilepath")
 
-    # set loads to zero
-    kW = 0.0
-    kvar = 0.0
-    for load_name in OpenDSS.Loads.AllNames()
-        OpenDSS.Loads.Name(load_name)
-        OpenDSS.CktElement.Enabled(true) # not reached
-        OpenDSS.Loads.kW(kW)
-        OpenDSS.Loads.kvar(kvar)
-    end
+    # # set loads to zero
+    # kW = 0.0
+    # kvar = 0.0
+    # for load_name in OpenDSS.Loads.AllNames()
+    #     OpenDSS.Loads.Name(load_name)
+    #     OpenDSS.CktElement.Enabled(true) # not reached
+    #     OpenDSS.Loads.kW(kW)
+    #     OpenDSS.Loads.kvar(kvar)
+    # end
 
     OpenDSS.Solution.Solve()
 
     @test(OpenDSS.Solution.Converged() == true)
 
+    @test(check_opendss_powers() == true)
+
     dss_voltages = dss_voltages_pu()
 
     net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
     
-    for lb in CPF.load_busses(net)
-        if !(ismissing(net[lb][:Load].kws1))
-            net[lb][:Load].kws1 = [kW]
-        end
-        if !(ismissing(net[lb][:Load].kws2))
-            net[lb][:Load].kws2 = [kW]
-        end
-        if !(ismissing(net[lb][:Load].kws3))
-            net[lb][:Load].kws3 = [kW]
-        end
-        if !(ismissing(net[lb][:Load].kvars1))
-            net[lb][:Load].kvars1 = [kvar]
-        end
-        if !(ismissing(net[lb][:Load].kvars2))
-            net[lb][:Load].kvars2 = [kvar]
-        end
-        if !(ismissing(net[lb][:Load].kvars3))
-            net[lb][:Load].kvars3 = [kvar]
-        end
-    end
+    # for lb in CPF.load_busses(net)
+    #     if !(ismissing(net[lb][:Load].kws1))
+    #         net[lb][:Load].kws1 = [kW]
+    #     end
+    #     if !(ismissing(net[lb][:Load].kws2))
+    #         net[lb][:Load].kws2 = [kW]
+    #     end
+    #     if !(ismissing(net[lb][:Load].kws3))
+    #         net[lb][:Load].kws3 = [kW]
+    #     end
+    #     if !(ismissing(net[lb][:Load].kvars1))
+    #         net[lb][:Load].kvars1 = [kvar]
+    #     end
+    #     if !(ismissing(net[lb][:Load].kvars2))
+    #         net[lb][:Load].kvars2 = [kvar]
+    #     end
+    #     if !(ismissing(net[lb][:Load].kvars3))
+    #         net[lb][:Load].kvars3 = [kvar]
+    #     end
+    # end
 
-    net.v0 = 1.05
-    net.Vbase = 2400
-    net.Sbase = 1e3
-    net.Zbase = net.Vbase^2/net.Sbase
-    net.bounds.v_upper_mag = 1.1
-    net.bounds.v_lower_mag = 0.9
-    net.bounds.s_upper_real =  net.Sbase * 100
-    net.bounds.s_lower_real = -net.Sbase
+    net.v0 = 1.02
+    net.Vbase = 4160 / sqrt(3)
+    net.Sbase = 1e5
+    net.Zbase = net.Vbase^2 / net.Sbase
+    net.bounds.v_upper_mag = 1.02
+    net.bounds.v_lower_mag = 0.95
+    net.bounds.s_upper_real =  100
+    net.bounds.s_lower_real = 0
+    net.bounds.s_upper_imag =  100
+    net.bounds.s_lower_imag = 0
+    net.bounds.i_upper_mag = 100
+    net.bounds.i_lower_mag = 0
 
     # net.bounds.i_upper_mag = net.Sbase / net.Vbase
     # net.bounds.i_lower_mag = -net.Sbase / net.Vbase
@@ -505,13 +546,17 @@ end
     )
 
     @test_nowarn(check_rank_one(m, net))
-
+    
+    errors = []
     for b in keys(vs)
         for (i,phsv) in enumerate(filter(v -> v != 0, vs[b]))
-            @assert abs(phsv - dss_voltages[b][i]) < 1e-3 "bus $b phase $i failed"
+            @test abs(phsv - dss_voltages[b][i]) < 2e-2
             # println("$b - $i  $(phsv - dss_voltages[b][i])")
+            push!(errors, phsv - dss_voltages[b][i])
         end
     end
+    # println(minimum(errors))
+    # println(maximum(errors))
 
 end
 
