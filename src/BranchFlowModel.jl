@@ -14,6 +14,7 @@ import SparseArrays: sparse
     Unrelaxed
     Semidefinite
     SecondOrderCone
+    # Linear  # TODO mv LinDistFlow into this module?
 end
 
 
@@ -31,7 +32,9 @@ export
     xij,
     Network_IEEE13_SinglePhase,
     Network_Papavasiliou_2018,
+    Results,
     # end new methods TODO distinguish all exports by module
+
     singlephase38linesInputs,
     dsstxt_to_sparse_array, 
     dss_files_to_dict,
@@ -56,7 +59,12 @@ export
     check_statuses,
     reg_busses,
     remove_bus!,
-    Results,
+
+    # ModelType
+    Unrelaxed,
+    Semidefinite,
+    SecondOrderCone,
+
     # MetaGraphsNext
     vertices,
     check_rank_one

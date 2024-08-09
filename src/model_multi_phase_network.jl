@@ -20,9 +20,25 @@ constrain_KVL(m, net)
 ```
 """
 function build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Semidefinite})
-    add_sdp_variables(m, net)  # PSD done in add_variables
+    add_sdp_variables(m, net)  # PSD constraints done in add_sdp_variables
     constrain_power_balance(m, net)
     constrain_KVL(m, net)
+end
+
+
+"""
+    build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Unrelaxed})
+
+Add variables and constraints to `m` using the values in `net` to make an unrelaxed branch flow
+model. Calls the following functions:
+```julia
+add_bfm_variables(m, net)
+constrain_bfm_nlp(m, net)
+```
+"""
+function build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Unrelaxed})
+    add_bfm_variables(m, net)
+    constrain_bfm_nlp(m, net)
 end
 
 
@@ -342,6 +358,11 @@ function add_bfm_variables(m, net::Network{MultiPhase})
 end
 
 
+"""
+    constrain_bfm_nlp(m, net::Network{MultiPhase})
+
+Add the unrelaxed branch flow constraints.
+"""
 function constrain_bfm_nlp(m, net::Network{MultiPhase})
     v = m[:v]
     i_ij = m[:i]

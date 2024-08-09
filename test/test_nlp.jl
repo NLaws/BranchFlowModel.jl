@@ -17,10 +17,7 @@
     m = Model(Ipopt.Optimizer)
     set_optimizer_attribute(m, "print_level", 0)
 
-    # TODO put these to methods in a build_model! method using ModelType
-    BranchFlowModel.add_bfm_variables(m, net)
-
-    BranchFlowModel.constrain_bfm_nlp(m, net)
+    build_model!(m, net, Unrelaxed)
 
     @objective(m, Min, 
         sum( 
