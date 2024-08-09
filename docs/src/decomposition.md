@@ -6,7 +6,6 @@ equations and are only valid(?) in radial networks.
 init_inputs!
 set_inputs!
 get_diffs
-split_inputs
 ```
 
 ### [2]

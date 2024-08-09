@@ -462,7 +462,7 @@ end
 end
 
 
-@testset "ieee13 unbalanced MultiPhase" begin
+@testset "ieee13 unbalanced MultiPhase SDP" begin
     # was testing no load (commented out stuff), now light load but with voltage tol of 2%
 
     dssfilepath = "data/ieee13/IEEE13_simple_light_load.dss"
@@ -522,9 +522,6 @@ end
     net.bounds.i_upper_mag = 100
     net.bounds.i_lower_mag = 0
 
-    # net.bounds.i_upper_mag = net.Sbase / net.Vbase
-    # net.bounds.i_lower_mag = -net.Sbase / net.Vbase
-
     # net[("650", "rg60")].vreg_pu = dss_voltages["rg60"]
 
     m = Model(CSDP.Optimizer)
@@ -559,137 +556,6 @@ end
     # println(maximum(errors))
 
 end
-
-
-# @testset "PMD case3_unbalanced.dss" begin
-#     # TODO check shunts in model and generally lining up with Sander's paper
-#     # shunt values from PMD eng model?
-#     dssfilepath = "data/case3_unbalanced.dss"
-
-#     # have to run this block twice to get voltages correct??
-#     OpenDSS.Text.Command("Redirect $dssfilepath")
-#     @test(OpenDSS.Solution.Converged() == true)
-#     OpenDSS.Text.Command("Redirect $dssfilepath")
-#     dss_voltages = dss_voltages_pu()
-
-#     # REMOVING PER-UNIT normalization results in similar per-unit voltage values 
-#     #  implying that issue lies elsewhere 
-#     # Should be getting greater voltage drops to match OpenDSS
-#     net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
-#     net.Vbase = 1
-#     net.Sbase = 1
-#     net.v0 = 230 * 0.9959
-#     net.Zbase = 1
-
-#     net.bounds.v_upper_mag = 231
-#     net.bounds.v_lower_mag = 0.9 * 230
-
-#     # negative lower bounds change the results (need negative off diagonal values?)
-#     net.bounds.s_upper_real = 1e4  #net.Sbase
-#     net.bounds.s_lower_real = -1e4 #net.Sbase
-    
-#     # lowering i_upper pushes load bus voltage down (starting at Sbase*2)
-#     net.bounds.i_upper_mag = 1e2
-#     net.bounds.i_lower_mag = -1e2
-
-#     m = Model(CSDP.Optimizer)
-#     # set_attribute(m, "axtol", 1e-10) # lower tol leads to giving up at primal infeasibility
-#     # set_attribute(m, "atytol", 1e-10)
-#     set_attribute(m, "maxiter", 10_000)
-    
-
-#     build_model!(m, net)
-
-#     @objective(m, Min, 
-#         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in edges(net) )
-#     )
-
-#     optimize!(m)
-    
-#     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
-
-#     vs = Dict(
-#         k => diag(sqrt.(abs.(JuMP.value.(w)))) / 230
-#         for (k,w) in m[:w][1]
-#     )
-
-# #     Dict{String, Vector{Float64}} with 3 entries:
-# #   "primary"   => [0.988502, 0.991457, 0.992616]
-# #   "sourcebus" => [0.9959, 0.9959, 0.9959]
-# #   "loadbus"   => [0.9799, 0.986311, 0.988798]
-
-
-
-#     net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
-#     net.Vbase = 400/sqrt(3)
-#     net.Sbase = 1e3
-
-#     net.Zbase = net.Vbase^2/net.Sbase
-
-#     net.bounds.v_upper_mag = 1.1
-#     net.bounds.v_lower_mag = 0.9
-
-#     # negative lower bounds change the results (need negative off diagonal values?)
-#     net.bounds.s_upper_real = 10  #net.Sbase
-#     net.bounds.s_lower_real = -10 #net.Sbase
-    
-#     # CHANGING I BOUNDS AFFECTS VOLTAGE, ALL THE WAY TO GETTING 0.9 ACROSS THE DECISION VARIABLES
-#     net.bounds.i_upper_mag = 10
-#     net.bounds.i_lower_mag = 0
-
-#     net.v0 = 0.9959  # TODO set this from OpenDSS.VSource ?
-
-#     m = Model(CSDP.Optimizer)
-#     # set_attribute(m, "axtol", 1e-10) # lower tol leads to giving up at primal infeasibility
-#     # set_attribute(m, "atytol", 1e-10)
-#     set_attribute(m, "maxiter", 10_000)
-    
-
-#     build_model!(m, net
-
-#     @objective(m, Min, 
-#         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in edges(net) )
-#     )
-
-#     optimize!(m)
-    
-#     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
-
-#     vs = Dict(
-#         k => diag(sqrt.(abs.(JuMP.value.(w))))
-#         for (k,w) in m[:w][1]
-#     )
-
-# #     Dict{String, Vector{Float64}} with 3 entries:
-# #   "primary"   => [0.988376, 0.991181, 0.992303]
-# #   "sourcebus" => [0.9959, 0.9959, 0.9959]
-# #   "loadbus"   => [0.979737, 0.985781, 0.988171]
-
-# # julia> dss_voltages
-# # Dict{Any, Any} with 3 entries:
-# #   "primary"   => [0.980937, 0.98936, 0.987039]
-# #   "loadbus"   => [0.963546, 0.981757, 0.976779]
-
-#     # check rank of H matrices
-#     check_rank_one(m, net)
-
-# # ┌ Warning: Bus primary in time step 1 has H matrix of rank 3
-# # ┌ Warning: Bus loadbus in time step 1 has H matrix of rank 3
-#     Hs = []
-#     for j in busses(net), t in 1:net.Ntimesteps
-#         if j == net.substation_bus continue end
-#         push!(Hs, (JuMP.value.(m[:H][t][j])))
-#     end
-
-#     # TODO tighter bounds? should not set default bounds to base values I think (to big)
-#     # TODO need to try NLP with Ipopt ? Issue I think is in SDP relaxation (given that ranks are not
-#     # 1)
-
-#     for (dss_loadbus_v, bfm_load_bus_v) in zip(dss_voltages["loadbus"], vs["loadbus"])
-#         @test dss_loadbus_v ≈ bfm_load_bus_v
-#     end
-
-# end
 
 
 # @testset "SinglePhase network reduction" begin
