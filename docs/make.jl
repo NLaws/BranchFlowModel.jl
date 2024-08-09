@@ -11,7 +11,6 @@ makedocs(
     pages = [
         "User Documentation" => "index.md",
         "Methods" => "methods.md",
-        "Decomposition" => "decomposition.md",
         "Math" => "math.md"
     ],
     warnonly = true,  # TODO rm this and fix all the docs
