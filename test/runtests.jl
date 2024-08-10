@@ -612,6 +612,7 @@ end
     nvar_reduced = JuMP.num_variables(m)
     @test nvar_original > nvar_reduced  # 225 > 159
 
+
     # 3 split and solve the reduced model, compare v
     net_above, net_below = CPF.split_network(net, "12");
     # solve above first with sum of p_below loads, then set p_below.v0, solve p_below, set p_above.P/Qload to p_below.substation_bus values
@@ -629,47 +630,67 @@ end
         net_below[ld_bus][:Load].kvars1[1] for ld_bus in CPF.reactive_load_busses(net_below) 
     )
 
-#     m_above = make_solve_min_loss_model(p_above)
-#     init_vs = Dict(
-#         p_below.substation_bus => sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
-#     )
-#     init_inputs!([p_above, p_below]; init_vs=init_vs)
-#     @test p_below.v0 == sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
+    m_above = make_solve_min_loss_model(net_above)
+    init_vs = Dict(
+        net_below.substation_bus => sqrt(value(m_above[:vsqrd][net_below.substation_bus][1]))
+    )
+    CPF.init_split_networks!([net_above, net_below]; init_vs=init_vs)
 
-#     m_below = make_solve_min_loss_model(p_below)
+    @test net_below.v0 == sqrt(value(m_above[:vsqrd][net_below.substation_bus][1]))
 
-#     # at this point the v's at bus 12 agree by design
-#     # but the loads do not b/c we did not account for losses in first iteration
-#     # the plus sign is not a minus because the P/Q values should be equal and _opposite_
-#     pdiff = value(m_below[:Pj]["12",1]) + value(m_above[:Pj]["12",1])  # 0.001606
-#     qdiff = value(m_below[:Qj]["12",1]) + value(m_above[:Qj]["12",1])  # 0.000526
-#     vdiff = 1.0
+    m_below = make_solve_min_loss_model(net_below)
 
-#     tol = 1e-6
-#     while pdiff > tol || qdiff > tol || vdiff > tol
-#         p_above.Pload["12"][1] = value(m_below[:Pj]["12",1]) * p_above.Sbase
-#         p_above.Qload["12"][1] = value(m_below[:Qj]["12",1]) * p_above.Sbase
-#         m_above = make_solve_min_loss_model(p_above)
-#         v_above = sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
-#         vdiff = abs(p_below.v0 - v_above)
-#         p_below.v0 = v_above
-#         m_below = make_solve_min_loss_model(p_below)
-#         pdiff = value(m_below[:Pj]["12",1]) + value(m_above[:Pj]["12",1])  # 3.758466e-8
-#         qdiff = value(m_below[:Qj]["12",1]) + value(m_above[:Qj]["12",1])  # 1.231675e-8
-#     end
+    # at this point the v's at bus 12 agree by design
+    # but the loads do not b/c we did not account for losses in first iteration
+    # take the difference of the lower substation injection and the upper flow in to bus 12
+    function calc_flow_into_bus(model, net, bus)
+        Pij = model[:Pij]
+        Qij = model[:Qij]
+        lij = model[:lij]
 
-#     vs_decomposed = get_variable_values(:vsqrd, m_above, p_above)
-#     merge!(vs_decomposed, get_variable_values(:vsqrd, m_below, p_below))
-#     for b in keys(vs_decomposed)
-#         @test abs(dss_voltages[b][1] - sqrt(vs_decomposed[b][1])) < 0.001
-#     end
+        j = bus; t = 1
+        p = value(
+            sum( Pij[(i,j)][t] for i in CPF.i_to_j(j, net) )
+            - sum( lij[(i,j)][t] * CPF.rij_per_unit(i,j,net) for i in CPF.i_to_j(j, net) )
+        )
+        q = value(
+            sum( Qij[(i,j)][t] for i in CPF.i_to_j(j, net) )
+            - sum( lij[(i,j)][t] * CPF.xij_per_unit(i,j,net) for i in CPF.i_to_j(j, net) )
+        )
+        return p, q
+    end
+    upper_real_power, upper_reactive_power = calc_flow_into_bus(m_above, net_above, "12")
+    # the plus sign is not a minus because the P/Q values should be equal and _opposite_
+    pdiff = abs(value(m_below[:p0][1]) - upper_real_power)
+    qdiff = abs(value(m_below[:q0][1]) - upper_reactive_power)
+    vdiff = 1.0
 
-#     # split model into 3 models and solve
-#     mg = CommonOPF.split_at_busses(p, ["7", "13"])
+    tol = 1e-6
+    while pdiff > tol || qdiff > tol || vdiff > tol
+        net_above["12"][:Load].kws1[1] = value(m_below[:p0][1]) * net_above.Sbase / 1e3
+        net_above["12"][:Load].kvars1[1] = value(m_below[:q0][1]) * net_above.Sbase / 1e3
+        m_above = make_solve_min_loss_model(net_above)
+        v_above = sqrt(value(m_above[:vsqrd][net_below.substation_bus][1]))
+        vdiff = abs(net_below.v0 - v_above)
+        net_below.v0 = v_above
+        m_below = make_solve_min_loss_model(net_below)
+        upper_real_power, upper_reactive_power = calc_flow_into_bus(m_above, net_above, "12")
+        pdiff = abs(value(m_below[:p0][1]) - upper_real_power)
+        qdiff = abs(value(m_below[:q0][1]) - upper_reactive_power)
+    end
+
+    vs_decomposed = get_variable_values(:vsqrd, m_above)
+    merge!(vs_decomposed, get_variable_values(:vsqrd, m_below))
+    for b in keys(vs_decomposed)
+        @test abs(dss_voltages[b][1] - sqrt(vs_decomposed[b][1])) < 0.001
+    end
+
+    # split model into 3 models and solve
+    mg = CPF.split_at_busses(net, ["7", "13"])
 #     @test mg[1, :p].substation_bus == "0"
 #     @test mg[2, :p].substation_bus == "7"
 #     @test mg[3, :p].substation_bus == "13"
-#     # init_inputs!(mg)  # done in CommonOPF.split_at_busses
+#     # init_inputs!(mg)  # done in CPF.split_at_busses
 #     for v in get_prop(mg, :load_sum_order)
 #         set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
 #     end
