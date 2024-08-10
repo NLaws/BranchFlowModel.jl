@@ -601,26 +601,33 @@ end
 
     # 2 validate BFM results stay the same after reduction
     nbusses_before = length(busses(net))
-#     reduce_tree!(p)
-#     m = make_solve_min_loss_model(p)
-#     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
-#     vs_reduced = get_variable_values(:vsqrd, m, p)
-#     for b in keys(vs_reduced)
-#         @test abs(dss_voltages[b][1] - sqrt(vs_reduced[b][1])) < 0.001
-#     end
-#     nvar_reduced = JuMP.num_variables(m)
-#     @test nvar_original > nvar_reduced  # 225 > 159
+    reduce_tree!(net)
+    m = make_solve_min_loss_model(net)
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
+    vsqrd = get_variable_values(:vsqrd, m)
+    vs_reduced = Dict(k => sqrt.(v) for (k,v) in vsqrd)
+    for b in keys(vs_reduced)
+        @test abs(dss_voltages[b][1] - vs_reduced[b][1]) < 0.001
+    end
+    nvar_reduced = JuMP.num_variables(m)
+    @test nvar_original > nvar_reduced  # 225 > 159
 
-#     # 3 split and solve the reduced model, compare v
-#     g = BranchFlowModel.make_graph(p.busses, p.edges; directed=true)
-#     p_above, p_below = BranchFlowModel.split_inputs(p, "12");
-#     # solve above first with sum of p_below loads, then set p_below.v0, solve p_below, set p_above.P/Qload to p_below.substation_bus values
-#     # later solve in parallel
-#     # p_above.Pload and Qload exist already for bus "12"; we need to add p_below's loads to it
-#     init_inputs!([p_below, p_above])  # set p_above loads at p_below.substation_bus
-#     # NOTE only one time step so all load vectors have one value
-#     @test p_above.Pload["12"][1] == sum( v[1] for v in values(p_below.Pload) )
-#     @test p_above.Qload["12"][1] == sum( v[1] for v in values(p_below.Qload) )
+    # 3 split and solve the reduced model, compare v
+    net_above, net_below = CPF.split_network(net, "12");
+    # solve above first with sum of p_below loads, then set p_below.v0, solve p_below, set p_above.P/Qload to p_below.substation_bus values
+    # later solve in parallel
+    # a load already exists for bus "12"; we need to add p_below's loads to it
+    existing_kw = net_above["12"][:Load].kws1[1]
+    existing_kvar = net_above["12"][:Load].kvars1[1]
+
+    CPF.init_split_networks!([net_below, net_above])  # set net_above loads at net_below.substation_bus
+    # NOTE only one time step so all load vectors have one value
+    @test net_above["12"][:Load].kws1[1] - existing_kw == sum( 
+        net_below[ld_bus][:Load].kws1[1] for ld_bus in CPF.real_load_busses(net_below) 
+    )
+    @test net_above["12"][:Load].kvars1[1] - existing_kvar == sum( 
+        net_below[ld_bus][:Load].kvars1[1] for ld_bus in CPF.reactive_load_busses(net_below) 
+    )
 
 #     m_above = make_solve_min_loss_model(p_above)
 #     init_vs = Dict(
