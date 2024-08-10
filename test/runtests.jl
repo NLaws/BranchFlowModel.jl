@@ -20,7 +20,6 @@ import Graphs
 CPF = BranchFlowModel.CommonOPF
 
 Random.seed!(42)
-# TODO test singlephase38lines with results in paper or remove the test data
 
 
 function dss_voltages_pu()
@@ -42,7 +41,6 @@ function dss_voltages_mag_angle()
     end
     return d
 end
-
 
 
 function build_min_loss_model(net::CPF.Network{CPF.SinglePhase})
@@ -559,6 +557,7 @@ end
 
 
 @testset "SinglePhase network reduction" begin
+    # confirm that optimal results do not change
 
     function make_solve_min_loss_model(net)
         m = build_min_loss_model(net)
@@ -567,7 +566,8 @@ end
     end
 
     # 1 validate BFM against OpenDSS
-    net = CPF.Network_SinglePhase_38_Lines()
+    dssfilepath = "data/singlephase38lines/master.dss"
+    net = CPF.dss_to_Network(dssfilepath)
     
     net.bounds.v_upper_mag = 1.05
     net.bounds.v_lower_mag = 0.95
@@ -578,8 +578,18 @@ end
     m = make_solve_min_loss_model(net)
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
 
-#     vs = get_variable_values(:vsqrd, m, p)
-#     # make the dss solution to compare
+    vsqrd = get_variable_values(:vsqrd, m)
+    vs = Dict(k => sqrt.(v) for (k,v) in vsqrd)
+
+    # make the dss solution to compare
+    work_dir = pwd()
+    OpenDSS.dss("""
+        clear
+        compile $dssfilepath
+        solve
+    """)
+    cd(work_dir)
+    @test(OpenDSS.Solution.Converged() == true)
 #     dss("clear")
 #     dss("Redirect data/singlephase38lines/master.dss")
 #     dss("Solve")
