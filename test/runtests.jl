@@ -50,7 +50,7 @@ function build_min_loss_model(net::CPF.Network{CPF.SinglePhase})
     BranchFlowModel.build_bfm!(m, net; relaxed=false)
     @objective(m, Min, 
         sum( 
-            m[:lij][i_j][t] for t in 1:net.Ntimesteps, i_j in BranchFlowModel.CommonOPF.edges(net)
+            m[:lij][i_j][t] for t in 1:net.Ntimesteps, i_j in CPF.edges(net)
         )
     )
     set_optimizer_attribute(m, "print_level", 0)
@@ -144,7 +144,7 @@ include("test_nlp.jl")
 @testset "multiphase KVL" begin
 
     # simple min loss model
-    net = BranchFlowModel.CommonOPF.Network(joinpath("data", "two_line_multi_phase.yaml"))
+    net = CPF.Network(joinpath("data", "two_line_multi_phase.yaml"))
     net.bounds.i_upper_mag = 15 * net.Sbase / net.Vbase
 
     m = Model(CSDP.Optimizer)
@@ -310,7 +310,7 @@ end
 
     dss_voltages = dss_voltages_pu()
 
-    net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
+    net = CPF.dss_to_Network(dssfilepath)
     @test net.substation_bus == "sourcebus"
     net.Vbase = 2400
     net.Sbase = 1_000_000
@@ -368,7 +368,7 @@ end
 
 
 @testset "basic two-line multiphase" begin
-    net = BranchFlowModel.CommonOPF.Network(joinpath("data", "two_line_multi_phase.yaml"))
+    net = CPF.Network(joinpath("data", "two_line_multi_phase.yaml"))
     net.bounds.i_upper_mag = 15 * net.Sbase / net.Vbase
 
     m = Model(CSDP.Optimizer)
@@ -486,7 +486,7 @@ end
 
     dss_voltages = dss_voltages_pu()
 
-    net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
+    net = CPF.dss_to_Network(dssfilepath)
     
     # for lb in CPF.load_busses(net)
     #     if !(ismissing(net[lb][:Load].kws1))
@@ -558,34 +558,25 @@ end
 end
 
 
-# @testset "SinglePhase network reduction" begin
+@testset "SinglePhase network reduction" begin
 
-#     function make_solve_min_loss_model(p)
-#         m = Model(Ipopt.Optimizer)
-#         build_bfm!(m,p)
-#         @objective(m, Min, 
-#             sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
-#         )
-#         set_optimizer_attribute(m, "print_level", 0)
-#         optimize!(m)
-#         return m
-#     end
+    function make_solve_min_loss_model(net)
+        m = build_min_loss_model(net)
+        optimize!(m)
+        return m
+    end
 
-#     # 1 validate BFM against OpenDSS
-#     Sbase = 1e6
-#     Vbase = 12.47e3
-#     p = Inputs(
-#         joinpath("data", "singlephase38lines", "master.dss"), 
-#         "0";
-#         Sbase=Sbase, 
-#         Vbase=Vbase, 
-#         v0 = 1.00,
-#        .bounds.v_upper_mag = 1.05,
-#        .bounds.v_lower_mag = 0.95,
-#         relaxed = false,
-#     );
-#     m = make_solve_min_loss_model(p)
-#     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
+    # 1 validate BFM against OpenDSS
+    net = CPF.Network_SinglePhase_38_Lines()
+    
+    net.bounds.v_upper_mag = 1.05
+    net.bounds.v_lower_mag = 0.95
+
+    net.Sbase = 1e6
+    net.Vbase = 12.47e3
+    net.v0 = 1.0
+    m = make_solve_min_loss_model(net)
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
 
 #     vs = get_variable_values(:vsqrd, m, p)
 #     # make the dss solution to compare
@@ -693,7 +684,7 @@ end
 #     for b in keys(vs_decomposed)
 #         @test abs(dss_voltages[b][1] - sqrt(vs_decomposed[b][1])) < 0.001
 #     end
-# end
+end
 
 
 # @testset "Single phase regulators at network splits" begin
