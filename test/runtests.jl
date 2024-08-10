@@ -572,8 +572,9 @@ end
     net.bounds.v_upper_mag = 1.05
     net.bounds.v_lower_mag = 0.95
 
-    net.Sbase = 1e6
+    net.Sbase = 1e5
     net.Vbase = 12.47e3
+    net.Zbase = net.Vbase^2 / net.Sbase
     net.v0 = 1.0
     m = make_solve_min_loss_model(net)
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
@@ -590,18 +591,16 @@ end
     """)
     cd(work_dir)
     @test(OpenDSS.Solution.Converged() == true)
-#     dss("clear")
-#     dss("Redirect data/singlephase38lines/master.dss")
-#     dss("Solve")
-#     @test(OpenDSS.Solution.Converged() == true)
-#     dss_voltages = dss_voltages_pu()
-#     for b in keys(vs)
-#         @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.001
-#     end
-#     nvar_original = JuMP.num_variables(m)
+    dss_voltages = dss_voltages_pu()
 
-#     # 2 validate BFM results stay the same after reduction
-#     nbusses_before = length(p.busses)
+    for b in keys(vs)
+        @test abs(vs[b][1] - dss_voltages[b][1]) < 0.001
+    end
+
+    nvar_original = JuMP.num_variables(m)
+
+    # 2 validate BFM results stay the same after reduction
+    nbusses_before = length(busses(net))
 #     reduce_tree!(p)
 #     m = make_solve_min_loss_model(p)
 #     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]

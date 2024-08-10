@@ -33,6 +33,7 @@ export
     Network_IEEE13_SinglePhase,
     Network_Papavasiliou_2018,
     Results,
+    reduce_tree!,
     # end new methods TODO distinguish all exports by module
 
     build_bfm!,
@@ -42,7 +43,6 @@ export
     constrain_KVL,
     constrain_bounds,
     # recover_voltage_current,  # TODO validate this method
-    reduce_tree!,
     make_graph,
     init_inputs!,
     set_inputs!,
