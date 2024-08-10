@@ -687,40 +687,47 @@ end
 
     # split model into 3 models and solve
     mg = CPF.split_at_busses(net, ["7", "13"])
-#     @test mg[1, :p].substation_bus == "0"
-#     @test mg[2, :p].substation_bus == "7"
-#     @test mg[3, :p].substation_bus == "13"
-#     # init_inputs!(mg)  # done in CPF.split_at_busses
-#     for v in get_prop(mg, :load_sum_order)
-#         set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
-#     end
-#     set_indexing_prop!(mg, :m)
-#     # every model solved once using load approximations
-#     # now set better load approximations and connect voltages
-#     set_inputs!(mg)
-#     @test mg[2,:p].v0[1] ≈ sqrt(value(mg[1,:m][:vsqrd][mg[2,:p].substation_bus,1]))
-#     @test mg[3,:p].v0[1] ≈ sqrt(value(mg[2,:m][:vsqrd][mg[3,:p].substation_bus,1]))
-#     # run another solve
-#     for v in get_prop(mg, :load_sum_order)
-#         set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
-#     end
-#     pdiffs1, qdiffs1, vdiffs1 = get_diffs(mg)
-#     # another round to compare:
-#     set_inputs!(mg)
-#     for v in get_prop(mg, :load_sum_order)
-#         set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
-#     end
-#     pdiffs2, qdiffs2, vdiffs2 = get_diffs(mg)
-#     @test sum(pdiffs2) < sum(pdiffs1) 
-#     @test sum(qdiffs2) < sum(qdiffs1) 
-#     @test sum(vdiffs2) < sum(vdiffs1) 
+    @test mg[1].substation_bus == "0"
+    @test mg[2].substation_bus == "7"
+    @test mg[3].substation_bus == "13"
 
-#     vs_decomposed = get_variable_values(:vsqrd, mg[1, :m], mg[1, :p])
-#     merge!(vs_decomposed, get_variable_values(:vsqrd, mg[2, :m], mg[2, :p]))
-#     merge!(vs_decomposed, get_variable_values(:vsqrd, mg[3, :m], mg[3, :p]))
-#     for b in keys(vs_decomposed)
-#         @test abs(dss_voltages[b][1] - sqrt(vs_decomposed[b][1])) < 0.001
-#     end
+    # TODO initialize the :models dict somewhere else
+    mg.graph_data[:models] = Dict{Int, JuMP.AbstractModel}()
+    for v in mg.graph_data[:load_sum_order]
+        mg.graph_data[:models][v] = make_solve_min_loss_model(mg[v])
+    end
+
+    # every model solved once using load approximations
+    # now set better load approximations and connect voltages
+    set_inputs!(mg)
+
+    @test mg[2].v0[1] ≈ sqrt(value(mg.graph_data[:models][1][:vsqrd][mg[2].substation_bus][1]))
+    @test mg[3].v0[1] ≈ sqrt(value(mg.graph_data[:models][2][:vsqrd][mg[3].substation_bus][1]))
+
+    # run another solve
+    for v in mg.graph_data[:load_sum_order]
+        mg.graph_data[:models][v] = make_solve_min_loss_model(mg[v])
+    end
+
+    pdiffs1, qdiffs1, vdiffs1 = get_diffs(mg)
+    # another round to compare:
+    set_inputs!(mg)
+    for v in mg.graph_data[:load_sum_order]
+        mg.graph_data[:models][v] = make_solve_min_loss_model(mg[v])
+    end
+    pdiffs2, qdiffs2, vdiffs2 = get_diffs(mg)
+    @test sum(pdiffs2) < sum(pdiffs1) 
+    @test sum(qdiffs2) < sum(qdiffs1) 
+    @test sum(vdiffs2) < sum(vdiffs1) 
+
+    vs_decomposed = get_variable_values(:vsqrd, mg.graph_data[:models][1])
+    merge!(vs_decomposed, get_variable_values(:vsqrd, mg.graph_data[:models][2]))
+    merge!(vs_decomposed, get_variable_values(:vsqrd, mg.graph_data[:models][3]))
+    
+    for b in keys(vs_decomposed)
+        @test abs(dss_voltages[b][1] - sqrt(vs_decomposed[b][1])) < 0.001
+    end
+
 end
 
 
