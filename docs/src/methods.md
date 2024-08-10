@@ -6,7 +6,7 @@ Some various methods used in BranchFlowModel.jl:
     Contributions are welcome via fork and pull request.
 
 ```@docs
-build_model!
+build_bfm!
 constrain_power_balance
 constrain_substation_voltage
 constrain_KVL

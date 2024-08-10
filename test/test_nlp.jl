@@ -17,7 +17,7 @@
     m = Model(Ipopt.Optimizer)
     set_optimizer_attribute(m, "print_level", 0)
 
-    build_model!(m, net, Unrelaxed)
+    build_bfm!(m, net, Unrelaxed)
 
     @objective(m, Min, 
         sum( 

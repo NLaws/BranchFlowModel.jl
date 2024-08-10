@@ -47,7 +47,7 @@ end
 
 function build_min_loss_model(net::CPF.Network{CPF.SinglePhase})
     m = Model(Ipopt.Optimizer)
-    BranchFlowModel.build_model!(m, net; relaxed=false)
+    BranchFlowModel.build_bfm!(m, net; relaxed=false)
     @objective(m, Min, 
         sum( 
             m[:lij][i_j][t] for t in 1:net.Ntimesteps, i_j in BranchFlowModel.CommonOPF.edges(net)
@@ -149,7 +149,7 @@ include("test_nlp.jl")
 
     m = Model(CSDP.Optimizer)
     set_attribute(m, "printlevel", 0)
-    build_model!(m, net)
+    build_bfm!(m, net)
     @objective(m, Min, 
         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in  edges(net))
     )
@@ -228,7 +228,7 @@ end
     set_optimizer_attribute(m_net, "maxit", 10000)
     set_optimizer_attribute(m_net, "verbose", 0)
     set_optimizer_attribute(m_net, "reltol", 1e-7)
-    build_model!(m_net, net)
+    build_bfm!(m_net, net)
 
     function add_generator_at_bus_11_net!(m)
         b = "11"
@@ -271,7 +271,7 @@ end
     # so set load at 7 to zero
     net["7"][:Load].kws1 = [0.0]
 
-    build_model!(m, net)
+    build_bfm!(m, net)
 
     add_generator_at_bus_11_net!(m)
 
@@ -374,7 +374,7 @@ end
     m = Model(CSDP.Optimizer)
     set_attribute(m, "printlevel", 0)
     # TODO add pieces of IEEE13 one at a time, starting with two phase lateral with load
-    build_model!(m, net)
+    build_bfm!(m, net)
 
     @objective(m, Min, 
         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in  edges(net))
@@ -527,7 +527,7 @@ end
     m = Model(CSDP.Optimizer)
     set_attribute(m, "printlevel", 0)
 
-    build_model!(m, net)
+    build_bfm!(m, net)
 
     @objective(m, Min, 
         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in edges(net) )
@@ -562,7 +562,7 @@ end
 
 #     function make_solve_min_loss_model(p)
 #         m = Model(Ipopt.Optimizer)
-#         build_model!(m,p)
+#         build_bfm!(m,p)
 #         @objective(m, Min, 
 #             sum( m[:lij][i_j,t] for t in 1:p.Ntimesteps, i_j in  p.edge_keys)
 #         )
@@ -587,112 +587,112 @@ end
 #     m = make_solve_min_loss_model(p)
 #     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
 
-    # vs = get_variable_values(:vsqrd, m, p)
-    # # make the dss solution to compare
-    # dss("clear")
-    # dss("Redirect data/singlephase38lines/master.dss")
-    # dss("Solve")
-    # @test(OpenDSS.Solution.Converged() == true)
-    # dss_voltages = dss_voltages_pu()
-    # for b in keys(vs)
-    #     @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.001
-    # end
-    # nvar_original = JuMP.num_variables(m)
+#     vs = get_variable_values(:vsqrd, m, p)
+#     # make the dss solution to compare
+#     dss("clear")
+#     dss("Redirect data/singlephase38lines/master.dss")
+#     dss("Solve")
+#     @test(OpenDSS.Solution.Converged() == true)
+#     dss_voltages = dss_voltages_pu()
+#     for b in keys(vs)
+#         @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.001
+#     end
+#     nvar_original = JuMP.num_variables(m)
 
-    # # 2 validate BFM results stay the same after reduction
-    # nbusses_before = length(p.busses)
-    # reduce_tree!(p)
-    # m = make_solve_min_loss_model(p)
-    # @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
-    # vs_reduced = get_variable_values(:vsqrd, m, p)
-    # for b in keys(vs_reduced)
-    #     @test abs(dss_voltages[b][1] - sqrt(vs_reduced[b][1])) < 0.001
-    # end
-    # nvar_reduced = JuMP.num_variables(m)
-    # @test nvar_original > nvar_reduced  # 225 > 159
+#     # 2 validate BFM results stay the same after reduction
+#     nbusses_before = length(p.busses)
+#     reduce_tree!(p)
+#     m = make_solve_min_loss_model(p)
+#     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
+#     vs_reduced = get_variable_values(:vsqrd, m, p)
+#     for b in keys(vs_reduced)
+#         @test abs(dss_voltages[b][1] - sqrt(vs_reduced[b][1])) < 0.001
+#     end
+#     nvar_reduced = JuMP.num_variables(m)
+#     @test nvar_original > nvar_reduced  # 225 > 159
 
-    # # 3 split and solve the reduced model, compare v
-    # g = BranchFlowModel.make_graph(p.busses, p.edges; directed=true)
-    # p_above, p_below = BranchFlowModel.split_inputs(p, "12");
-    # # solve above first with sum of p_below loads, then set p_below.v0, solve p_below, set p_above.P/Qload to p_below.substation_bus values
-    # # later solve in parallel
-    # # p_above.Pload and Qload exist already for bus "12"; we need to add p_below's loads to it
-    # init_inputs!([p_below, p_above])  # set p_above loads at p_below.substation_bus
-    # # NOTE only one time step so all load vectors have one value
-    # @test p_above.Pload["12"][1] == sum( v[1] for v in values(p_below.Pload) )
-    # @test p_above.Qload["12"][1] == sum( v[1] for v in values(p_below.Qload) )
+#     # 3 split and solve the reduced model, compare v
+#     g = BranchFlowModel.make_graph(p.busses, p.edges; directed=true)
+#     p_above, p_below = BranchFlowModel.split_inputs(p, "12");
+#     # solve above first with sum of p_below loads, then set p_below.v0, solve p_below, set p_above.P/Qload to p_below.substation_bus values
+#     # later solve in parallel
+#     # p_above.Pload and Qload exist already for bus "12"; we need to add p_below's loads to it
+#     init_inputs!([p_below, p_above])  # set p_above loads at p_below.substation_bus
+#     # NOTE only one time step so all load vectors have one value
+#     @test p_above.Pload["12"][1] == sum( v[1] for v in values(p_below.Pload) )
+#     @test p_above.Qload["12"][1] == sum( v[1] for v in values(p_below.Qload) )
 
-    # m_above = make_solve_min_loss_model(p_above)
-    # init_vs = Dict(
-    #     p_below.substation_bus => sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
-    # )
-    # init_inputs!([p_above, p_below]; init_vs=init_vs)
-    # @test p_below.v0 == sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
+#     m_above = make_solve_min_loss_model(p_above)
+#     init_vs = Dict(
+#         p_below.substation_bus => sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
+#     )
+#     init_inputs!([p_above, p_below]; init_vs=init_vs)
+#     @test p_below.v0 == sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
 
-    # m_below = make_solve_min_loss_model(p_below)
+#     m_below = make_solve_min_loss_model(p_below)
 
-    # # at this point the v's at bus 12 agree by design
-    # # but the loads do not b/c we did not account for losses in first iteration
-    # # the plus sign is not a minus because the P/Q values should be equal and _opposite_
-    # pdiff = value(m_below[:Pj]["12",1]) + value(m_above[:Pj]["12",1])  # 0.001606
-    # qdiff = value(m_below[:Qj]["12",1]) + value(m_above[:Qj]["12",1])  # 0.000526
-    # vdiff = 1.0
+#     # at this point the v's at bus 12 agree by design
+#     # but the loads do not b/c we did not account for losses in first iteration
+#     # the plus sign is not a minus because the P/Q values should be equal and _opposite_
+#     pdiff = value(m_below[:Pj]["12",1]) + value(m_above[:Pj]["12",1])  # 0.001606
+#     qdiff = value(m_below[:Qj]["12",1]) + value(m_above[:Qj]["12",1])  # 0.000526
+#     vdiff = 1.0
 
-    # tol = 1e-6
-    # while pdiff > tol || qdiff > tol || vdiff > tol
-    #     p_above.Pload["12"][1] = value(m_below[:Pj]["12",1]) * p_above.Sbase
-    #     p_above.Qload["12"][1] = value(m_below[:Qj]["12",1]) * p_above.Sbase
-    #     m_above = make_solve_min_loss_model(p_above)
-    #     v_above = sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
-    #     vdiff = abs(p_below.v0 - v_above)
-    #     p_below.v0 = v_above
-    #     m_below = make_solve_min_loss_model(p_below)
-    #     pdiff = value(m_below[:Pj]["12",1]) + value(m_above[:Pj]["12",1])  # 3.758466e-8
-    #     qdiff = value(m_below[:Qj]["12",1]) + value(m_above[:Qj]["12",1])  # 1.231675e-8
-    # end
+#     tol = 1e-6
+#     while pdiff > tol || qdiff > tol || vdiff > tol
+#         p_above.Pload["12"][1] = value(m_below[:Pj]["12",1]) * p_above.Sbase
+#         p_above.Qload["12"][1] = value(m_below[:Qj]["12",1]) * p_above.Sbase
+#         m_above = make_solve_min_loss_model(p_above)
+#         v_above = sqrt(value(m_above[:vsqrd][p_below.substation_bus,1]))
+#         vdiff = abs(p_below.v0 - v_above)
+#         p_below.v0 = v_above
+#         m_below = make_solve_min_loss_model(p_below)
+#         pdiff = value(m_below[:Pj]["12",1]) + value(m_above[:Pj]["12",1])  # 3.758466e-8
+#         qdiff = value(m_below[:Qj]["12",1]) + value(m_above[:Qj]["12",1])  # 1.231675e-8
+#     end
 
-    # vs_decomposed = get_variable_values(:vsqrd, m_above, p_above)
-    # merge!(vs_decomposed, get_variable_values(:vsqrd, m_below, p_below))
-    # for b in keys(vs_decomposed)
-    #     @test abs(dss_voltages[b][1] - sqrt(vs_decomposed[b][1])) < 0.001
-    # end
+#     vs_decomposed = get_variable_values(:vsqrd, m_above, p_above)
+#     merge!(vs_decomposed, get_variable_values(:vsqrd, m_below, p_below))
+#     for b in keys(vs_decomposed)
+#         @test abs(dss_voltages[b][1] - sqrt(vs_decomposed[b][1])) < 0.001
+#     end
 
-    # # split model into 3 models and solve
-    # mg = CommonOPF.split_at_busses(p, ["7", "13"])
-    # @test mg[1, :p].substation_bus == "0"
-    # @test mg[2, :p].substation_bus == "7"
-    # @test mg[3, :p].substation_bus == "13"
-    # # init_inputs!(mg)  # done in CommonOPF.split_at_busses
-    # for v in get_prop(mg, :load_sum_order)
-    #     set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
-    # end
-    # set_indexing_prop!(mg, :m)
-    # # every model solved once using load approximations
-    # # now set better load approximations and connect voltages
-    # set_inputs!(mg)
-    # @test mg[2,:p].v0[1] ≈ sqrt(value(mg[1,:m][:vsqrd][mg[2,:p].substation_bus,1]))
-    # @test mg[3,:p].v0[1] ≈ sqrt(value(mg[2,:m][:vsqrd][mg[3,:p].substation_bus,1]))
-    # # run another solve
-    # for v in get_prop(mg, :load_sum_order)
-    #     set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
-    # end
-    # pdiffs1, qdiffs1, vdiffs1 = get_diffs(mg)
-    # # another round to compare:
-    # set_inputs!(mg)
-    # for v in get_prop(mg, :load_sum_order)
-    #     set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
-    # end
-    # pdiffs2, qdiffs2, vdiffs2 = get_diffs(mg)
-    # @test sum(pdiffs2) < sum(pdiffs1) 
-    # @test sum(qdiffs2) < sum(qdiffs1) 
-    # @test sum(vdiffs2) < sum(vdiffs1) 
+#     # split model into 3 models and solve
+#     mg = CommonOPF.split_at_busses(p, ["7", "13"])
+#     @test mg[1, :p].substation_bus == "0"
+#     @test mg[2, :p].substation_bus == "7"
+#     @test mg[3, :p].substation_bus == "13"
+#     # init_inputs!(mg)  # done in CommonOPF.split_at_busses
+#     for v in get_prop(mg, :load_sum_order)
+#         set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
+#     end
+#     set_indexing_prop!(mg, :m)
+#     # every model solved once using load approximations
+#     # now set better load approximations and connect voltages
+#     set_inputs!(mg)
+#     @test mg[2,:p].v0[1] ≈ sqrt(value(mg[1,:m][:vsqrd][mg[2,:p].substation_bus,1]))
+#     @test mg[3,:p].v0[1] ≈ sqrt(value(mg[2,:m][:vsqrd][mg[3,:p].substation_bus,1]))
+#     # run another solve
+#     for v in get_prop(mg, :load_sum_order)
+#         set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
+#     end
+#     pdiffs1, qdiffs1, vdiffs1 = get_diffs(mg)
+#     # another round to compare:
+#     set_inputs!(mg)
+#     for v in get_prop(mg, :load_sum_order)
+#         set_prop!(mg, v, :m, make_solve_min_loss_model(mg[v, :p]))
+#     end
+#     pdiffs2, qdiffs2, vdiffs2 = get_diffs(mg)
+#     @test sum(pdiffs2) < sum(pdiffs1) 
+#     @test sum(qdiffs2) < sum(qdiffs1) 
+#     @test sum(vdiffs2) < sum(vdiffs1) 
 
-    # vs_decomposed = get_variable_values(:vsqrd, mg[1, :m], mg[1, :p])
-    # merge!(vs_decomposed, get_variable_values(:vsqrd, mg[2, :m], mg[2, :p]))
-    # merge!(vs_decomposed, get_variable_values(:vsqrd, mg[3, :m], mg[3, :p]))
-    # for b in keys(vs_decomposed)
-    #     @test abs(dss_voltages[b][1] - sqrt(vs_decomposed[b][1])) < 0.001
-    # end
+#     vs_decomposed = get_variable_values(:vsqrd, mg[1, :m], mg[1, :p])
+#     merge!(vs_decomposed, get_variable_values(:vsqrd, mg[2, :m], mg[2, :p]))
+#     merge!(vs_decomposed, get_variable_values(:vsqrd, mg[3, :m], mg[3, :p]))
+#     for b in keys(vs_decomposed)
+#         @test abs(dss_voltages[b][1] - sqrt(vs_decomposed[b][1])) < 0.001
+#     end
 # end
 
 

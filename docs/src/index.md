@@ -14,7 +14,7 @@ Inputs are defined using `CommonOPF.Network` structs.
 
 # Building a Model
 ```@docs
-build_model!
+build_bfm!
 ```
 
 # Variables

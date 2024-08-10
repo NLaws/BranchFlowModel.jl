@@ -1,16 +1,16 @@
 """
-    build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, mtype::ModelType=Semidefinite)
+    build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, mtype::ModelType=Semidefinite)
 
 Top-level builder that dispatches the ModelType enum
 TODO make default mtype Unrelaxed (and define the methods)
 """
-function build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, mtype::ModelType=Semidefinite)
-    build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, Val(mtype))
+function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, mtype::ModelType=Semidefinite)
+    build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, Val(mtype))
 end
 
 
 """
-    build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Semidefinite})
+    build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Semidefinite})
 
 Add variables and constraints to `m` using the values in `net`. Calls the following functions:
 ```julia
@@ -19,7 +19,7 @@ constrain_power_balance(m, net)
 constrain_KVL(m, net)
 ```
 """
-function build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Semidefinite})
+function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Semidefinite})
     add_sdp_variables(m, net)  # PSD constraints done in add_sdp_variables
     constrain_power_balance(m, net)
     constrain_KVL(m, net)
@@ -27,7 +27,7 @@ end
 
 
 """
-    build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Unrelaxed})
+    build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Unrelaxed})
 
 Add variables and constraints to `m` using the values in `net` to make an unrelaxed branch flow
 model. Calls the following functions:
@@ -36,7 +36,7 @@ add_bfm_variables(m, net)
 constrain_bfm_nlp(m, net)
 ```
 """
-function build_model!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Unrelaxed})
+function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Unrelaxed})
     add_bfm_variables(m, net)
     constrain_bfm_nlp(m, net)
 end

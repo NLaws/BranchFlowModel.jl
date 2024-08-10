@@ -35,7 +35,7 @@ export
     Results,
     # end new methods TODO distinguish all exports by module
 
-    build_model!,
+    build_bfm!,
     add_variables,
     constrain_power_balance,
     constrain_substation_voltage,

@@ -1,5 +1,5 @@
 """
-    build_model!(m::JuMP.AbstractModel, net::Network{SinglePhase})
+    build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase})
 
 Add variables and constraints to `m` using the values in `net`. Calls the following functions:
 ```julia
@@ -14,7 +14,7 @@ else
 end
 ```
 """
-function build_model!(m::JuMP.AbstractModel, net::Network{SinglePhase}; relaxed::Bool=true)
+function build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}; relaxed::Bool=true)
 
     add_variables(m, net)
     constrain_power_balance(m, net)
