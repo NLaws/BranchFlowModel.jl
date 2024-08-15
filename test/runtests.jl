@@ -550,8 +550,9 @@ end
             push!(errors, phsv - dss_voltages[b][i])
         end
     end
-    # println(minimum(errors))
-    # println(maximum(errors))
+    # println(minimum(errors))  # -0.008688
+    # println(maximum(errors))  # 0.01114777
+    # get the same min/max errors with Mosek
 
 end
 
@@ -723,7 +724,7 @@ end
     vs_decomposed = get_variable_values(:vsqrd, mg.graph_data[:models][1])
     merge!(vs_decomposed, get_variable_values(:vsqrd, mg.graph_data[:models][2]))
     merge!(vs_decomposed, get_variable_values(:vsqrd, mg.graph_data[:models][3]))
-    
+
     for b in keys(vs_decomposed)
         @test abs(dss_voltages[b][1] - sqrt(vs_decomposed[b][1])) < 0.001
     end
