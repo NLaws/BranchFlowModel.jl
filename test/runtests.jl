@@ -147,7 +147,7 @@ include("test_nlp.jl")
 
     m = Model(CSDP.Optimizer)
     set_attribute(m, "printlevel", 0)
-    build_bfm!(m, net)
+    build_bfm!(m, net, Semidefinite)
     @objective(m, Min, 
         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in  edges(net))
     )
@@ -372,7 +372,7 @@ end
     m = Model(CSDP.Optimizer)
     set_attribute(m, "printlevel", 0)
     # TODO add pieces of IEEE13 one at a time, starting with two phase lateral with load
-    build_bfm!(m, net)
+    build_bfm!(m, net, Semidefinite)
 
     @objective(m, Min, 
         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in  edges(net))
@@ -525,7 +525,7 @@ end
     m = Model(CSDP.Optimizer)
     set_attribute(m, "printlevel", 0)
 
-    build_bfm!(m, net)
+    build_bfm!(m, net, Semidefinite)
 
     @objective(m, Min, 
         sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in edges(net) )

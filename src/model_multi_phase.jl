@@ -4,7 +4,7 @@
 Top-level builder that dispatches the ModelType enum
 TODO make default mtype Unrelaxed (and define the methods)
 """
-function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, mtype::ModelType=Semidefinite)
+function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, mtype::ModelType=Unrelaxed)
     build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, Val(mtype))
 end
 
