@@ -42,35 +42,36 @@ New Line.L6_36    Phases=1 Bus1=6.1        Bus2=36.1       LineCode=6_36  Length
 New Line.L6_37    Phases=1 Bus1=6.1        Bus2=37.1       LineCode=6_37  Length=1 Normamps=120
 
 
-New Load.3  Bus1=3  Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.5  Bus1=5  Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.9  Bus1=9  Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.10 Bus1=10 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.11 Bus1=11 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.12 Bus1=12 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.13 Bus1=13 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.15 Bus1=15 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.17 Bus1=17 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.18 Bus1=18 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.19 Bus1=19 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.22 Bus1=22 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.25 Bus1=25 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.27 Bus1=27 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.28 Bus1=28 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.30 Bus1=30 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.31 Bus1=31 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.32 Bus1=32 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.33 Bus1=33 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.34 Bus1=34 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.35 Bus1=35 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
-New Load.36 Bus1=36 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20
+New Load.3  Bus1=3  Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.5  Bus1=5  Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.9  Bus1=9  Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.10 Bus1=10 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.11 Bus1=11 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.12 Bus1=12 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.13 Bus1=13 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.15 Bus1=15 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.17 Bus1=17 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.18 Bus1=18 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.19 Bus1=19 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.22 Bus1=22 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.25 Bus1=25 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.27 Bus1=27 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.28 Bus1=28 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.30 Bus1=30 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.31 Bus1=31 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.32 Bus1=32 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.33 Bus1=33 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.34 Bus1=34 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.35 Bus1=35 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
+New Load.36 Bus1=36 Phases=1 Conn=Wye  Model=1 kW=100 kvar=20 kV=7.2
 
 
-New Transformer.T1  Phases=1  Windings=2  XHL=2  buses=[20,21] %Rs=[0.01,0.01]
+New Transformer.T1  Phases=1  Windings=2  XHL=2  buses=[20,21] %Rs=[0.01,0.01] kVs=[7.2, 7.2]
 
 New RegControl.Reg1 Transformer=T1 Winding=2 Vreg=122 band=3 ptratio=60
 
 Set Voltagebases=[12.47]
-
+Set MinIteration=500
+Set MaxIter=500  ! default is 15, not enough to get load matching
 calcv
 solve

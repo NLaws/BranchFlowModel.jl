@@ -56,6 +56,13 @@ function build_single_phase_min_loss_model(net::CPF.Network{CPF.SinglePhase})
 end
 
 
+function make_solve_single_phase_min_loss_model(net)
+    m = build_single_phase_min_loss_model(net)
+    optimize!(m)
+    return m
+end
+
+
 function hermitian_variable_to_vector(m::JuMP.AbstractModel, var::Symbol, t::Int, bus::Union{String, Tuple{String, String}}; tol=1e-5)
 
     H = value.(m[var][t][bus])
@@ -77,6 +84,13 @@ function hermitian_variable_to_vector(m::JuMP.AbstractModel, var::Symbol, t::Int
     return v
 end
 
+function metagraph_voltages(mg)
+    d = Dict()
+    for v in vertices(mg)
+        merge!(d, get_variable_values(:vsqrd, mg.graph_data[:models][v]))
+    end
+    return d
+end
 
 
 function check_opendss_powers(;tol=1e-6)
@@ -349,14 +363,6 @@ end
 
     solve_metagraph!(mg, builder, [1e-3, 1e-4, 1e-4]; verbose=false)
 
-    function metagraph_voltages(mg)
-        d = Dict()
-        for v in vertices(mg)
-            merge!(d, get_variable_values(:vsqrd, mg.graph_data[:models][v]))
-        end
-        return d
-    end
-
     vs = metagraph_voltages(mg)
     for b in keys(vs)
         @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.005
@@ -559,12 +565,6 @@ end
 @testset "SinglePhase network reduction" begin
     # confirm that optimal results do not change
 
-    function make_solve_min_loss_model(net)
-        m = build_single_phase_min_loss_model(net)
-        optimize!(m)
-        return m
-    end
-
     # 1 validate BFM against OpenDSS
     dssfilepath = "data/singlephase38lines/master.dss"
     net = CPF.dss_to_Network(dssfilepath)
@@ -576,7 +576,7 @@ end
     net.Vbase = 12.47e3
     net.Zbase = net.Vbase^2 / net.Sbase
     net.v0 = 1.0
-    m = make_solve_min_loss_model(net)
+    m = make_solve_single_phase_min_loss_model(net)
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
 
     vsqrd = get_variable_values(:vsqrd, m)
@@ -602,7 +602,7 @@ end
     # 2 validate BFM results stay the same after reduction
     nbusses_before = length(busses(net))
     reduce_tree!(net)
-    m = make_solve_min_loss_model(net)
+    m = make_solve_single_phase_min_loss_model(net)
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
     vsqrd = get_variable_values(:vsqrd, m)
     vs_reduced = Dict(k => sqrt.(v) for (k,v) in vsqrd)
@@ -630,7 +630,7 @@ end
         net_below[ld_bus][:Load].kvars1[1] for ld_bus in CPF.reactive_load_busses(net_below) 
     )
 
-    m_above = make_solve_min_loss_model(net_above)
+    m_above = make_solve_single_phase_min_loss_model(net_above)
     init_vs = Dict(
         net_below.substation_bus => sqrt(value(m_above[:vsqrd][net_below.substation_bus][1]))
     )
@@ -638,7 +638,7 @@ end
 
     @test net_below.v0 == sqrt(value(m_above[:vsqrd][net_below.substation_bus][1]))
 
-    m_below = make_solve_min_loss_model(net_below)
+    m_below = make_solve_single_phase_min_loss_model(net_below)
 
     # at this point the v's at bus 12 agree by design
     # but the loads do not b/c we did not account for losses in first iteration
@@ -669,11 +669,11 @@ end
     while pdiff > tol || qdiff > tol || vdiff > tol
         net_above["12"][:Load].kws1[1] = value(m_below[:p0][1]) * net_above.Sbase / 1e3
         net_above["12"][:Load].kvars1[1] = value(m_below[:q0][1]) * net_above.Sbase / 1e3
-        m_above = make_solve_min_loss_model(net_above)
+        m_above = make_solve_single_phase_min_loss_model(net_above)
         v_above = sqrt(value(m_above[:vsqrd][net_below.substation_bus][1]))
         vdiff = abs(net_below.v0 - v_above)
         net_below.v0 = v_above
-        m_below = make_solve_min_loss_model(net_below)
+        m_below = make_solve_single_phase_min_loss_model(net_below)
         upper_real_power, upper_reactive_power = calc_flow_into_bus(m_above, net_above, "12")
         pdiff = abs(value(m_below[:p0][1]) - upper_real_power)
         qdiff = abs(value(m_below[:q0][1]) - upper_reactive_power)
@@ -694,7 +694,7 @@ end
     # TODO initialize the :models dict somewhere else
     mg.graph_data[:models] = Dict{Int, JuMP.AbstractModel}()
     for v in mg.graph_data[:load_sum_order]
-        mg.graph_data[:models][v] = make_solve_min_loss_model(mg[v])
+        mg.graph_data[:models][v] = make_solve_single_phase_min_loss_model(mg[v])
     end
 
     # every model solved once using load approximations
@@ -706,14 +706,14 @@ end
 
     # run another solve
     for v in mg.graph_data[:load_sum_order]
-        mg.graph_data[:models][v] = make_solve_min_loss_model(mg[v])
+        mg.graph_data[:models][v] = make_solve_single_phase_min_loss_model(mg[v])
     end
 
     pdiffs1, qdiffs1, vdiffs1 = get_diffs(mg)
     # another round to compare:
     set_inputs!(mg)
     for v in mg.graph_data[:load_sum_order]
-        mg.graph_data[:models][v] = make_solve_min_loss_model(mg[v])
+        mg.graph_data[:models][v] = make_solve_single_phase_min_loss_model(mg[v])
     end
     pdiffs2, qdiffs2, vdiffs2 = get_diffs(mg)
     @test sum(pdiffs2) < sum(pdiffs1) 
@@ -731,56 +731,63 @@ end
 end
 
 
-# @testset "Single phase regulators at network splits" begin
-#     Sbase = 1e6
-#     Vbase = 12.47e3
-#     # use OpenDSS to replace a line 20-21 with a transformer/regulator and test solution convergence
-#     p = Inputs(
-#         joinpath("data", "singlephase38lines", "master_extra_trfx.dss"), 
-#         "0";
-#         Sbase=Sbase, 
-#         Vbase=Vbase, 
-#         v0 = 1.00,
-#        .bounds.v_upper_mag = 1.05,
-#        .bounds.v_lower_mag = 0.95,
-#         relaxed = false,
-#     );
-#     @test ("20","21") in keys(p.regulators)
-#     @test reg_busses(p) == ["21"]
+@testset "Single phase regulators at network splits" begin
 
-#     dss("clear")
-#     dss("Redirect data/singlephase38lines/master_extra_trfx.dss")
-#     dss("Solve")
-#     @test(OpenDSS.Solution.Converged() == true)
-#     dss_voltages = dss_voltages_pu()
+    dssfilepath = "data/singlephase38lines/master_extra_trfx.dss"
+    net = CPF.dss_to_Network(dssfilepath)
+    
+    net.bounds.v_upper_mag = 1.05
+    net.bounds.v_lower_mag = 0.95
 
-#     p.regulators[("20","21")][:turn_ratio] = dss_voltages["21"][1] / dss_voltages["20"][1]
-#     @test turn_ratio(p, "21") == dss_voltages["21"][1] / dss_voltages["20"][1]
+    net.Sbase = 1e5
+    net.Vbase = 7.2e3
+    net.Zbase = net.Vbase^2 / net.Sbase
+    net.v0 = 1.0
+    m = make_solve_single_phase_min_loss_model(net)
+    @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
 
-#     # split at two busses including the regulator and compare against openDSS
-#     mg = CommonOPF.split_at_busses(p, ["14","21"])
-#     builder = Dict(
-#         v => build_single_phase_min_loss_model for v in vertices(mg)
-#     )
-#     solve_metagraph!(mg, builder, [1e-5, 1e-5, 1e-5]; verbose=false)
-#     vs = metagraph_voltages(mg)
-#     for b in keys(vs)
-#         @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.001
-#     end
+    vsqrd = get_variable_values(:vsqrd, m)
+    vs = Dict(k => sqrt.(v) for (k,v) in vsqrd)
 
-#     # split only at regulator, add vreg, and test the vdiff is zero
-#     # (because using vreg makes the regulator voltage equal to the setting)
-#     p.regulators[("20","21")][:vreg] = 1.02
-#     mg = CommonOPF.split_at_busses(p, ["21"])
+    @test isa(net[("20","21")], CPF.VoltageRegulator)
 
-#     builder = Dict(
-#         v => build_single_phase_min_loss_model for v in vertices(mg)
-#     )
-#     solve_metagraph!(mg, builder, [1e-3, 1e-3, 1e-3]; verbose=false)
-#     pdiffs, qdiffs, vdiffs = get_diffs(mg)
-#     @test maximum(vdiffs) ≈ 0  # because that is how it is defined across a regulator
+    OpenDSS.dss("clear")
+    OpenDSS.dss("Redirect data/singlephase38lines/master_extra_trfx.dss")
+    OpenDSS.dss("Solve")
+    @test(OpenDSS.Solution.Converged() == true)
+    @test(check_opendss_powers() == true)
+    dss_voltages = dss_voltages_pu()
 
 
-# end
+    # make the regulator work like OpenDSS
+    net[("20","21")].turn_ratio = dss_voltages["21"][1] / dss_voltages["20"][1]
+    # remove vreg_pu b/c it is used first
+    net[("20","21")].vreg_pu = missing
+
+    # split at two busses including the regulator and compare against openDSS
+    mg = CPF.split_at_busses(net, ["14","21"])
+    builder = Dict(
+        v => build_single_phase_min_loss_model for v in vertices(mg)
+    )
+    solve_metagraph!(mg, builder, [1e-5, 1e-5, 1e-5]; verbose=false)
+    vs = metagraph_voltages(mg)
+    for b in keys(vs)
+        @test abs(sqrt(vs[b][1]) - dss_voltages[b][1]) < 0.001
+    end
+
+    # split only at regulator, add vreg, and test the vdiff is zero
+    # (because using vreg makes the regulator voltage equal to the setting)
+    net[("20","21")].vreg_pu = 1.02
+    mg = CPF.split_at_busses(net, ["21"])
+
+    builder = Dict(
+        v => build_single_phase_min_loss_model for v in vertices(mg)
+    )
+    solve_metagraph!(mg, builder, [1e-3, 1e-3, 1e-3]; verbose=false)
+    pdiffs, qdiffs, vdiffs = get_diffs(mg)
+    @test maximum(vdiffs) ≈ 0  atol=1e-6 # because that is how it is defined across a regulator
+
+
+end
 
 end  # all tests
