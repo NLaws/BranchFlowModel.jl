@@ -1,11 +1,26 @@
 """
-    build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, mtype::ModelType=Semidefinite)
+    build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, mtype::ModelType=Unrelaxed)
 
-Top-level builder that dispatches the ModelType enum
-TODO make default mtype Unrelaxed (and define the methods)
+Top-level multiphase builder that dispatches the ModelType enum
 """
 function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, mtype::ModelType=Unrelaxed)
     build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, Val(mtype))
+end
+
+
+"""
+    build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Unrelaxed})
+
+Add variables and constraints to `m` using the values in `net` to make an unrelaxed branch flow
+model. Calls the following functions:
+```julia
+add_bfm_variables(m, net)
+constrain_bfm_nlp(m, net)
+```
+"""
+function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Unrelaxed})
+    add_bfm_variables(m, net)
+    constrain_bfm_nlp(m, net)
 end
 
 
@@ -23,22 +38,6 @@ function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Semid
     add_sdp_variables(m, net)  # PSD constraints done in add_sdp_variables
     constrain_power_balance(m, net)
     constrain_KVL(m, net)
-end
-
-
-"""
-    build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Unrelaxed})
-
-Add variables and constraints to `m` using the values in `net` to make an unrelaxed branch flow
-model. Calls the following functions:
-```julia
-add_bfm_variables(m, net)
-constrain_bfm_nlp(m, net)
-```
-"""
-function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Unrelaxed})
-    add_bfm_variables(m, net)
-    constrain_bfm_nlp(m, net)
 end
 
 

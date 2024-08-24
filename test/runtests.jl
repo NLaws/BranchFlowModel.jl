@@ -43,9 +43,9 @@ function dss_voltages_mag_angle()
 end
 
 
-function build_min_loss_model(net::CPF.Network{CPF.SinglePhase})
+function build_single_phase_min_loss_model(net::CPF.Network{CPF.SinglePhase})
     m = Model(Ipopt.Optimizer)
-    BranchFlowModel.build_bfm!(m, net; relaxed=false)
+    BranchFlowModel.build_bfm!(m, net, Unrelaxed)
     @objective(m, Min, 
         sum( 
             m[:lij][i_j][t] for t in 1:net.Ntimesteps, i_j in CPF.edges(net)
@@ -203,7 +203,7 @@ include("test_nlp.jl")
 end
 
 
-@testset "Papavasiliou 2018 with shunts" begin
+@testset "Papavasiliou 2018 single phase SOCP with shunts" begin
     #=
     Copied network from paper "Analysis of DLMPs"
     and testing some DLMP values here as well as the addition of shunt susceptance values
@@ -226,7 +226,7 @@ end
     set_optimizer_attribute(m_net, "maxit", 10000)
     set_optimizer_attribute(m_net, "verbose", 0)
     set_optimizer_attribute(m_net, "reltol", 1e-7)
-    build_bfm!(m_net, net)
+    build_bfm!(m_net, net, BranchFlowModel.SecondOrderCone)
 
     function add_generator_at_bus_11_net!(m)
         b = "11"
@@ -269,7 +269,7 @@ end
     # so set load at 7 to zero
     net["7"][:Load].kws1 = [0.0]
 
-    build_bfm!(m, net)
+    build_bfm!(m, net, BranchFlowModel.SecondOrderCone)
 
     add_generator_at_bus_11_net!(m)
 
@@ -321,7 +321,7 @@ end
 
     net[("650", "rg60")].vreg_pu = dss_voltages["rg60"][1]
 
-    m = build_min_loss_model(net)
+    m = build_single_phase_min_loss_model(net)
     optimize!(m)
     
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
@@ -344,7 +344,7 @@ end
 
     # test the decomposed solution against openDSS
     builder = Dict(
-        v => build_min_loss_model for v in vertices(mg)
+        v => build_single_phase_min_loss_model for v in vertices(mg)
     )
 
     solve_metagraph!(mg, builder, [1e-3, 1e-4, 1e-4]; verbose=false)
@@ -371,7 +371,6 @@ end
 
     m = Model(CSDP.Optimizer)
     set_attribute(m, "printlevel", 0)
-    # TODO add pieces of IEEE13 one at a time, starting with two phase lateral with load
     build_bfm!(m, net, Semidefinite)
 
     @objective(m, Min, 
@@ -561,7 +560,7 @@ end
     # confirm that optimal results do not change
 
     function make_solve_min_loss_model(net)
-        m = build_min_loss_model(net)
+        m = build_single_phase_min_loss_model(net)
         optimize!(m)
         return m
     end
@@ -761,7 +760,7 @@ end
 #     # split at two busses including the regulator and compare against openDSS
 #     mg = CommonOPF.split_at_busses(p, ["14","21"])
 #     builder = Dict(
-#         v => build_min_loss_model for v in vertices(mg)
+#         v => build_single_phase_min_loss_model for v in vertices(mg)
 #     )
 #     solve_metagraph!(mg, builder, [1e-5, 1e-5, 1e-5]; verbose=false)
 #     vs = metagraph_voltages(mg)
@@ -775,7 +774,7 @@ end
 #     mg = CommonOPF.split_at_busses(p, ["21"])
 
 #     builder = Dict(
-#         v => build_min_loss_model for v in vertices(mg)
+#         v => build_single_phase_min_loss_model for v in vertices(mg)
 #     )
 #     solve_metagraph!(mg, builder, [1e-3, 1e-3, 1e-3]; verbose=false)
 #     pdiffs, qdiffs, vdiffs = get_diffs(mg)

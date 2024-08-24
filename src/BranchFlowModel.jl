@@ -1,7 +1,6 @@
 module BranchFlowModel
 
 using CommonOPF
-import CommonOPF: rij, xij  # extending to MultiPhase, need to consolidate into CommonOPF
 using JuMP
 using LinearAlgebra
 import Graphs, MetaGraphsNext
@@ -14,7 +13,7 @@ import SparseArrays: sparse
     Unrelaxed
     Semidefinite
     SecondOrderCone
-    # Linear  # TODO mv LinDistFlow into this module?
+    # Linear  # TODO mv LinDistFlow into BranchFlowModel
 end
 
 
@@ -56,7 +55,7 @@ export
     # ModelType
     Unrelaxed,
     Semidefinite,
-    SecondOrderCone,
+    SecondOrderCone,  # JuMP also exports SecondOrderCone
 
     # MetaGraphsNext
     vertices,
