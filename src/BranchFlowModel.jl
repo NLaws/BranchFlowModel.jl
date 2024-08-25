@@ -62,7 +62,6 @@ export
     vertices,
     check_rank_one
 
-include("inputs.jl")
 include("utils.jl")
 include("checks.jl")
 include("model_single_phase.jl")
