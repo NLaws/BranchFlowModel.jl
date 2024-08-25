@@ -13,7 +13,9 @@ end
 
 Add variables and constraints to `m` using the values in `net`. Calls the following functions:
 ```julia
-add_variables(m, net)
+add_linear_variables(m, net)
+add_vsqrd_variables(m, net)
+add_isqrd_variables(m, net)
 constrain_power_balance(m, net)
 constrain_substation_voltage(m, net)
 constrain_KVL(m, net)
@@ -22,7 +24,9 @@ constrain_bilinear(m, net)
 """
 function build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, ::Val{Unrelaxed})
     # TODO the Unrelaxed model has the angle relaxation, should have both unrelaxed and with angle relaxation?
-    add_variables(m, net)
+    add_linear_variables(m, net)
+    add_vsqrd_variables(m, net)
+    add_isqrd_variables(m, net)
     constrain_power_balance(m, net)
     constrain_substation_voltage(m, net)
     constrain_KVL(m, net)
@@ -35,15 +39,19 @@ end
 
 Add variables and constraints to `m` using the values in `net`. Calls the following functions:
 ```julia
-add_variables(m, net)
+add_linear_variables(m, net)
+add_vsqrd_variables(m, net)
+add_isqrd_variables(m, net)
 constrain_power_balance(m, net)
 constrain_substation_voltage(m, net)
 constrain_KVL(m, net)
 constrain_cone(m, net)
 ```
 """
-function build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, ::Val{SecondOrderCone})
-    add_variables(m, net)
+function build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, mtype::Val{SecondOrderCone})
+    add_linear_variables(m, net)
+    add_vsqrd_variables(m, net)
+    add_isqrd_variables(m, net)
     constrain_power_balance(m, net)
     constrain_substation_voltage(m, net)
     constrain_KVL(m, net)
@@ -51,9 +59,24 @@ function build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, ::Val{Seco
 end
 
 
-function add_variables(m, net::Network{SinglePhase})
-    bs = collect(busses(net))
+function add_linear_variables(m, net::Network{SinglePhase})
     es = collect(edges(net))
+    
+    # line flows, net power sent from i to j
+    CommonOPF.add_time_vector_variables!(m, net, :Pij, es)
+    CommonOPF.add_time_vector_variables!(m, net, :Qij, es)
+
+    # TODO slack bus variables in CommonOPF
+    # slack bus variables
+    @variable(m, p0[1:net.Ntimesteps])
+    @variable(m, q0[1:net.Ntimesteps])
+
+    nothing
+end
+
+
+function add_vsqrd_variables(m, net::Network{SinglePhase})
+    bs = collect(busses(net))
 
     # TODO warn when applying power injection lower bounds and SDP, radial b/c for radial
     # networks with power injections unbounded below (voltage angle relaxation) the SOCP (more
@@ -70,12 +93,13 @@ function add_variables(m, net::Network{SinglePhase})
         end
     end
     # TODO more bounds in a centralized fashion
-    
-    # line flows, net power sent from i to j
-    # @variable(m, net.P_lo_bound <= Pij[edges(net), T] <= p.P_up_bound )
-    # @variable(m, net.Q_lo_bound <= Qij[edges(net), T] <= p.Q_up_bound )
-    CommonOPF.add_time_vector_variables!(m, net, :Pij, es)
-    CommonOPF.add_time_vector_variables!(m, net, :Qij, es)
+
+    nothing
+end
+
+
+function add_isqrd_variables(m, net::Network{SinglePhase})
+    es = collect(edges(net))
 
     # current squared (non-negative)
     CommonOPF.add_time_vector_variables!(m, net, :lij, es)
@@ -87,12 +111,8 @@ function add_variables(m, net::Network{SinglePhase})
     #     lij[edge, t] <= net.amps_limit[edge]
     # )
 
-    # TODO slack bus variables in CommonOPF
-    # slack bus variables, not really necessary, defined for convenience
-    @variable(m, p0[1:net.Ntimesteps])
-    @variable(m, q0[1:net.Ntimesteps])
-
     nothing
+
 end
 
 

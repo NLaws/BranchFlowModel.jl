@@ -13,7 +13,7 @@ import SparseArrays: sparse
     Unrelaxed
     Semidefinite
     SecondOrderCone
-    # Linear  # TODO mv LinDistFlow into BranchFlowModel
+    Linear  # TODO mv LinDistFlow into BranchFlowModel
 end
 
 
@@ -56,6 +56,7 @@ export
     Unrelaxed,
     Semidefinite,
     SecondOrderCone,  # JuMP also exports SecondOrderCone
+    Linear,
 
     # MetaGraphsNext
     vertices,
