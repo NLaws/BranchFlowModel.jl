@@ -21,8 +21,8 @@
 
     @objective(m, Min, 
         sum( 
-            sum(real.(m[:i][t][i_j]) .* real.(m[:i][t][i_j])
-            + imag.(m[:i][t][i_j]) .* imag.(m[:i][t][i_j])) 
+            sum(real.(m[:i][i_j][t]) .* real.(m[:i][i_j][t])
+            + imag.(m[:i][i_j][t]) .* imag.(m[:i][i_j][t])) 
             for t in 1:net.Ntimesteps, i_j in edges(net) 
         )
     )
@@ -32,23 +32,23 @@
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
 
     vs = Dict(
-        k => abs.(JuMP.value.(v))
-        for (k,v) in m[:v][1]
+        b => abs.(JuMP.value.(m[:v][b][1]))
+        for b in busses(net)
     )
 
     i_ij = Dict(
-        (i,j) => JuMP.value.(ii)
-        for ((i,j), ii) in m[:i][1]
+        e => JuMP.value.(m[:i][e][1])
+        for e in edges(net)
     )
 
     sj = Dict(
-        k => JuMP.value.(sj)
-        for (k,sj) in m[:Sj][1]
+        b => sqrt.(abs.(JuMP.value.(m[:Sj][b][1])))
+        for b in busses(net) if !ismissing(m[:Sj][b][1])
     )
 
     sij = Dict(
-        (i,j) => JuMP.value.(ii)
-        for ((i,j), ii) in m[:Sij][1]
+        e => JuMP.value.(m[:Sij][e][1])
+        for e in edges(net)
     )
 
     # test power balance @ bus 671

@@ -67,7 +67,7 @@ end
 
 function hermitian_variable_to_vector(m::JuMP.AbstractModel, var::Symbol, t::Int, bus::Union{String, Tuple{String, String}}; tol=1e-5)
 
-    H = value.(m[var][t][bus])
+    H = value.(m[var][bus][t])
 
     # Perform eigenvalue decomposition
     eig = eigen(H)
@@ -168,25 +168,25 @@ include("test_nlp.jl")
     set_attribute(m, "printlevel", 0)
     build_bfm!(m, net, Semidefinite)
     @objective(m, Min, 
-        sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in  edges(net))
+        sum( sum(real.(diag(m[:l][i_j][t]))) for t in 1:net.Ntimesteps, i_j in  edges(net))
     )
     
     optimize!(m)
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
 
     w = Dict(
-        k => JuMP.value.(w)
-        for (k,w) in m[:w][1]
+        b => JuMP.value.(m[:w][b][1])
+        for b in busses(net)
     )
 
     Lijs = Dict(
-        k => JuMP.value.(lij)
-        for (k, lij) in m[:l][1]
+        e => JuMP.value.(m[:l][e][1])
+        for e in edges(net)
     )
 
     Sijs = Dict(
-        k => JuMP.value.(Sij)
-        for (k, Sij) in m[:Sij][1]
+        e => JuMP.value.(m[:Sij][e][1])
+        for e in edges(net)
     )
 
     i = "b1"
@@ -385,7 +385,7 @@ end
     build_bfm!(m, net, Semidefinite)
 
     @objective(m, Min, 
-        sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in  edges(net))
+        sum( sum(real.(diag(m[:l][i_j][t]))) for t in 1:net.Ntimesteps, i_j in  edges(net))
     )
     
     optimize!(m)
@@ -394,23 +394,23 @@ end
     # TODO do these vs match the eigen method values? (and should sqrt come last always?)
     # TODO results methods in CommonOPF for multiphase models
     vs = Dict(
-        k => sqrt.(abs.(JuMP.value.(w)))
-        for (k, w) in m[:w][1]
+        b => sqrt.(abs.(JuMP.value.(m[:w][b][1])))
+        for b in busses(net)
     )
 
     Sijs = Dict(
-        k => abs.(JuMP.value.(sij))
-        for (k, sij) in m[:Sij][1]
+        e => abs.(JuMP.value.(m[:Sij][e][1]))
+        for e in edges(net)
     )
 
     Lijs = Dict(
-        k => abs.(JuMP.value.(lij))
-        for (k, lij) in m[:l][1]
+        e => abs.(JuMP.value.(m[:l][e][1]))
+        for e in edges(net)
     )
 
     # abs(5.6+im*1.2)  # load magnitude per phase
 
-    S0 = abs.(value.(m[:Sj][1][net.substation_bus]))
+    S0 = abs.(value.(m[:Sj][net.substation_bus][1]))
 
     # slack bus injection equals flow out on each phase
     for phs in 1:3
@@ -437,8 +437,8 @@ end
 
     @objective(m, Min, 
         sum( 
-            sum(real.(m[:i][t][i_j]) .* real.(m[:i][t][i_j])) 
-            + sum(imag.(m[:i][t][i_j]) .* imag.(m[:i][t][i_j])) 
+            sum(real.(m[:i][i_j][t]) .* real.(m[:i][i_j][t])) 
+            + sum(imag.(m[:i][i_j][t]) .* imag.(m[:i][i_j][t])) 
             for t in 1:net.Ntimesteps, i_j in edges(net) 
         )
     )
@@ -447,14 +447,15 @@ end
     
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
 
+    # TODO all of the variable value getting should be done in CommonOPF methods
     vs = Dict(
-        k => abs.(JuMP.value.(v))
-        for (k,v) in m[:v][1]
+        b => abs.(JuMP.value.(m[:v][b][1]))
+        for b in busses(net)
     )
 
     Sijs = Dict(
-        k => abs.(JuMP.value.(sij))
-        for (k, sij) in m[:Sij][1]
+        e => abs.(JuMP.value.(m[:Sij][e][1]))
+        for e in edges(net)
     )
 
     # slack bus injection equals flow out on each phase
@@ -538,7 +539,7 @@ end
     build_bfm!(m, net, Semidefinite)
 
     @objective(m, Min, 
-        sum( sum(real.(diag(m[:l][t][i_j]))) for t in 1:net.Ntimesteps, i_j in edges(net) )
+        sum( sum(real.(diag(m[:l][i_j][t]))) for t in 1:net.Ntimesteps, i_j in edges(net) )
     )
 
     optimize!(m)
@@ -546,15 +547,15 @@ end
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
 
     vs = Dict(
-        k => diag(sqrt.(abs.(JuMP.value.(w))))
-        for (k,w) in m[:w][1]
+        b => diag(sqrt.(abs.(JuMP.value.(m[:w][b][1]))))
+        for b in busses(net)
     )
 
     @test_nowarn(check_rank_one(m, net))
     
     errors = []
     for b in keys(vs)
-        for (i,phsv) in enumerate(filter(v -> v != 0, vs[b]))
+        for (i, phsv) in enumerate(filter(v -> v != 0, vs[b]))
             @test abs(phsv - dss_voltages[b][i]) < 2e-2
             # println("$b - $i  $(phsv - dss_voltages[b][i])")
             push!(errors, phsv - dss_voltages[b][i])

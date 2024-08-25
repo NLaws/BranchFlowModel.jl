@@ -116,7 +116,7 @@ Create complex variables:
 - `m[:Sij]` are 3x3 Complex matrices of line flow powers (from i to j)
 
 If PSD is `true` then the positive semi-definite constraints are also defined and stored as
-- `m[:H][t][j]` where `t` is time step and `j` is the bus name.
+- `m[:H][j][t]` where `t` is time step and `j` is the bus name.
 
 All of the variable containers have typeof `Dict{Int, Dict{String, AbstractVecOrMat}}``.
 - The first index is time step (integer)
@@ -143,43 +143,36 @@ fix(variable_by_name(m, "real(Sj_1_645_3)"), 0.0, force=true)
 ```
 """
 function add_sdp_variables(m, net::Network{MultiPhase})
-    # TODO complex model containers in CommonOPF
-    # type for inner dicts of variable containers, which are dicts with time and bus keys
-    S_bus = Dict{String, AbstractVecOrMat}
-    S_edge = Dict{Tuple{String, String}, AbstractVecOrMat}
+    # type for inner dicts of variable containers, which are dicts with bus and time keys
     # voltage squared is Hermitian
-    m[:w] = Dict{Int64, S_bus}()
+    m[:w] = multiphase_bus_variable_container()
     # current squared is Hermitian
-    m[:l] = Dict{Int64, S_edge}()
+    m[:l] = multiphase_edge_variable_container()
     # complex line powers (at the sending end)
-    m[:Sij] = Dict{Int64, S_edge}()
+    m[:Sij] = multiphase_edge_variable_container()
     # complex net powers injections 
-    m[:Sj] = Dict{Int64, S_bus}()
+    m[:Sj] = multiphase_bus_variable_container()
     # Hermitian PSD matrices
-    m[:H] = Dict{Int64, S_bus}()
+    m[:H] = multiphase_bus_variable_container()
 
     for t in 1:net.Ntimesteps
-        m[:w][t] = Dict(net.substation_bus => substation_voltage_squared(net))
-        # empty dicts for line values in each time step to fill
-        m[:l][t] = Dict()
-        m[:Sij][t] = Dict()
+        m[:w][net.substation_bus][t] = substation_voltage_squared(net)
         # slack bus power injection
-        m[:Sj][t] = Dict(net.substation_bus => @variable(m, [1:3] in ComplexPlane(), 
+        m[:Sj][net.substation_bus][t] = @variable(m, [1:3] in ComplexPlane(), 
             base_name="Sj_" * string(t) *"_"* net.substation_bus,
-        ))
+        )
         if !ismissing(net.bounds.s_lower_real)
-            @constraint(m, net.bounds.s_lower_real .<= real( m[:Sj][t][net.substation_bus] ))
+            @constraint(m, net.bounds.s_lower_real .<= real( m[:Sj][net.substation_bus][t] ))
         end
         if !ismissing(net.bounds.s_upper_real)
-            @constraint(m, real( m[:Sj][t][net.substation_bus] ) .<= net.bounds.s_upper_real)
+            @constraint(m, real( m[:Sj][net.substation_bus][t] ) .<= net.bounds.s_upper_real)
         end
         if !ismissing(net.bounds.s_lower_imag)
-            @constraint(m, net.bounds.s_lower_imag .<= imag( m[:Sj][t][net.substation_bus] ))
+            @constraint(m, net.bounds.s_lower_imag .<= imag( m[:Sj][net.substation_bus][t] ))
         end
         if !ismissing(net.bounds.s_upper_imag)
-            @constraint(m, imag( m[:Sj][t][net.substation_bus] ) .<= net.bounds.s_upper_imag)
+            @constraint(m, imag( m[:Sj][net.substation_bus][t] ) .<= net.bounds.s_upper_imag)
         end
-        m[:H][t] = Dict()
 
         # inner method to loop over
         function define_vars_downstream(i::String, t::Int, m::JuMP.AbstractModel, net::Network)
@@ -188,9 +181,9 @@ function add_sdp_variables(m, net::Network{MultiPhase})
 
                 # initialize line flows and injections as zeros that will remain for undefined phases
                 # Sij is 3x3
-                m[:Sij][t][i_j] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
+                m[:Sij][i_j][t] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
                 for phs1 in phases_into_bus(net, j), phs2 in phases_into_bus(net, j)
-                    m[:Sij][t][i_j][phs1, phs2] = @variable(m, 
+                    m[:Sij][i_j][t][phs1, phs2] = @variable(m, 
                         set = ComplexPlane(), base_name="Sij_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2), 
                         # upper_bound = net.bounds.s_upper + net.bounds.s_upper*im, 
                         # lower_bound = net.bounds.s_lower + net.bounds.s_lower*im
@@ -198,8 +191,8 @@ function add_sdp_variables(m, net::Network{MultiPhase})
                 end
 
                 # Hermitian variables
-                m[:l][t][i_j] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
-                m[:w][t][j]   = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
+                m[:l][i_j][t] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
+                m[:w][j][t]   = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
 
                 # fill in variables for all combinations of phases
                 for phs1 in phases_into_bus(net, j), phs2 in phases_into_bus(net, j)
@@ -208,14 +201,14 @@ function add_sdp_variables(m, net::Network{MultiPhase})
 
                         # real diagonal terms
                         if phs1 == phs2
-                            m[:l][t][i_j][phs1, phs2] = @variable(m, 
+                            m[:l][i_j][t][phs1, phs2] = @variable(m, 
                                 base_name="l_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2),
                                 # upper_bound = net.bounds.i_upper_real^2,  # TODO bounds can be missing
                                 lower_bound = 0.0,  # diagonal values are real, positive
                                 start = 0.01
                             )
 
-                            m[:w][t][j][phs1, phs2] = @variable(m, 
+                            m[:w][j][t][phs1, phs2] = @variable(m, 
                                 base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2),
                                 # upper_bound = net.bounds.v_upper^2,
                                 # lower_bound = net.bounds.v_lower^2,
@@ -223,13 +216,13 @@ function add_sdp_variables(m, net::Network{MultiPhase})
                             )
                         # complex off-diagonal terms
                         else
-                            m[:l][t][i_j][phs1, phs2] = @variable(m, 
+                            m[:l][i_j][t][phs1, phs2] = @variable(m, 
                                 set = ComplexPlane(), base_name="l_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2),
                                 # upper_bound =  net.bounds.i_upper^2 + im * net.bounds.i_upper^2,
                                 # lower_bound =  net.bounds.i_lower^2 + im * net.bounds.i_lower^2,  # must have negative imaginary parts in Hermitian matrix
                             )
 
-                            m[:w][t][j][phs1, phs2] = @variable(m, 
+                            m[:w][j][t][phs1, phs2] = @variable(m, 
                                 set = ComplexPlane(), base_name="w_" * string(t) *"_"* j *"_"* string(phs1) * string(phs2),
                                 # upper_bound = net.bounds.v_upper^2 + net.bounds.v_upper^2*im,
                                 # lower_bound = net.bounds.v_lower^2 + net.bounds.v_lower^2*im,  # must have negative imaginary parts in Hermitian matrix
@@ -240,17 +233,17 @@ function add_sdp_variables(m, net::Network{MultiPhase})
                 end
                 # TODO line limit inputs
                 
-                m[:l][t][i_j] = Hermitian(m[:l][t][i_j])
-                m[:w][t][j]   = Hermitian(m[:w][t][j])
+                m[:l][i_j][t] = Hermitian(m[:l][i_j][t])
+                m[:w][j][t]   = Hermitian(m[:w][j][t])
 
-                w_i =  phi_ij(j, net, m[:w][t][i])
+                w_i =  phi_ij(j, net, m[:w][i][t])
 
                 M = Hermitian([
-                    w_i                  m[:Sij][t][i_j];
-                    cj(m[:Sij][t][i_j])  m[:l][t][i_j]
+                    w_i                  m[:Sij][i_j][t];
+                    cj(m[:Sij][i_j][t])  m[:l][i_j][t]
                 ])
 
-                m[:H][t][j] = M
+                m[:H][j][t] = M
 
                 @constraint(m, M in HermitianPSDCone())
             end
@@ -285,30 +278,24 @@ Define complex variables for:
 
 """
 function add_bfm_variables(m, net::Network{MultiPhase})
-    # TODO complex model containers in CommonOPF
     # type for inner dicts of variable containers, which are dicts with time and bus keys
-    S_bus = Dict{String, Vector}
-    S_edge = Dict{Tuple{String, String}, AbstractVecOrMat}
     # bus voltage vectors by time and phase
-    m[:v] = Dict{Int64, S_bus}()
+    m[:v] = multiphase_bus_variable_container()
     # sending current vectors by time and phase
-    m[:i] = Dict{Int64, S_edge}()
+    m[:i] = multiphase_edge_variable_container()
     # sending line power matrices = v_i i_ij^H
-    m[:Sij] = Dict{Int64, S_edge}()
+    m[:Sij] = multiphase_edge_variable_container()
     # bus net power injection vectors
-    m[:Sj] = Dict{Int64, S_bus}()
+    m[:Sj] = multiphase_bus_variable_container()
 
     for t in 1:net.Ntimesteps
-        m[:v][t] = Dict(net.substation_bus => substation_voltage(net))
-        # empty dicts for line values in each time step to fill
-        m[:i][t] = Dict()
-        m[:Sij][t] = Dict()
+        m[:v][net.substation_bus][t] = substation_voltage(net)
         # slack bus power injection
-        m[:Sj][t] = Dict(net.substation_bus =>  @variable(m, [1:3] in ComplexPlane(), 
+        m[:Sj][net.substation_bus][t] = @variable(m, [1:3] in ComplexPlane(), 
             base_name="Sj_" * string(t) *"_"* net.substation_bus,
             # upper_bound = net.bounds.s_upper + net.bounds.s_upper*im, 
             # lower_bound = net.bounds.s_lower + net.bounds.s_lower*im
-        ))
+        )
 
         # inner method to loop over
         function define_vars_downstream(i::String, t::Int, m::JuMP.AbstractModel, net::Network)
@@ -317,11 +304,10 @@ function add_bfm_variables(m, net::Network{MultiPhase})
 
                 # initialize line flows and injections as zeros that will remain for undefined phases
                 # Sij is 3x3
-                # TODO define Sij and any complex matrix variable using sub function in CommonOPF
-                m[:Sij][t][i_j] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
+                m[:Sij][i_j][t] = convert(Matrix{GenericAffExpr{ComplexF64, VariableRef}}, [0 0im 0im; 0im 0. 0im; 0im 0im 0])
 
                 for phs1 in phases_into_bus(net, j), phs2 in phases_into_bus(net, j)
-                    m[:Sij][t][i_j][phs1, phs2] = @variable(m, 
+                    m[:Sij][i_j][t][phs1, phs2] = @variable(m, 
                         set = ComplexPlane(), 
                         # base_name is Sij_t_i_j_phs1phs2 like Sij_1_bus1_bus2_23
                         base_name="Sij_" * string(t) *"_"* string(i) *"_"* string(j) *"_"*  string(phs1) * string(phs2), 
@@ -358,6 +344,42 @@ end
 
 
 """
+    add_linear_variables(m, net::Network{MultiPhase})
+
+Define real phase-vector variables for:
+- `:vsqrd` bus voltage magnitude squared
+- `:pij`, `:qij` branch power flows
+- `:p0`, `:q0` the slack bus net power injection
+"""
+function add_linear_variables(m, net::Network{MultiPhase})
+    es = edges(net)
+
+
+    d = p.phases_into_bus
+    d[p.substation_bus] = [1,2,3]
+    T = 1:p.Ntimesteps
+
+    # # bus injections
+    # @variables m begin
+    #     p.P_lo_bound <= Pj[b in p.busses, d[b], T] <= p.P_up_bound
+    #     p.Q_lo_bound <= Qj[b in p.busses, d[b], T] <= p.Q_up_bound
+    # end
+    
+    # voltage squared
+    @variable(m, p.v_lolim^2 <= vsqrd[b in p.busses, d[b], T] <= p.v_uplim^2 ) 
+    
+    edge2phases = Dict(k=>v for (k,v) in zip(es, p.phases))  # this will fail for mesh network
+
+    # line flows, power sent from i to j
+    @variable(m, p.P_lo_bound <= Pij[e in es, edge2phases[e], T] <= p.P_up_bound )
+    
+    @variable(m, p.Q_lo_bound <= Qij[e in es, edge2phases[e], T] <= p.Q_up_bound )
+    # TODO line flow limit inputs
+    nothing
+end
+
+
+"""
     constrain_bfm_nlp(m, net::Network{MultiPhase})
 
 Add the unrelaxed branch flow constraints.
@@ -373,14 +395,14 @@ function constrain_bfm_nlp(m, net::Network{MultiPhase})
             
                 # sending end power
                 @constraint(m, [t in 1:net.Ntimesteps],
-                    S_ij[t][(i,j)] .== ( 
-                        phi_ij(j, net, v[t][i]) * cj(i_ij[t][(i,j)]) 
+                    S_ij[(i,j)][t] .== ( 
+                        phi_ij(j, net, v[i][t]) * cj(i_ij[(i,j)][t]) 
                     )
                 )
 
                 # KVL
                 @constraint(m, [t in 1:net.Ntimesteps],
-                    phi_ij(j, net, v[t][i]) - v[t][j] .== zij_per_unit(i, j, net) * i_ij[t][(i,j)]
+                    phi_ij(j, net, v[i][t]) - v[j][t] .== zij_per_unit(i, j, net) * i_ij[(i,j)][t]
                 )
 
             end
@@ -410,13 +432,10 @@ function constrain_power_balance(m, net::Network{MultiPhase})
     if :l in keys(m.obj_dict)
         Lij = m[:l]
     else
-        # TODO put the S_edge and S_bus types in CommonOPF for re-use
-        S_edge = Dict{Tuple{String, String}, AbstractVecOrMat}
-        Lij = Dict{Int64, S_edge}()
+        Lij = multiphase_edge_variable_container()
         for t in 1:net.Ntimesteps
-            Lij[t] = Dict()
             for (i,j) in edges(net)
-                Lij[t][(i,j)] = m[:i][t][(i,j)] * cj(m[:i][t][(i,j)])
+                Lij[(i,j)][t] = m[:i][(i,j)][t] * cj(m[:i][(i,j)][t])
             end
         end
     end
@@ -424,13 +443,10 @@ function constrain_power_balance(m, net::Network{MultiPhase})
     if :w in keys(m.obj_dict)
         w = m[:w]
     else
-        # TODO put the S_edge and S_bus types in CommonOPF for re-use
-        S_bus = Dict{String, AbstractVecOrMat}
-        w = Dict{Int64, S_bus}()
+        w = multiphase_bus_variable_container()
         for t in 1:net.Ntimesteps
-            w[t] = Dict()
             for j in busses(net)
-                w[t][j] = m[:v][t][j] * cj(m[:v][t][j])
+                w[j][t] = m[:v][j][t] * cj(m[:v][j][t])
             end
         end
     end
@@ -459,17 +475,17 @@ function constrain_power_balance(m, net::Network{MultiPhase})
 
             if j == net.substation_bus   # include the slack power variables
                 m[:loadbalcons][j] = @constraint(m,  [t in 1:net.Ntimesteps],
-                    m[:Sj][t][j] + Sj[t, :]
-                    # - diag(w[t][j] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
-                    - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) )
+                    m[:Sj][j][t] + Sj[t, :]
+                    # - diag(w[j][t] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
+                    - sum( diag( Sij[(j,k)][t] ) for k in j_to_k(j, net) )
                     .== 0
                 )
 
             else  # a source node with known injection
                 m[:loadbalcons][j] = @constraint(m,  [t in 1:net.Ntimesteps],
                     Sj[t, :] 
-                    # - diag(w[t][j] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
-                    - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) 
+                    # - diag(w[j][t] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
+                    - sum( diag( Sij[(j,k)][t] ) for k in j_to_k(j, net) ) 
                     .== 0
                 )
 
@@ -484,10 +500,10 @@ function constrain_power_balance(m, net::Network{MultiPhase})
         elseif !isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
             m[:loadbalcons][j] = @constraint(m, [t in 1:net.Ntimesteps],
                 sum( diag( 
-                    Sij[t][(i,j)] - zij_per_unit(i,j,net) * Lij[t][(i,j)]
+                    Sij[(i,j)][t] - zij_per_unit(i,j,net) * Lij[(i,j)][t]
                 ) for i in i_to_j(j, net) )
                 + Sj[t, :] 
-                # - diag(w[t][j] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
+                # - diag(w[j][t] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
                 .== 0
             )
 
@@ -495,11 +511,11 @@ function constrain_power_balance(m, net::Network{MultiPhase})
         else
             m[:loadbalcons][j] = @constraint(m, [t in 1:net.Ntimesteps],
                 sum( diag( 
-                    Sij[t][(i,j)] - zij_per_unit(i,j,net) * Lij[t][(i,j)]
+                    Sij[(i,j)][t] - zij_per_unit(i,j,net) * Lij[(i,j)][t]
                 ) for i in i_to_j(j, net) )
                 + Sj[t, :]
-                # - diag(w[t][j] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
-                - sum( diag( Sij[t][(j,k)] ) for k in j_to_k(j, net) ) 
+                # - diag(w[j][t] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
+                - sum( diag( Sij[(j,k)][t] ) for k in j_to_k(j, net) ) 
                 .== 0
             )
         end
@@ -547,12 +563,12 @@ function constrain_KVL(m, net::Network{MultiPhase})
 
             if !( isa(net[(i,j)], CommonOPF.VoltageRegulator) )
                 Z = zij_per_unit(i,j,net)
-                # slice w[t][i] by phases in edge (i, j)
+                # slice w[i][t] by phases in edge (i, j)
                 m[:kvl][j] = @constraint(m, [t in 1:net.Ntimesteps],
-                    T( w[t][j], phases ) .== T( w[t][i]
-                        - (Sij[t][(i, j)] * cj(Z)
-                           + Z * cj(Sij[t][(i, j)]))
-                        + Z * Lij[t][(i, j)] * cj(Z), phases )
+                    T( w[j][t], phases ) .== T( w[i][t]
+                        - (Sij[(i, j)][t] * cj(Z)
+                           + Z * cj(Sij[(i, j)][t]))
+                        + Z * Lij[(i, j)][t] * cj(Z), phases )
                 );
 
             else
@@ -560,11 +576,11 @@ function constrain_KVL(m, net::Network{MultiPhase})
                 reg = net[(i,j)]
                 if !ismissing(reg.vreg_pu)
                     m[:kvl][j] = @constraint(m, [t in 1:net.Ntimesteps],
-                        T( w[t][j], phases ) .== T( reg.vreg_pu * cj(reg.vreg_pu), phases )
+                        T( w[j][t], phases ) .== T( reg.vreg_pu * cj(reg.vreg_pu), phases )
                     )
                 else  # use turn ratio
                     m[:kvl][j] = @constraint(m, [t in 1:net.Ntimesteps],
-                        T( w[t][j], phases ) .== T( w[t][i], phases ) * reg.turn_ratio^2 
+                        T( w[j][t], phases ) .== T( w[i][t], phases ) * reg.turn_ratio^2 
                     )
                 end
                 
