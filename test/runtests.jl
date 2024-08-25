@@ -1,14 +1,17 @@
 using BranchFlowModel
 using Test
 using Random
-using ECOS
 using JuMP
 import OpenDSSDirect as OpenDSS
-using SCS
 using LinearAlgebra
+
 using COSMO
 using CSDP
+using ECOS
+using HiGHS
 using Ipopt
+using SCS
+
 import Graphs
 
 # # hack for local testing
@@ -21,7 +24,7 @@ CPF = BranchFlowModel.CommonOPF
 
 Random.seed!(42)
 
-
+# TODO alot of these methods should be in modules
 function dss_voltages_pu()
     d = Dict()
     for b in OpenDSS.Circuit.AllBusNames() 
@@ -30,7 +33,6 @@ function dss_voltages_pu()
     end
     return d
 end
-
 
 
 function dss_voltages_mag_angle()
@@ -148,6 +150,9 @@ end
     v = BranchFlowModel.matrix_phases_to_vec(M, phases)
     @test v == [1, 2, 3, 4, 5, 6, 7, 8, 9]
 end
+
+
+include("test_linear.jl")
 
 
 include("test_nlp.jl")
