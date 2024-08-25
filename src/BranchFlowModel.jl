@@ -26,9 +26,9 @@ export
     i_to_j,
     j_to_k,
     rij,
+    xij,
     split_at_busses,
     splitting_busses,
-    xij,
     Network_IEEE13_SinglePhase,
     Network_Papavasiliou_2018,
     Results,
@@ -42,14 +42,12 @@ export
     constrain_KVL,
     constrain_bounds,
     # recover_voltage_current,  # TODO validate this method
-    make_graph,
     init_inputs!,
     set_inputs!,
     get_diffs,
     solve_metagraph!,
     metagraph_voltages,
     check_statuses,
-    reg_busses,
     remove_bus!,
 
     # ModelType
