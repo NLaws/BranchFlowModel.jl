@@ -1,9 +1,10 @@
 # BranchFlowModel.jl
 
-`BranchFlowModel` builds the branch flow constraints using JuMP. 
-The intent of this package is to allow users to build mathematical programs that include BranchFlowModel constraints.
-No objective is added to the JuMP model in this package and so solving any problem defined by the constraints built by BranchFlowModel.jl is a feasibility problem.
-Dictionaries of constraints are provided so that one can delete and/or modify the base constraints to fit their problem.
+    `BranchFlowModel` builds the branch flow constraints using JuMP. The intent of this package is to
+    allow users to build mathematical programs that include BranchFlowModel constraints. No objective is
+    added to the JuMP model in this package and so solving any problem defined by the constraints built
+    by BranchFlowModel.jl is a feasibility problem. Dictionaries of constraints are provided so that one
+can delete and/or modify the base constraints to fit their problem.
 
 
 !!! warning
@@ -13,7 +14,12 @@ Dictionaries of constraints are provided so that one can delete and/or modify th
 Inputs are defined using `CommonOPF.Network` structs. 
 
 # Building a Model
+Building a `BranchFlowModel` requires three things:
+1. a JuMP Model,
+2. a `CommonOPF.Network`, and
+3. the type of model to be built, i.e. one of the [`BranchFlowModel.ModelType`](@ref)
 ```@docs
+BranchFlowModel.ModelType
 build_bfm!
 ```
 
@@ -30,23 +36,17 @@ After a model has been solved using `JuMP.optimize!` variable values can be extr
 
 ## MultiPhase Model
 The definition of the multiphase variables is done in `model_multi_phase.jl` as follows:
-```julia
-# voltage squared is Hermitian
-m[:w] = Dict{Int64, S}()
-# current squared is Hermitian
-m[:l] = Dict{Int64, S}()
-# complex line powers (at the sending end)
-m[:Sij] = Dict{Int64, S}()
-# complex net powers injections 
-m[:sj] = Dict{Int64, S}()
-# Hermitian PSD matrices
-m[:H] = Dict{Int64, S}()
+
+### `Unrelaxed` models:
+```@docs
+add_bfm_variables
 ```
-where the first key is for the time index and the inner `Dict`:
-```julia
-S = Dict{String, AbstractVecOrMat}
+
+### `Semidefinite` models:
+```@docs
+add_sdp_variables
 ```
-has string keys for either bus names or edge names.
+
 
 # Accessing and Modifying Constraints
 Let the JuMP.Model provided by the user be called `m`. 

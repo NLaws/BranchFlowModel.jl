@@ -9,6 +9,15 @@ using JSON
 import SparseArrays: sparse
 
 
+"""
+    ModelType
+
+An enum with values:
+1. `Unrelaxed`
+2. `Semidefinite`
+3. `SecondOrderCone`
+4. `Linear`
+"""
 @enum ModelType begin
     Unrelaxed
     Semidefinite
@@ -37,10 +46,10 @@ export
 
     build_bfm!,
     add_variables,
+    add_sdp_variables,
     constrain_power_balance,
     constrain_substation_voltage,
     constrain_KVL,
-    constrain_bounds,
     # recover_voltage_current,  # TODO validate this method
     init_inputs!,
     set_inputs!,

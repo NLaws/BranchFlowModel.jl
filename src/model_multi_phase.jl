@@ -13,9 +13,8 @@ end
 
 Add variables and constraints to `m` using the values in `net` to make an unrelaxed branch flow
 model. Calls the following functions:
-```julia
-add_bfm_variables(m, net)
-constrain_bfm_nlp(m, net)
+- [`add_bfm_variables`](@ref)
+- [`constrain_bfm_nlp`](@ref)
 ```
 """
 function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Unrelaxed})
@@ -28,11 +27,9 @@ end
     build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Semidefinite})
 
 Add variables and constraints to `m` using the values in `net`. Calls the following functions:
-```julia
-add_sdp_variables(m, net)
-constrain_power_balance(m, net)
-constrain_KVL(m, net)
-```
+- [`add_sdp_variables`](@ref)
+- [`constrain_power_balance`](@ref)
+- [`constrain_KVL`](@ref)
 """
 function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Semidefinite})
     add_sdp_variables(m, net)  # PSD constraints done in add_sdp_variables
@@ -115,32 +112,9 @@ Create complex variables:
 - `m[:sj]` are 3x1 matrices of net power injections (at bus j)
 - `m[:Sij]` are 3x3 Complex matrices of line flow powers (from i to j)
 
-If PSD is `true` then the positive semi-definite constraints are also defined and stored as
-- `m[:H][j][t]` where `t` is time step and `j` is the bus name.
+Also:
+- `m[:H]` are 3x3 Hermitian matrices of the positive semi-definite constraints
 
-All of the variable containers have typeof `Dict{Int, Dict{String, AbstractVecOrMat}}``.
-- The first index is time step (integer)
-- The second index is bus or line (string)
-- and finally a matrix or vector of complex variables
-
-
-Some examples of using variables:
-```julia
-
-value.(m[:sj][1]["671"])
-
-value(variable_by_name(m, "real(Sj_1_671_1)"))
-
-value.(m[:w][1]["671"])
-
-value.(m[:sj][1][net.substation_bus]) 
-
-for b in real_load_busses(net)
-    println(b, "  ", value.(m[:sj][1][b]))
-end
-
-fix(variable_by_name(m, "real(Sj_1_645_3)"), 0.0, force=true)
-```
 """
 function add_sdp_variables(m, net::Network{MultiPhase})
     # type for inner dicts of variable containers, which are dicts with bus and time keys
@@ -271,8 +245,8 @@ end
     add_bfm_variables(m, net::Network{MultiPhase})
 
 Define complex variables for:
-- `:v` bus voltages
-- `:i` branch currents
+- `:v` bus voltage vectors
+- `:i` branch current vectors
 - `:Sij` branch power flow matrices
 - `:sj` bus net power injection vectors
 

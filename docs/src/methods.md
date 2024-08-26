@@ -8,9 +8,7 @@ Some various methods used in BranchFlowModel.jl:
 ```@docs
 build_bfm!
 constrain_power_balance
-constrain_substation_voltage
 constrain_KVL
-constrain_bounds
 check_rank_one
 check_soc_inequalities
 get_load_bal_shadow_prices
@@ -20,7 +18,6 @@ set_inputs!
 get_diffs
 solve_metagraph!
 metagraph_voltages
-check_unique_solution_conditions
 check_statuses
 remove_bus!
 ```
