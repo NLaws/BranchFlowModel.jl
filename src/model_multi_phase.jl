@@ -129,6 +129,8 @@ function add_sdp_variables(m, net::Network{MultiPhase})
     # Hermitian PSD matrices
     m[:H] = multiphase_bus_variable_container()
 
+    net.var_names = [:w, :l, :Sij, :sj]
+
     for t in 1:net.Ntimesteps
         m[:w][net.substation_bus][t] = substation_voltage_squared(net)
         # slack bus power injection

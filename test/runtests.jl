@@ -348,7 +348,6 @@ end
     vsqrd = get_variable_values(:vsqrd, m)
     vs = Dict(k => sqrt.(v) for (k,v) in vsqrd)
 
-    #  I = get_variable_values(:lij, m, p)
     for b in keys(vs)
         try
             @test abs(vs[b][1] - dss_voltages[b][1]) < 0.005

@@ -40,7 +40,7 @@ export
     splitting_busses,
     Network_IEEE13_SinglePhase,
     Network_Papavasiliou_2018,
-    Results,
+    opf_results,
     reduce_tree!,
     # end new methods TODO distinguish all exports by module
 

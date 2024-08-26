@@ -31,10 +31,10 @@
     
     @test termination_status(m) in [MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.LOCALLY_SOLVED]
 
-    vs = Dict(
-        b => abs.(JuMP.value.(m[:v][b][1]))
-        for b in busses(net)
-    )
+    r = CPF.opf_results(m, net)
+    
+    # remove time indices from results for convenience
+    vs = Dict(b => abs.(vv[1]) for (b, vv) in pairs(r[:v]))
 
     i_ij = Dict(
         e => JuMP.value.(m[:i][e][1])
