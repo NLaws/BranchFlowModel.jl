@@ -410,7 +410,7 @@ end
 
     # abs(5.6+im*1.2)  # load magnitude per phase
 
-    S0 = abs.(value.(m[:Sj][net.substation_bus][1]))
+    S0 = abs.(value.(m[:sj][net.substation_bus][1]))
 
     # slack bus injection equals flow out on each phase
     for phs in 1:3

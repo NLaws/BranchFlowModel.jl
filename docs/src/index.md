@@ -38,7 +38,7 @@ m[:l] = Dict{Int64, S}()
 # complex line powers (at the sending end)
 m[:Sij] = Dict{Int64, S}()
 # complex net powers injections 
-m[:Sj] = Dict{Int64, S}()
+m[:sj] = Dict{Int64, S}()
 # Hermitian PSD matrices
 m[:H] = Dict{Int64, S}()
 ```

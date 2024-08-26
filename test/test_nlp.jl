@@ -42,8 +42,8 @@
     )
 
     sj = Dict(
-        b => sqrt.(abs.(JuMP.value.(m[:Sj][b][1])))
-        for b in busses(net) if !ismissing(m[:Sj][b][1])
+        b => sqrt.(abs.(JuMP.value.(m[:sj][b][1])))
+        for b in busses(net) if !ismissing(m[:sj][b][1])
     )
 
     sij = Dict(

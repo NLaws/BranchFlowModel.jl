@@ -112,7 +112,7 @@ end
 Create complex variables:
 - `m[:w]` are 3x3 Hermitian matrices of voltage squared (V*V^T)
 - `m[:l]` are 3x3 Hermitian matrices of current squared (I*I^T)
-- `m[:Sj]` are 3x1 matrices of net power injections (at bus j)
+- `m[:sj]` are 3x1 matrices of net power injections (at bus j)
 - `m[:Sij]` are 3x3 Complex matrices of line flow powers (from i to j)
 
 If PSD is `true` then the positive semi-definite constraints are also defined and stored as
@@ -127,16 +127,16 @@ All of the variable containers have typeof `Dict{Int, Dict{String, AbstractVecOr
 Some examples of using variables:
 ```julia
 
-value.(m[:Sj][1]["671"])
+value.(m[:sj][1]["671"])
 
 value(variable_by_name(m, "real(Sj_1_671_1)"))
 
 value.(m[:w][1]["671"])
 
-value.(m[:Sj][1][net.substation_bus]) 
+value.(m[:sj][1][net.substation_bus]) 
 
 for b in real_load_busses(net)
-    println(b, "  ", value.(m[:Sj][1][b]))
+    println(b, "  ", value.(m[:sj][1][b]))
 end
 
 fix(variable_by_name(m, "real(Sj_1_645_3)"), 0.0, force=true)
@@ -151,27 +151,27 @@ function add_sdp_variables(m, net::Network{MultiPhase})
     # complex line powers (at the sending end)
     m[:Sij] = multiphase_edge_variable_container()
     # complex net powers injections 
-    m[:Sj] = multiphase_bus_variable_container()
+    m[:sj] = multiphase_bus_variable_container()
     # Hermitian PSD matrices
     m[:H] = multiphase_bus_variable_container()
 
     for t in 1:net.Ntimesteps
         m[:w][net.substation_bus][t] = substation_voltage_squared(net)
         # slack bus power injection
-        m[:Sj][net.substation_bus][t] = @variable(m, [1:3] in ComplexPlane(), 
+        m[:sj][net.substation_bus][t] = @variable(m, [1:3] in ComplexPlane(), 
             base_name="Sj_" * string(t) *"_"* net.substation_bus,
         )
         if !ismissing(net.bounds.s_lower_real)
-            @constraint(m, net.bounds.s_lower_real .<= real( m[:Sj][net.substation_bus][t] ))
+            @constraint(m, net.bounds.s_lower_real .<= real( m[:sj][net.substation_bus][t] ))
         end
         if !ismissing(net.bounds.s_upper_real)
-            @constraint(m, real( m[:Sj][net.substation_bus][t] ) .<= net.bounds.s_upper_real)
+            @constraint(m, real( m[:sj][net.substation_bus][t] ) .<= net.bounds.s_upper_real)
         end
         if !ismissing(net.bounds.s_lower_imag)
-            @constraint(m, net.bounds.s_lower_imag .<= imag( m[:Sj][net.substation_bus][t] ))
+            @constraint(m, net.bounds.s_lower_imag .<= imag( m[:sj][net.substation_bus][t] ))
         end
         if !ismissing(net.bounds.s_upper_imag)
-            @constraint(m, imag( m[:Sj][net.substation_bus][t] ) .<= net.bounds.s_upper_imag)
+            @constraint(m, imag( m[:sj][net.substation_bus][t] ) .<= net.bounds.s_upper_imag)
         end
 
         # inner method to loop over
@@ -273,8 +273,8 @@ end
 Define complex variables for:
 - `:v` bus voltages
 - `:i` branch currents
-- `:sij` branch power flows
-- `:sj` bus net power injections
+- `:Sij` branch power flow matrices
+- `:sj` bus net power injection vectors
 
 """
 function add_bfm_variables(m, net::Network{MultiPhase})
@@ -286,12 +286,12 @@ function add_bfm_variables(m, net::Network{MultiPhase})
     # sending line power matrices = v_i i_ij^H
     m[:Sij] = multiphase_edge_variable_container()
     # bus net power injection vectors
-    m[:Sj] = multiphase_bus_variable_container()
+    m[:sj] = multiphase_bus_variable_container()
 
     for t in 1:net.Ntimesteps
         m[:v][net.substation_bus][t] = substation_voltage(net)
         # slack bus power injection
-        m[:Sj][net.substation_bus][t] = @variable(m, [1:3] in ComplexPlane(), 
+        m[:sj][net.substation_bus][t] = @variable(m, [1:3] in ComplexPlane(), 
             base_name="Sj_" * string(t) *"_"* net.substation_bus,
             # upper_bound = net.bounds.s_upper + net.bounds.s_upper*im, 
             # lower_bound = net.bounds.s_lower + net.bounds.s_lower*im
@@ -475,7 +475,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
 
             if j == net.substation_bus   # include the slack power variables
                 m[:loadbalcons][j] = @constraint(m,  [t in 1:net.Ntimesteps],
-                    m[:Sj][j][t] + Sj[t, :]
+                    m[:sj][j][t] + Sj[t, :]
                     # - diag(w[j][t] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
                     - sum( diag( Sij[(j,k)][t] ) for k in j_to_k(j, net) )
                     .== 0
