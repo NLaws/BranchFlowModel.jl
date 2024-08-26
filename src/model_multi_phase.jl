@@ -44,6 +44,12 @@ zero(::Type{Any}) = 0.0
 zero(::Type{Union{Float64, GenericAffExpr}}) = 0.0
 
 
+"""
+    substation_voltage(net::Network{MultiPhase})::Vector{ComplexF64}
+
+Parse `net.v0` into a Vector{ComplexF64}, allowing for `net.v0` to be a `Real`,
+`AbstractVector{<:Real}`, or `AbstractVector{<:Complex}`.
+"""
 function substation_voltage(net::Network{MultiPhase})::Vector{ComplexF64}
 
     if typeof(net.v0) <: Real
@@ -264,6 +270,8 @@ function add_bfm_variables(m, net::Network{MultiPhase})
     # bus net power injection vectors
     m[:sj] = multiphase_bus_variable_container()
 
+    net.var_names = [:v, :i, :Sij, :sj]
+
     for t in 1:net.Ntimesteps
         m[:v][net.substation_bus][t] = substation_voltage(net)
         # slack bus power injection
@@ -325,32 +333,42 @@ end
 Define real phase-vector variables for:
 - `:vsqrd` bus voltage magnitude squared
 - `:pij`, `:qij` branch power flows
-- `:p0`, `:q0` the slack bus net power injection
+- `:p`, `:q` for the slack bus net power injection
 """
 function add_linear_variables(m, net::Network{MultiPhase})
-    es = edges(net)
+    net.var_names = [:vsqrd, :pij, :qij, :p, :q]
 
+    m[:vsqrd] = multiphase_bus_variable_container()
+    m[:p] = multiphase_bus_variable_container()
+    m[:q] = multiphase_bus_variable_container()
+    m[:pij] = multiphase_edge_variable_container()
+    m[:qij] = multiphase_edge_variable_container()
 
-    d = p.phases_into_bus
-    d[p.substation_bus] = [1,2,3]
-    T = 1:p.Ntimesteps
+    for b in busses(net), t in 1:net.Ntimesteps
+        m[:vsqrd][b][t] = @variable(m, 
+            [phs in phases_into_bus(net, b)], 
+            lower_bound=0, 
+            base_name="vsqrd_$(b)_$(t)"
+        )
+        if b == net.substation_bus
+            m[:p][b][t] =  @variable(m, [1:3], base_name="p_$(b)_$(t)")
+            m[:q][b][t] =  @variable(m, [1:3], base_name="q_$(b)_$(t)")
+        end
+    end
 
-    # # bus injections
-    # @variables m begin
-    #     p.P_lo_bound <= Pj[b in p.busses, d[b], T] <= p.P_up_bound
-    #     p.Q_lo_bound <= Qj[b in p.busses, d[b], T] <= p.Q_up_bound
-    # end
-    
-    # voltage squared
-    @variable(m, p.v_lolim^2 <= vsqrd[b in p.busses, d[b], T] <= p.v_uplim^2 ) 
-    
-    edge2phases = Dict(k=>v for (k,v) in zip(es, p.phases))  # this will fail for mesh network
+    for e in edges(net), t in 1:net.Ntimesteps
+        m[:pij][e][t] = @variable(m, 
+            [phs in phases_into_bus(net, e[2])], 
+            base_name="pij_$(e)_$(t)"
+        )
+        m[:qij][e][t] = @variable(m, 
+            [phs in phases_into_bus(net, e[2])], 
+            base_name="qij_$(e)_$(t)"
+        )
+    end
 
-    # line flows, power sent from i to j
-    @variable(m, p.P_lo_bound <= Pij[e in es, edge2phases[e], T] <= p.P_up_bound )
-    
-    @variable(m, p.Q_lo_bound <= Qij[e in es, edge2phases[e], T] <= p.Q_up_bound )
-    # TODO line flow limit inputs
+    # TODO net.bounds
+
     nothing
 end
 

@@ -22,3 +22,15 @@
     @test value.(m[:q0])[1] ≈ CPF.total_load_kvar(net)[1] rtol=1e-7
     
 end
+
+
+@testset "linear multiphase model" begin
+
+    dssfilepath = "data/ieee13/IEEE13_simple_light_load.dss"
+    net = Network(dssfilepath)
+    m = Model(HiGHS.Optimizer)
+
+    BranchFlowModel.add_linear_variables(m, net)
+
+
+end
