@@ -38,6 +38,19 @@ function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Semid
 end
 
 
+"""
+    build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Linear})
+
+Add variables and constraints to `m` using the values in `net`. Calls the following functions:
+- [`add_linear_variables`](@ref)
+
+"""
+function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Linear})
+    add_linear_variables(m, net)
+
+end
+
+
 # hack for zero problem in MutableArithmetics
 import Base: zero
 zero(::Type{Any}) = 0.0
@@ -449,18 +462,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
     for j in busses(net)
 
         # check for loads
-        Pj = [zeros(net.Ntimesteps) for _ in 1:3] # first dim is phase, like Pj[phs][t]
-        Qj = [zeros(net.Ntimesteps) for _ in 1:3]
-        if j in real_load_busses(net)
-            for phs in 1:3  # put an Sj method in CommonOPF? to make complex vector of phases
-                Pj[phs] = -net[j, :kws, phs] * 1e3 / net.Sbase
-            end
-        end
-        if j in reactive_load_busses(net)
-            for phs in 1:3 
-                Qj[phs] = -net[j, :kvars, phs] * 1e3 / net.Sbase
-            end
-        end
+        Pj, Qj = load_at_bus(j, net)
         Sj = Pj + im * Qj
         Sj = hcat(Sj...)  # time X phase
 
