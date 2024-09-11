@@ -30,7 +30,7 @@ end
     net = Network(dssfilepath)
     m = Model(HiGHS.Optimizer)
 
-    BranchFlowModel.add_linear_variables(m, net)
+    build_bfm!(m, net, Linear)
 
 
 end

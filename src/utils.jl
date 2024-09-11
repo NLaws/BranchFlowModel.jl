@@ -47,17 +47,17 @@ end
 
 
 """
-    load_at_bus(j::String, net::Network{MultiPhase})::Tuple{Vector{Vector{<:Real}}, Vector{Vector{<:Real}}}
+    injection_at_bus(j::String, net::Network{MultiPhase})::Tuple{Vector{Vector{<:Real}}, Vector{Vector{<:Real}}}
 
-return the real and reactive power loads as vectors with 3 phase indices and net.Ntimesteps time
+return the real and reactive power injections as vectors with 3 phase indices and net.Ntimesteps time
 indices like:
 ```julia
-Pj, Qj = load_at_bus(my_bus, net)
+Pj, Qj = injection_at_bus(my_bus, net)
 ...
 Pj[phase][time_step]
 ```
 """
-function load_at_bus(j::String, net::Network{MultiPhase})::Tuple{Vector{Vector{<:Real}}, Vector{Vector{<:Real}}}
+function injection_at_bus(j::String, net::Network{MultiPhase})::Tuple{Vector{Vector{<:Real}}, Vector{Vector{<:Real}}}
     Pj = [zeros(net.Ntimesteps) for _ in 1:3] # first dim is phase, like Pj[phs][t]
     Qj = [zeros(net.Ntimesteps) for _ in 1:3]
     if j in real_load_busses(net)

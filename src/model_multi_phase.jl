@@ -47,7 +47,7 @@ Add variables and constraints to `m` using the values in `net`. Calls the follow
 """
 function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Linear})
     add_linear_variables(m, net)
-
+    constrain_linear_power_balance(m, net)
 end
 
 
@@ -462,7 +462,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
     for j in busses(net)
 
         # check for loads
-        Pj, Qj = load_at_bus(j, net)
+        Pj, Qj = injection_at_bus(j, net)
         Sj = Pj + im * Qj
         Sj = hcat(Sj...)  # time X phase
 
@@ -519,6 +519,66 @@ function constrain_power_balance(m, net::Network{MultiPhase})
 
     nothing
 end
+
+
+function constrain_linear_power_balance(m, net::Network{MultiPhase})
+    P0 = m[:p]
+    Q0 = m[:q]
+    Pij = m[:pij]
+    Qij = m[:qij]
+
+    for j in busses(net)
+        Pj, Qj = injection_at_bus(j, net)
+
+        if j == net.substation_bus   # include the slack power variables
+
+            for phs in [1,2,3]  # TODO can vectorize constraints across phs?
+                ks_on_phs = [k for k in j_to_k(j, net) if phs in phases_into_bus(net, k)]
+                @constraint(m, [t in 1:net.Ntimesteps],
+                    Pj[phs][t] + P0[j][t][phs] - sum( Pij[(j, k)][t][phs] for k in ks_on_phs ) == 0
+                )
+                @constraint(m, [t in 1:net.Ntimesteps],
+                    Qj[phs][t] + Q0[j][t][phs] - sum( Qij[(j, k)][t][phs] for k in ks_on_phs ) == 0
+                )
+            end     
+
+        elseif isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))  # unconnected nodes
+            @warn "Bus $j has no edges in or out; setting Pj and Qj to zero."
+            @constraint(m, [phs in 1:3, t in 1:net.Ntimesteps],
+                Pj[phs][t] == 0
+            )
+            @constraint(m, [phs in 1:3, t in 1:net.Ntimesteps],
+                Qj[phs][t] == 0
+            )
+
+        else  # mid and leaf nodes
+
+            for phs in phases_into_bus(net, j)
+                ks_on_phs = [k for k in j_to_k(j, net) if phs in phases_into_bus(net, k)]
+                if !isempty(ks_on_phs)  # mid node
+                    @constraint(m, [t in 1:net.Ntimesteps],
+                        sum( Pij[(i, j)][t][phs] for i in i_to_j(j, net) ) +
+                        Pj[phs][t] - sum( Pij[(j, k)][t][phs] for k in ks_on_phs ) == 0
+                    )
+                    @constraint(m, [t in 1:net.Ntimesteps],
+                        sum( Qij[(i, j)][t][phs] for i in i_to_j(j, net) ) +
+                        Qj[phs][t] - sum( Qij[(j, k)][t][phs] for k in ks_on_phs ) == 0
+                    )
+                else  # leaf node
+                    @constraint(m, [t in 1:net.Ntimesteps],
+                        sum( Pij[(i, j)][t][phs] for i in i_to_j(j, net) ) + Pj[phs][t] == 0
+                    )
+                    @constraint(m, [t in 1:net.Ntimesteps],
+                        sum( Qij[(i, j)][t][phs] for i in i_to_j(j, net) ) + Qj[phs][t] == 0
+                    )
+                end
+            end
+
+        end
+    end
+    nothing
+end
+
 
 
 """
