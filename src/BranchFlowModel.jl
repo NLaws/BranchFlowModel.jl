@@ -45,17 +45,19 @@ export
     # end new methods TODO distinguish all exports by module
 
     build_bfm!,
+    add_bfm_variables,
+    add_linear_variables,
     add_variables,
     add_sdp_variables,
     constrain_power_balance,
     constrain_substation_voltage,
     constrain_KVL,
+    constrain_bfm_nlp,
     # recover_voltage_current,  # TODO validate this method
     init_inputs!,
     set_inputs!,
     get_diffs,
     solve_metagraph!,
-    metagraph_voltages,
     check_statuses,
     remove_bus!,
 

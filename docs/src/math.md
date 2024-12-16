@@ -22,9 +22,8 @@ w_i \ell_{ij} = P_{ij}^2 + Q_{ij}^2 \forall (i,j) \in \mathcal{E} \\
 # Three Phase BranchFlowModel
 ```@docs
 constrain_KVL(m, net::Network{MultiPhase})
-BranchFlowModel.add_bfm_variables
 ```
-
+See also [`add_bfm_variables`](@ref)
 
 ```math
 \begin{aligned}

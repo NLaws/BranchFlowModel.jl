@@ -20,8 +20,8 @@ Building a `BranchFlowModel` requires three things:
 3. the type of model to be built, i.e. one of the [`BranchFlowModel.ModelType`](@ref)
 ```@docs
 BranchFlowModel.ModelType
-build_bfm!
 ```
+To build a model see [build_bfm!](@ref)
 
 # Variables
 

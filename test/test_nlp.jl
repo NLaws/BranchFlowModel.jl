@@ -15,7 +15,7 @@
 
 
     m = Model(Ipopt.Optimizer)
-    set_optimizer_attribute(m, "print_level", 0)
+    # set_optimizer_attribute(m, "print_level", 0)
 
     build_bfm!(m, net, Unrelaxed)
 
@@ -75,12 +75,9 @@
 
     dss_voltages = dss_voltages_pu()
 
-    errors = []
     for b in keys(vs)
         for (i, phsv) in enumerate(filter(v -> v != 0, vs[b]))
             @test abs(phsv - dss_voltages[b][i]) < 1e-3
-            push!(errors, phsv - dss_voltages[b][i])
-            # println("$b - $i  $(phsv - dss_voltages[b][i])")
         end
     end
 
