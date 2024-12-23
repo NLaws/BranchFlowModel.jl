@@ -24,26 +24,6 @@ CPF = BranchFlowModel.CommonOPF
 
 Random.seed!(42)
 
-# TODO alot of these methods should be in modules
-function dss_voltages_pu()
-    d = Dict()
-    for b in OpenDSS.Circuit.AllBusNames() 
-        OpenDSS.Circuit.SetActiveBus(b)
-        d[b] = OpenDSS.Bus.puVmagAngle()[1:2:end]
-    end
-    return d
-end
-
-
-function dss_voltages_mag_angle()
-    d = Dict()
-    for b in OpenDSS.Circuit.AllBusNames() 
-        OpenDSS.Circuit.SetActiveBus(b)
-        d[b] = OpenDSS.Bus.VMagAngle()#[1:2:end]
-    end
-    return d
-end
-
 
 function build_single_phase_min_loss_model(net::CPF.Network{CPF.SinglePhase})
     m = Model(Ipopt.Optimizer)
@@ -325,7 +305,7 @@ end
     cd(work_dir)
     @test(OpenDSS.Solution.Converged() == true)
 
-    dss_voltages = dss_voltages_pu()
+    dss_voltages = CPF.dss_voltages_pu()
 
     net = CPF.dss_to_Network(dssfilepath)
     @test net.substation_bus == "sourcebus"
@@ -492,7 +472,7 @@ end
 
     @test(check_opendss_powers() == true)
 
-    dss_voltages = dss_voltages_pu()
+    dss_voltages = CPF.dss_voltages_pu()
 
     net = CPF.dss_to_Network(dssfilepath)
     
@@ -596,7 +576,7 @@ end
     """)
     cd(work_dir)
     @test(OpenDSS.Solution.Converged() == true)
-    dss_voltages = dss_voltages_pu()
+    dss_voltages = CPF.dss_voltages_pu()
 
     for b in keys(vs)
         @test abs(vs[b][1] - dss_voltages[b][1]) < 0.001
@@ -761,7 +741,7 @@ end
     OpenDSS.dss("Solve")
     @test(OpenDSS.Solution.Converged() == true)
     @test(check_opendss_powers() == true)
-    dss_voltages = dss_voltages_pu()
+    dss_voltages = CPF.dss_voltages_pu()
 
 
     # make the regulator work like OpenDSS

@@ -48,6 +48,8 @@ Add variables and constraints to `m` using the values in `net`. Calls the follow
 function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Linear})
     add_linear_variables(m, net)
     constrain_linear_power_balance(m, net)
+    # TODO finish the Linear multiphase model
+    # constrain_KVL_linear(m, net)
 end
 
 

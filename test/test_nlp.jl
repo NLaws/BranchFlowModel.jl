@@ -15,7 +15,7 @@
 
 
     m = Model(Ipopt.Optimizer)
-    # set_optimizer_attribute(m, "print_level", 0)
+    set_optimizer_attribute(m, "print_level", 0)
 
     build_bfm!(m, net, Unrelaxed)
 
@@ -73,7 +73,7 @@
     @test(OpenDSS.Solution.Converged() == true)
     @test(check_opendss_powers() == true)
 
-    dss_voltages = dss_voltages_pu()
+    dss_voltages = CPF.dss_voltages_pu()
 
     for b in keys(vs)
         for (i, phsv) in enumerate(filter(v -> v != 0, vs[b]))

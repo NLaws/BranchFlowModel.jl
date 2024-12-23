@@ -31,6 +31,6 @@ end
     m = Model(HiGHS.Optimizer)
 
     build_bfm!(m, net, Linear)
-
+    # TODO finish the linear multiphase model
 
 end
