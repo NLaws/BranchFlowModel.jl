@@ -60,42 +60,9 @@ zero(::Type{Union{Float64, GenericAffExpr}}) = 0.0
 
 
 """
-    substation_voltage(net::Network{MultiPhase})::Vector{ComplexF64}
-
-Parse `net.v0` into a Vector{ComplexF64}, allowing for `net.v0` to be a `Real`,
-`AbstractVector{<:Real}`, or `AbstractVector{<:Complex}`.
-"""
-function substation_voltage(net::Network{MultiPhase})::Vector{ComplexF64}
-
-    if typeof(net.v0) <: Real
-        return [
-            net.v0 + 0im; 
-            -0.5*net.v0 - im*sqrt(3)/2 * net.v0; 
-            -0.5*net.v0 + im*sqrt(3)/2 * net.v0
-        ]
-
-    elseif typeof(net.v0) <: AbstractVector{<:Real}
-        return [
-            net.v0[1] + 0im; 
-            -0.5 * net.v0[2] - im*sqrt(3)/2 * net.v0[2]; 
-            -0.5 * net.v0[3] + im*sqrt(3)/2 * net.v0[3]
-        ]
-
-    elseif typeof(net.v0) <: AbstractVector{<:Complex}
-        return net.v0
-
-    else  
-        throw(@error "unsupported type for Network.v0 $(typeof(net.v0))")
-    end
-
-    return w0
-end
-
-
-"""
     function substation_voltage_squared(net::Network{MultiPhase})::Matrix{ComplexF64}
 
-Consruct voltage matrix for substation from `net.v0`. If a real value or vector of real values is
+Construct voltage matrix for substation from `net.v0`. If a real value or vector of real values is
 provided then a 120 degree phase shift is assumed. A vector of complex values is also supported.
 
 """
@@ -579,22 +546,6 @@ function constrain_linear_power_balance(m, net::Network{MultiPhase})
         end
     end
     nothing
-end
-
-
-
-"""
-    matrix_phases_to_vec(M::AbstractMatrix{T}, phases::AbstractVector{Int}) where T
-
-Used in defining the KVL constraints, this method returns the entries of `M` at the indices in 
-`phases` in a vector.
-"""
-function matrix_phases_to_vec(M::AbstractMatrix{T}, phases::AbstractVector{Int}) where T
-    v = T[]
-    for i in phases, j in phases 
-        push!(v, M[i,j])
-    end
-    return v
 end
 
 
