@@ -1,5 +1,8 @@
 # BranchFlowModel Changelog
 
+## dev
+- move some model building utilities to CommonOPF for reuse in BusInjectionModel
+
 ## v0.4.4
 - transition to CommonOPF.Network (from CommonOPF.Inputs) in v0.4 of CommonOPF
 
