@@ -431,7 +431,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
     for j in busses(net)
 
         # check for loads
-        Pj, Qj = injection_at_bus(j, net)
+        Pj, Qj = power_injection_vector_pu(j, net)
         Sj = Pj + im * Qj
         Sj = hcat(Sj...)  # time X phase
 
@@ -497,7 +497,7 @@ function constrain_linear_power_balance(m, net::Network{MultiPhase})
     Qij = m[:qij]
 
     for j in busses(net)
-        Pj, Qj = injection_at_bus(j, net)
+        Pj, Qj = power_injection_vector_pu(j, net)
 
         if j == net.substation_bus   # include the slack power variables
 
