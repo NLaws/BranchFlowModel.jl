@@ -1,6 +1,6 @@
 # BranchFlowModel Changelog
 
-## dev
+## v0.4.5
 - move some model building utilities to CommonOPF for reuse in BusInjectionModel
 
 ## v0.4.4
