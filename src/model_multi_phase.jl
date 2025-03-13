@@ -49,7 +49,7 @@ function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Linea
     add_linear_variables(m, net)
     constrain_linear_power_balance(m, net)
     # TODO finish the Linear multiphase model
-    # constrain_KVL_linear(m, net)
+    constrain_KVL_linear(m, net)
 end
 
 
@@ -327,14 +327,20 @@ function add_linear_variables(m, net::Network{MultiPhase})
     m[:qij] = multiphase_edge_variable_container()
 
     for b in busses(net), t in 1:net.Ntimesteps
-        m[:vsqrd][b][t] = @variable(m, 
-            [phs in phases_into_bus(net, b)], 
-            lower_bound=0, 
-            base_name="vsqrd_$(b)_$(t)"
-        )
         if b == net.substation_bus
+
+            # TODO allow for time-varying source voltage
+            m[:vsqrd][b][t] = substation_voltage_squared(net)
+
             m[:p][b][t] =  @variable(m, [1:3], base_name="p_$(b)_$(t)")
             m[:q][b][t] =  @variable(m, [1:3], base_name="q_$(b)_$(t)")
+
+        else
+            m[:vsqrd][b][t] = @variable(m, 
+                [phs in phases_into_bus(net, b)], 
+                lower_bound=0, 
+                base_name="vsqrd_$(b)_$(t)"
+            )
         end
     end
 
