@@ -1,6 +1,6 @@
 
 # TODO mv all linear stuff to this file and include the file
-# TODO MP/Qij should have linear in their names
+# TODO MP/qij should have linear in their names
 """
     MPij(i::String, j::String, net::Network{MultiPhase})
 

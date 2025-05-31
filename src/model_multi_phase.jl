@@ -401,7 +401,7 @@ end
     function constrain_power_balance(m, net::Network{MultiPhase})
 
 Sij in - losses == sum of line flows out + net injection
-NOTE: using sum over Pij for future expansion to mesh grids
+NOTE: using sum over pij for future expansion to mesh grids
 i -> j -> k
 
 All of the power balance constraints are stored in `m[:loadbalcons]` with the bus name (string)
@@ -499,8 +499,8 @@ end
 function constrain_linear_power_balance(m, net::Network{MultiPhase})
     P0 = m[:p]
     Q0 = m[:q]
-    Pij = m[:pij]
-    Qij = m[:qij]
+    pij = m[:pij]
+    qij = m[:qij]
 
     for j in busses(net)
         Pj, Qj = sj_per_unit(j, net)
@@ -510,10 +510,10 @@ function constrain_linear_power_balance(m, net::Network{MultiPhase})
             for phs in [1,2,3]  # TODO can vectorize constraints across phs?
                 ks_on_phs = [k for k in j_to_k(j, net) if phs in phases_into_bus(net, k)]
                 @constraint(m, [t in 1:net.Ntimesteps],
-                    Pj[phs][t] + P0[j][t][phs] - sum( Pij[(j, k)][t][phs] for k in ks_on_phs ) == 0
+                    Pj[phs][t] + P0[j][t][phs] - sum( pij[(j, k)][t][phs] for k in ks_on_phs ) == 0
                 )
                 @constraint(m, [t in 1:net.Ntimesteps],
-                    Qj[phs][t] + Q0[j][t][phs] - sum( Qij[(j, k)][t][phs] for k in ks_on_phs ) == 0
+                    Qj[phs][t] + Q0[j][t][phs] - sum( qij[(j, k)][t][phs] for k in ks_on_phs ) == 0
                 )
             end     
 
@@ -532,19 +532,19 @@ function constrain_linear_power_balance(m, net::Network{MultiPhase})
                 ks_on_phs = [k for k in j_to_k(j, net) if phs in phases_into_bus(net, k)]
                 if !isempty(ks_on_phs)  # mid node
                     @constraint(m, [t in 1:net.Ntimesteps],
-                        sum( Pij[(i, j)][t][phs] for i in i_to_j(j, net) ) +
-                        Pj[phs][t] - sum( Pij[(j, k)][t][phs] for k in ks_on_phs ) == 0
+                        sum( pij[(i, j)][t][phs] for i in i_to_j(j, net) ) +
+                        Pj[phs][t] - sum( pij[(j, k)][t][phs] for k in ks_on_phs ) == 0
                     )
                     @constraint(m, [t in 1:net.Ntimesteps],
-                        sum( Qij[(i, j)][t][phs] for i in i_to_j(j, net) ) +
-                        Qj[phs][t] - sum( Qij[(j, k)][t][phs] for k in ks_on_phs ) == 0
+                        sum( qij[(i, j)][t][phs] for i in i_to_j(j, net) ) +
+                        Qj[phs][t] - sum( qij[(j, k)][t][phs] for k in ks_on_phs ) == 0
                     )
                 else  # leaf node
                     @constraint(m, [t in 1:net.Ntimesteps],
-                        sum( Pij[(i, j)][t][phs] for i in i_to_j(j, net) ) + Pj[phs][t] == 0
+                        sum( pij[(i, j)][t][phs] for i in i_to_j(j, net) ) + Pj[phs][t] == 0
                     )
                     @constraint(m, [t in 1:net.Ntimesteps],
-                        sum( Qij[(i, j)][t][phs] for i in i_to_j(j, net) ) + Qj[phs][t] == 0
+                        sum( qij[(i, j)][t][phs] for i in i_to_j(j, net) ) + Qj[phs][t] == 0
                     )
                 end
             end

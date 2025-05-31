@@ -214,13 +214,13 @@ end
         @variable(m, 0.4 >= qgen11 >= 0)
         JuMP.delete.(m, m[:loadbalcons][b]["p"])
         m[:loadbalcons][b]["p"] = @constraint(m, 
-            sum( m[:Pij][(i,b)][1] for i in i_to_j(b, net) )
+            sum( m[:pij][(i,b)][1] for i in i_to_j(b, net) )
             - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
             + pgen11 - net[b][:Load].kws1[1] == 0
         )
         JuMP.delete.(m, m[:loadbalcons][b]["q"])
         m[:loadbalcons][b]["q"] = @constraint(m, 
-            sum( m[:Pij][(i,b)][1] for i in i_to_j(b, net) )
+            sum( m[:pij][(i,b)][1] for i in i_to_j(b, net) )
             - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
             + qgen11 - net[b][:Load].kvars1[1] == 0
         )
@@ -610,17 +610,17 @@ end
     # but the loads do not b/c we did not account for losses in first iteration
     # take the difference of the lower substation injection and the upper flow in to bus 12
     function calc_flow_into_bus(model, net, bus)
-        Pij = model[:Pij]
-        Qij = model[:Qij]
+        pij = model[:pij]
+        qij = model[:qij]
         lij = model[:lij]
 
         j = bus; t = 1
         p = value(
-            sum( Pij[(i,j)][t] for i in CPF.i_to_j(j, net) )
+            sum( pij[(i,j)][t] for i in CPF.i_to_j(j, net) )
             - sum( lij[(i,j)][t] * CPF.rij_per_unit(i,j,net) for i in CPF.i_to_j(j, net) )
         )
         q = value(
-            sum( Qij[(i,j)][t] for i in CPF.i_to_j(j, net) )
+            sum( qij[(i,j)][t] for i in CPF.i_to_j(j, net) )
             - sum( lij[(i,j)][t] * CPF.xij_per_unit(i,j,net) for i in CPF.i_to_j(j, net) )
         )
         return p, q

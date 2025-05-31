@@ -86,15 +86,15 @@ end
     add_linear_variables(m, net::Network{SinglePhase})
 
 Add variables for the single-phase, linear model:
-- `Pij` and `Qij` for all `edges(net)`
+- `pij` and `qij` for all `edges(net)`
 - `p0` and `q0` slack bus power
 """
 function add_linear_variables(m, net::Network{SinglePhase})
     es = collect(edges(net))
     
     # line flows, net power sent from i to j
-    CommonOPF.add_time_vector_variables!(m, net, :Pij, es)
-    CommonOPF.add_time_vector_variables!(m, net, :Qij, es)
+    CommonOPF.add_time_vector_variables!(m, net, :pij, es)
+    CommonOPF.add_time_vector_variables!(m, net, :qij, es)
 
     # TODO slack bus variables in CommonOPF
     # slack bus variables
@@ -152,17 +152,17 @@ end
 Define the m[:loadbalcons][bus] ∀ bus ∈ busses(net) as a Dict of constraints. The keys are "p" and
 "q" for real and reactive power balance respectively. The values are the JuMP constraints.
 
-    ∑ Pij in - losses + net injection - ∑ Pjk out = 0
+    ∑ pij in - losses + net injection - ∑ Pjk out = 0
 
 The net injection are user defined loads. If one wishes to make the net injection a decision
 variable then delete the constraint and redefine the constraint with your decision variable.
 
-NOTE: using sum over Pij for future expansion to mesh grids and the convention:
+NOTE: using sum over pij for future expansion to mesh grids and the convention:
 i -> j -> k
 """
 function constrain_power_balance_with_isqrd_losses(m, net::Network{SinglePhase})
-    Pij = m[:Pij]
-    Qij = m[:Qij]
+    pij = m[:pij]
+    qij = m[:qij]
     lij = m[:lij]
 
     m[:loadbalcons] = Dict()
@@ -204,17 +204,17 @@ function constrain_power_balance_with_isqrd_losses(m, net::Network{SinglePhase})
 
             if j == net.substation_bus  # include the slack power variables
                 m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
-                    m[:p0][t] + pj[t] - sum( Pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
+                    m[:p0][t] + pj[t] - sum( pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
                 )
                 m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
-                    m[:q0][t] + qj[t] - sum( Qij[(j,k)][t] for k in j_to_k(j, net) ) == 0 
+                    m[:q0][t] + qj[t] - sum( qij[(j,k)][t] for k in j_to_k(j, net) ) == 0 
                 )
             else  # a source node with known injection
                 m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
-                    pj[t] - sum( Pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
+                    pj[t] - sum( pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
                 )
                 m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
-                    qj[t] - sum( Qij[(j,k)][t] for k in j_to_k(j, net) ) == 0
+                    qj[t] - sum( qij[(j,k)][t] for k in j_to_k(j, net) ) == 0
                 )
             end
         
@@ -227,12 +227,12 @@ function constrain_power_balance_with_isqrd_losses(m, net::Network{SinglePhase})
         # leaf nodes / sinks, flows in = draw out
         elseif !isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
             m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
-                sum( Pij[(i,j)][t] for i in i_to_j(j, net) )
+                sum( pij[(i,j)][t] for i in i_to_j(j, net) )
                 - sum( lij[(i,j)][t] * rij_per_unit(i,j,net) for i in i_to_j(j, net) ) 
                 + pj[t] == 0
             )
             m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
-                sum( Qij[(i,j)][t] for i in i_to_j(j, net) )
+                sum( qij[(i,j)][t] for i in i_to_j(j, net) )
                 - sum( lij[(i,j)][t] * xij_per_unit(i,j,net) for i in i_to_j(j, net) )
                 - shunt_susceptance * m[:vsqrd][j][t]
                 + qj[t] + var == 0
@@ -241,15 +241,15 @@ function constrain_power_balance_with_isqrd_losses(m, net::Network{SinglePhase})
         # intermediate nodes
         else
             m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
-                sum( Pij[(i,j)][t] for i in i_to_j(j, net) )
+                sum( pij[(i,j)][t] for i in i_to_j(j, net) )
                 - sum( lij[(i,j)][t] * rij_per_unit(i,j,net) for i in i_to_j(j, net) ) 
-                - sum( Pij[(j,k)][t] for k in j_to_k(j, net) )
+                - sum( pij[(j,k)][t] for k in j_to_k(j, net) )
                 + pj[t] == 0
             )
             m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
-                sum( Qij[(i,j)][t] for i in i_to_j(j, net) ) 
+                sum( qij[(i,j)][t] for i in i_to_j(j, net) ) 
                 - sum( lij[(i,j)][t] * xij_per_unit(i,j,net) for i in i_to_j(j, net) )
-                - sum( Qij[(j,k)][t] for k in j_to_k(j, net) ) 
+                - sum( qij[(j,k)][t] for k in j_to_k(j, net) ) 
                 - shunt_susceptance * m[:vsqrd][j][t]
                 + qj[t] + var == 0
             )
@@ -266,17 +266,17 @@ end
 Define the m[:loadbalcons][bus] ∀ bus ∈ busses(net) as a Dict of constraints. The keys are "p" and
 "q" for real and reactive power balance respectively. The values are the JuMP constraints.
 
-    ∑ Pij in - losses + net injection - ∑ Pjk out = 0
+    ∑ pij in - losses + net injection - ∑ Pjk out = 0
 
 The net injection are user defined loads. If one wishes to make the net injection a decision
 variable then delete the constraint and redefine the constraint with your decision variable.
 
-NOTE: using sum over Pij for future expansion to mesh grids and the convention:
+NOTE: using sum over pij for future expansion to mesh grids and the convention:
 i -> j -> k
 """
 function constrain_power_balance_linear(m, net::Network{SinglePhase})
-    Pij = m[:Pij]
-    Qij = m[:Qij]
+    pij = m[:pij]
+    qij = m[:qij]
 
     m[:loadbalcons] = Dict()
 
@@ -317,17 +317,17 @@ function constrain_power_balance_linear(m, net::Network{SinglePhase})
 
             if j == net.substation_bus  # include the slack power variables
                 m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
-                    m[:p0][t] + pj[t] - sum( Pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
+                    m[:p0][t] + pj[t] - sum( pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
                 )
                 m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
-                    m[:q0][t] + qj[t] - sum( Qij[(j,k)][t] for k in j_to_k(j, net) ) == 0 
+                    m[:q0][t] + qj[t] - sum( qij[(j,k)][t] for k in j_to_k(j, net) ) == 0 
                 )
             else  # a source node with known injection
                 m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
-                    pj[t] - sum( Pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
+                    pj[t] - sum( pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
                 )
                 m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
-                    qj[t] - sum( Qij[(j,k)][t] for k in j_to_k(j, net) ) == 0
+                    qj[t] - sum( qij[(j,k)][t] for k in j_to_k(j, net) ) == 0
                 )
             end
         
@@ -340,11 +340,11 @@ function constrain_power_balance_linear(m, net::Network{SinglePhase})
         # leaf nodes / sinks, flows in = draw out
         elseif !isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
             m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
-                sum( Pij[(i,j)][t] for i in i_to_j(j, net) )
+                sum( pij[(i,j)][t] for i in i_to_j(j, net) )
                 + pj[t] == 0
             )
             m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
-                sum( Qij[(i,j)][t] for i in i_to_j(j, net) )
+                sum( qij[(i,j)][t] for i in i_to_j(j, net) )
                 - shunt_susceptance * m[:vsqrd][j][t]
                 + qj[t] + var == 0
             )
@@ -352,13 +352,13 @@ function constrain_power_balance_linear(m, net::Network{SinglePhase})
         # intermediate nodes
         else
             m[:loadbalcons][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
-                sum( Pij[(i,j)][t] for i in i_to_j(j, net) )
-                - sum( Pij[(j,k)][t] for k in j_to_k(j, net) )
+                sum( pij[(i,j)][t] for i in i_to_j(j, net) )
+                - sum( pij[(j,k)][t] for k in j_to_k(j, net) )
                 + pj[t] == 0
             )
             m[:loadbalcons][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
-                sum( Qij[(i,j)][t] for i in i_to_j(j, net) ) 
-                - sum( Qij[(j,k)][t] for k in j_to_k(j, net) ) 
+                sum( qij[(i,j)][t] for i in i_to_j(j, net) ) 
+                - sum( qij[(j,k)][t] for k in j_to_k(j, net) ) 
                 - shunt_susceptance * m[:vsqrd][j][t]
                 + qj[t] + var == 0
             )
@@ -385,8 +385,8 @@ end
 
 function constrain_KVL(m, net::Network{SinglePhase})
     w = m[:vsqrd]
-    P = m[:Pij]
-    Q = m[:Qij]
+    P = m[:pij]
+    Q = m[:qij]
     l = m[:lij]
     m[:vcons] = Dict()
     for j in busses(net)
@@ -419,8 +419,8 @@ end
 
 function constrain_KVL_linear(m, net::Network{SinglePhase})
     w = m[:vsqrd]
-    P = m[:Pij]
-    Q = m[:Qij]
+    P = m[:pij]
+    Q = m[:qij]
     m[:vcons] = Dict()
     for j in busses(net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
@@ -451,8 +451,8 @@ end
 
 function constrain_cone(m, net::Network{SinglePhase})
     w = m[:vsqrd]
-    P = m[:Pij]
-    Q = m[:Qij]
+    P = m[:pij]
+    Q = m[:qij]
     l = m[:lij]
     for j in busses(net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
@@ -470,8 +470,8 @@ end
 
 function constrain_bilinear(m, net::Network{SinglePhase})
     w = m[:vsqrd]
-    P = m[:Pij]
-    Q = m[:Qij]
+    P = m[:pij]
+    Q = m[:qij]
     l = m[:lij]
     for j in busses(net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
