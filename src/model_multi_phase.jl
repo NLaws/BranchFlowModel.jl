@@ -355,6 +355,41 @@ function add_linear_variables(m, net::Network{MultiPhase})
         )
     end
 
+    net.var_info[:vsqrd] = CommonOPF.VarInfo(
+        :vsqrd,
+        "voltage magnitude squared",
+        CommonOPF.VoltUnit,
+        (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
+    )
+
+    net.var_info[:pj] = CommonOPF.VarInfo(
+        :pj,
+        "net bus injection real power on bus j",
+        CommonOPF.RealPowerUnit,
+        (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
+    )
+
+    net.var_info[:qj] = CommonOPF.VarInfo(
+        :qj,
+        "net bus injection reactive power on bus j",
+        CommonOPF.ReactivePowerUnit,
+        (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
+    )
+
+    net.var_info[:pij] = CommonOPF.VarInfo(
+        :pij,
+        "sending end real power from bus i to j",
+        CommonOPF.RealPowerUnit,
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
+    )
+
+    net.var_info[:qij] = CommonOPF.VarInfo(
+        :qij,
+        "sending end ReactivePowerUnit power from bus i to j",
+        CommonOPF.RealPowerUnit,
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
+    )
+
     # TODO net.bounds
 
     nothing
