@@ -305,6 +305,34 @@ function add_bfm_variables(m, net::Network{MultiPhase})
         recursive_variables(i, t, m, net)
     end
     
+    net.var_info[:v] = CommonOPF.VarInfo(
+        :v,
+        "complex voltage vector",
+        CommonOPF.VoltUnit,
+        (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
+    )
+
+    net.var_info[:i] = CommonOPF.VarInfo(
+        :i,
+        "complex sending end branch current",
+        CommonOPF.AmpUnit,
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
+    )
+
+    net.var_info[:Sij] = CommonOPF.VarInfo(
+        :Sij,
+        "complex sending end branch power flow matrix",
+        CommonOPF.ComplexPowerUnit,
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
+    )
+
+    net.var_info[:sj] = CommonOPF.VarInfo(
+        :sj,
+        "complex net bus power injection",
+        CommonOPF.ComplexPowerUnit,
+        (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
+    )
+
     nothing
 end
 
@@ -385,8 +413,8 @@ function add_linear_variables(m, net::Network{MultiPhase})
 
     net.var_info[:qij] = CommonOPF.VarInfo(
         :qij,
-        "sending end ReactivePowerUnit power from bus i to j",
-        CommonOPF.RealPowerUnit,
+        "sending end reactive power from bus i to j",
+        CommonOPF.ReactivePowerUnit,
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
     )
 
