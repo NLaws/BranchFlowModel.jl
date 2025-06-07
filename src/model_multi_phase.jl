@@ -227,6 +227,42 @@ function add_sdp_variables(m, net::Network{MultiPhase})
         recursive_variables(i, t, m, net)
     end
     
+    net.var_info[:w] = CommonOPF.VarInfo(
+        :w,
+        "3x3 Hermitian matrices of voltage squared (V*V^T)",
+        CommonOPF.VoltSquaredUnit,
+        (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.HermitianMatrixDimension)
+    )
+    
+    net.var_info[:l] = CommonOPF.VarInfo(
+        :l,
+        "3x3 Hermitian matrices of current squared (I*I^T)",
+        CommonOPF.AmpSquaredUnit,
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.HermitianMatrixDimension)
+    )
+    
+    net.var_info[:sj] = CommonOPF.VarInfo(
+        :sj,
+        "3x1 matrices of net power injections (at bus j)",
+        CommonOPF.ComplexPowerUnit,
+        (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
+    )
+    
+    # TODO only need to model the diagonal values of Sij? There was a paper on this ... ?
+    net.var_info[:Sij] = CommonOPF.VarInfo(
+        :Sij,
+        "3x3 Complex matrices of line flow powers (from i to j)",
+        CommonOPF.ComplexPowerUnit,
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseMatrixDimension)
+    )
+    
+    net.var_info[:H] = CommonOPF.VarInfo(
+        :H,
+        "3x3 Hermitian matrices for the positive semi-definite constraints",
+        CommonOPF.MixedUnits,
+        (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.HermitianMatrixDimension)
+    )
+
     nothing
 end
 

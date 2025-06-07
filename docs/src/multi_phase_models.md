@@ -24,7 +24,14 @@ CommonOPF.print_var_info(net)
 
 
 ## `Semidefinite` models
-TODO
+
+```@example imports
+net = CommonOPF.Network_IEEE13()
+m = JuMP.Model()
+
+build_bfm!(m, net, Semidefinite)
+CommonOPF.print_var_info(net)
+```
 
 ## `Linear` models
 TODO document constraints and their accessors as well. 
