@@ -8,7 +8,8 @@ import MetaGraphsNext: vertices
 using JSON
 import SparseArrays: sparse
 
-
+# use the same version of MathOptInterface as CommonOPF
+const MOI = CommonOPF.MOI
 """
     ModelType
 

@@ -15,7 +15,6 @@ Add variables and constraints to `m` using the values in `net` to make an unrela
 model. Calls the following functions:
 - [`add_bfm_variables`](@ref)
 - [`constrain_bfm_nlp`](@ref)
-```
 """
 function build_bfm!(m::JuMP.AbstractModel, net::Network{MultiPhase}, ::Val{Unrelaxed})
     add_bfm_variables(m, net)
@@ -227,21 +226,21 @@ function add_sdp_variables(m, net::Network{MultiPhase})
         recursive_variables(i, t, m, net)
     end
     
-    net.var_info[:w] = CommonOPF.VarInfo(
+    net.var_info[:w] = CommonOPF.VariableInfo(
         :w,
         "3x3 Hermitian matrices of voltage squared (V*V^T)",
         CommonOPF.VoltSquaredUnit,
         (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.HermitianMatrixDimension)
     )
     
-    net.var_info[:l] = CommonOPF.VarInfo(
+    net.var_info[:l] = CommonOPF.VariableInfo(
         :l,
         "3x3 Hermitian matrices of current squared (I*I^T)",
         CommonOPF.AmpSquaredUnit,
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.HermitianMatrixDimension)
     )
     
-    net.var_info[:sj] = CommonOPF.VarInfo(
+    net.var_info[:sj] = CommonOPF.VariableInfo(
         :sj,
         "3x1 matrices of net power injections (at bus j)",
         CommonOPF.ComplexPowerUnit,
@@ -249,14 +248,14 @@ function add_sdp_variables(m, net::Network{MultiPhase})
     )
     
     # TODO only need to model the diagonal values of Sij? There was a paper on this ... ?
-    net.var_info[:Sij] = CommonOPF.VarInfo(
+    net.var_info[:Sij] = CommonOPF.VariableInfo(
         :Sij,
         "3x3 Complex matrices of line flow powers (from i to j)",
         CommonOPF.ComplexPowerUnit,
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseMatrixDimension)
     )
     
-    net.var_info[:H] = CommonOPF.VarInfo(
+    net.var_info[:H] = CommonOPF.VariableInfo(
         :H,
         "3x3 Hermitian matrices for the positive semi-definite constraints",
         CommonOPF.MixedUnits,
@@ -341,28 +340,28 @@ function add_bfm_variables(m, net::Network{MultiPhase})
         recursive_variables(i, t, m, net)
     end
     
-    net.var_info[:v] = CommonOPF.VarInfo(
+    net.var_info[:v] = CommonOPF.VariableInfo(
         :v,
         "complex voltage vector",
         CommonOPF.VoltUnit,
         (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
     )
 
-    net.var_info[:i] = CommonOPF.VarInfo(
+    net.var_info[:i] = CommonOPF.VariableInfo(
         :i,
         "complex sending end branch current",
         CommonOPF.AmpUnit,
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
     )
 
-    net.var_info[:Sij] = CommonOPF.VarInfo(
+    net.var_info[:Sij] = CommonOPF.VariableInfo(
         :Sij,
         "complex sending end branch power flow matrix",
         CommonOPF.ComplexPowerUnit,
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
     )
 
-    net.var_info[:sj] = CommonOPF.VarInfo(
+    net.var_info[:sj] = CommonOPF.VariableInfo(
         :sj,
         "complex net bus power injection",
         CommonOPF.ComplexPowerUnit,
@@ -419,35 +418,35 @@ function add_linear_variables(m, net::Network{MultiPhase})
         )
     end
 
-    net.var_info[:vsqrd] = CommonOPF.VarInfo(
+    net.var_info[:vsqrd] = CommonOPF.VariableInfo(
         :vsqrd,
         "voltage magnitude squared",
         CommonOPF.VoltUnit,
         (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
     )
 
-    net.var_info[:pj] = CommonOPF.VarInfo(
+    net.var_info[:pj] = CommonOPF.VariableInfo(
         :pj,
         "net bus injection real power on bus j",
         CommonOPF.RealPowerUnit,
         (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
     )
 
-    net.var_info[:qj] = CommonOPF.VarInfo(
+    net.var_info[:qj] = CommonOPF.VariableInfo(
         :qj,
         "net bus injection reactive power on bus j",
         CommonOPF.ReactivePowerUnit,
         (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
     )
 
-    net.var_info[:pij] = CommonOPF.VarInfo(
+    net.var_info[:pij] = CommonOPF.VariableInfo(
         :pij,
         "sending end real power from bus i to j",
         CommonOPF.RealPowerUnit,
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
     )
 
-    net.var_info[:qij] = CommonOPF.VarInfo(
+    net.var_info[:qij] = CommonOPF.VariableInfo(
         :qij,
         "sending end reactive power from bus i to j",
         CommonOPF.ReactivePowerUnit,
@@ -463,7 +462,7 @@ end
 """
     constrain_bfm_nlp(m, net::Network{MultiPhase})
 
-Add the unrelaxed branch flow constraints.
+Add the unrelaxed branch flow constraints. Also calls [`constrain_power_balance`](@ref).
 """
 function constrain_bfm_nlp(m, net::Network{MultiPhase})
     v = m[:v]
@@ -503,9 +502,10 @@ Sij in - losses == sum of line flows out + net injection
 NOTE: using sum over pij for future expansion to mesh grids
 i -> j -> k
 
-All of the power balance constraints are stored in `m[:loadbalcons]` with the bus name (string)
-as the first index. For example `m[:loadbalcons]["busname"]` will give the constrain container
+All of the power balance constraints are stored in `m[:power_balance_constraints]` with the bus name (string)
+as the first index. For example `m[:power_balance_constraints]["busname"]` will give the constrain container
 from JuMP for all time steps.
+
 """
 function constrain_power_balance(m, net::Network{MultiPhase})
     Sij = m[:Sij]
@@ -531,7 +531,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
             end
         end
     end
-    m[:loadbalcons] = Dict()
+    m[:power_balance_constraints] = Dict()
     
     for j in busses(net)
 
@@ -544,7 +544,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
         if isempty(i_to_j(j, net)) && !isempty(j_to_k(j, net))
 
             if j == net.substation_bus   # include the slack power variables
-                m[:loadbalcons][j] = @constraint(m,  [t in 1:net.Ntimesteps],
+                m[:power_balance_constraints][j] = @constraint(m,  [t in 1:net.Ntimesteps],
                     m[:sj][j][t] + Sj[t, :]
                     # - diag(w[j][t] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
                     - sum( diag( Sij[(j,k)][t] ) for k in j_to_k(j, net) )
@@ -552,7 +552,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
                 )
 
             else  # a source node with known injection
-                m[:loadbalcons][j] = @constraint(m,  [t in 1:net.Ntimesteps],
+                m[:power_balance_constraints][j] = @constraint(m,  [t in 1:net.Ntimesteps],
                     Sj[t, :] 
                     # - diag(w[j][t] * conj(yj(j, net))) * net.Zbase  # put yj in per-unit
                     - sum( diag( Sij[(j,k)][t] ) for k in j_to_k(j, net) ) 
@@ -563,12 +563,12 @@ function constrain_power_balance(m, net::Network{MultiPhase})
         
         # unconnected nodes
         elseif isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
-            @warn "Bus $j has no edges. Setting loadbalcons to zeros"
-            m[:loadbalcons][j] = zeros(net.Ntimesteps)
+            @warn "Bus $j has no edges. Setting power_balance_constraints to zeros"
+            m[:power_balance_constraints][j] = zeros(net.Ntimesteps)
 
         # leaf nodes / sinks, flows in = draw out
         elseif !isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
-            m[:loadbalcons][j] = @constraint(m, [t in 1:net.Ntimesteps],
+            m[:power_balance_constraints][j] = @constraint(m, [t in 1:net.Ntimesteps],
                 sum( diag( 
                     Sij[(i,j)][t] - zij_per_unit(i,j,net) * Lij[(i,j)][t]
                 ) for i in i_to_j(j, net) )
@@ -579,7 +579,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
 
         # node with lines in and out
         else
-            m[:loadbalcons][j] = @constraint(m, [t in 1:net.Ntimesteps],
+            m[:power_balance_constraints][j] = @constraint(m, [t in 1:net.Ntimesteps],
                 sum( diag( 
                     Sij[(i,j)][t] - zij_per_unit(i,j,net) * Lij[(i,j)][t]
                 ) for i in i_to_j(j, net) )
@@ -590,6 +590,15 @@ function constrain_power_balance(m, net::Network{MultiPhase})
             )
         end
     end
+
+    # document the constraints
+    c = m[:power_balance_constraints][net.substation_bus][1][1]
+    net.constraint_info[:power_balance_constraints] = CommonOPF.ConstraintInfo(
+        :power_balance_constraints,
+        "power balance at each bus",
+        MOI.get(m, MOI.ConstraintSet(), c),
+        (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension),
+    )
 
     nothing
 end

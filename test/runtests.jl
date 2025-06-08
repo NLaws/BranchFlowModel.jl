@@ -212,14 +212,14 @@ end
         b = "11"
         @variable(m, 0.4 >= pgen11 >= 0)
         @variable(m, 0.4 >= qgen11 >= 0)
-        JuMP.delete.(m, m[:loadbalcons][b]["p"])
-        m[:loadbalcons][b]["p"] = @constraint(m, 
+        JuMP.delete.(m, m[:power_balance_constraints][b]["p"])
+        m[:power_balance_constraints][b]["p"] = @constraint(m, 
             sum( m[:pij][(i,b)][1] for i in i_to_j(b, net) )
             - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
             + pgen11 - net[b][:Load].kws1[1] == 0
         )
-        JuMP.delete.(m, m[:loadbalcons][b]["q"])
-        m[:loadbalcons][b]["q"] = @constraint(m, 
+        JuMP.delete.(m, m[:power_balance_constraints][b]["q"])
+        m[:power_balance_constraints][b]["q"] = @constraint(m, 
             sum( m[:pij][(i,b)][1] for i in i_to_j(b, net) )
             - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
             + qgen11 - net[b][:Load].kvars1[1] == 0
@@ -258,7 +258,7 @@ end
     )
     optimize!(m)
     shadow_prices = Dict(
-        j => JuMP.dual.(m[:loadbalcons][j]["p"])
+        j => JuMP.dual.(m[:power_balance_constraints][j]["p"])
         for j in busses(net)
     )
 
