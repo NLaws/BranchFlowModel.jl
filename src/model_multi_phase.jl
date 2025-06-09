@@ -699,7 +699,11 @@ end
 """
     constrain_KVL(m, net::Network{MultiPhase})
 
-Add the voltage drop definitions between busses.
+Add the voltage drop definitions between busses using the sending end powers and the current squared
+variables. This is the angle-relaxation form used in the semi-definite program.
+
+NOTE regulators are also hacked in here, setting the voltage to `vreg_pu` or using the
+`turn_ratio` as appropriate.
 
 ``
     w_j = w_i - S_{ij} Z^{\\star} - Z S_{ij}^{\\star} + Z L_{ij} Z^{\\star}
@@ -711,7 +715,7 @@ function constrain_KVL(m, net::Network{MultiPhase})
     Lij = m[:l]
 
     T = matrix_phases_to_vec  # "T" for transform
-    m[:kvl] = Dict{String, AbstractArray}()
+    m[:kvl_constraints] = Dict()
     for j in busses(net)  # substation_bus in here but has empty i_to_j(j, net)
 
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
@@ -720,7 +724,7 @@ function constrain_KVL(m, net::Network{MultiPhase})
             if !( isa(net[(i,j)], CommonOPF.VoltageRegulator) )
                 Z = zij_per_unit(i,j,net)
                 # slice w[i][t] by phases in edge (i, j)
-                m[:kvl][j] = @constraint(m, [t in 1:net.Ntimesteps],
+                m[:kvl_constraints][(i,j)] = @constraint(m, [t in 1:net.Ntimesteps],
                     T( w[j][t], phases ) .== T( w[i][t]
                         - (Sij[(i, j)][t] * cj(Z)
                            + Z * cj(Sij[(i, j)][t]))
@@ -731,11 +735,11 @@ function constrain_KVL(m, net::Network{MultiPhase})
                 # TODO account for phase angles/shifts
                 reg = net[(i,j)]
                 if !ismissing(reg.vreg_pu)
-                    m[:kvl][j] = @constraint(m, [t in 1:net.Ntimesteps],
+                    m[:kvl_constraints][(i,j)] = @constraint(m, [t in 1:net.Ntimesteps],
                         T( w[j][t], phases ) .== T( reg.vreg_pu * cj(reg.vreg_pu), phases )
                     )
                 else  # use turn ratio
-                    m[:kvl][j] = @constraint(m, [t in 1:net.Ntimesteps],
+                    m[:kvl_constraints][(i,j)] = @constraint(m, [t in 1:net.Ntimesteps],
                         T( w[j][t], phases ) .== T( w[i][t], phases ) * reg.turn_ratio^2 
                     )
                 end
@@ -743,5 +747,15 @@ function constrain_KVL(m, net::Network{MultiPhase})
             end
         end
     end
+
+    # document the constraints
+    e = edges(net)[1]
+    c = m[:kvl_constraints][e][1][1]  # time step 1, phase 1
+    net.constraint_info[:kvl_constraints] = CommonOPF.ConstraintInfo(
+        :kvl_constraints,
+        "Kirchoff's Voltage Law with angle relaxation for Semidefinite model",
+        MOI.get(m, MOI.ConstraintSet(), c),
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension),
+    )
     nothing
 end

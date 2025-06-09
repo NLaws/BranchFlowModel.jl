@@ -51,14 +51,25 @@ For the nomenclatures see TODO.
 
 
 ## `Semidefinite` models
+The `Semidefinite` multiphase model is build by passing a `JuMP.Model`, `Network{MultiPhase}`, and the
+`Semidefinite` type to [`build_bfm!`](@ref).
+
 
 ```@example imports
 net = CommonOPF.Network_IEEE13()
 m = JuMP.Model()
 
 build_bfm!(m, net, Semidefinite)
+println("Variable information:")
 CommonOPF.print_var_info(net)
+println("Constraint information:")
+CommonOPF.print_constraint_info(net)
 ```
+
+The [`build_bfm!](@ref) method uses:
+- [`add_sdp_variables`](@ref)
+- [`constrain_KVL`](@ref)
+- [`constrain_power_balance`](@ref)
 
 ## `Linear` models
 TODO document constraints and their accessors as well. 

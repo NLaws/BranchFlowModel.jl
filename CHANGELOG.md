@@ -1,5 +1,12 @@
 # BranchFlowModel Changelog
 
+## dev
+- refactored and added symbols used to store constraint references in the `JuMP.Model`
+    - `:kvl` -> `:kvl_constraints`
+        - these were erroneously indexed on busses instead of edges
+    - `:loadbalcons` -> `:power_balance_constraints`
+- added `net.var_info` and `net.constraint_info` for multiphase models and improved docs
+
 ## v0.4.5
 - move some model building utilities to CommonOPF for reuse in BusInjectionModel
 
