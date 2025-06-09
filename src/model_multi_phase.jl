@@ -463,33 +463,59 @@ end
     constrain_bfm_nlp(m, net::Network{MultiPhase})
 
 Add the unrelaxed branch flow constraints. Also calls [`constrain_power_balance`](@ref).
+
+``
+    \\boldsymbol S_{ij} = \\boldsymbol v_i^{\\Phi_{ij}} \\boldsymbol i_{ij}^H
+    \\quad \\forall (i, j) \\in \\mathcal{E}
+``
+
+``
+    \\boldsymbol v_i^{\\Phi_{ij}} - \\boldsymbol v_j = \\boldsymbol Z_{ij} \\boldsymbol i_{ij}
+    \\quad \\forall (i, j) \\in \\mathcal{E}
+``
 """
 function constrain_bfm_nlp(m, net::Network{MultiPhase})
     v = m[:v]
     i_ij = m[:i]
     S_ij = m[:Sij]
-    for t in 1:net.Ntimesteps
+    m[:sending_power_flow_constraints] = Dict()
+    m[:kvl_constraints] = Dict()
 
-        for j in busses(net)
-            for i in i_to_j(j, net)
-            
-                # sending end power
-                @constraint(m, [t in 1:net.Ntimesteps],
-                    S_ij[(i,j)][t] .== ( 
-                        phi_ij(j, net, v[i][t]) * cj(i_ij[(i,j)][t]) 
-                    )
+    for j in busses(net)
+        for i in i_to_j(j, net)
+        
+            # sending end power
+            m[:sending_power_flow_constraints][(i,j)] = @constraint(m, [t in 1:net.Ntimesteps],
+                S_ij[(i,j)][t] .== ( 
+                    phi_ij(j, net, v[i][t]) * cj(i_ij[(i,j)][t]) 
                 )
+            )
 
-                # KVL
-                @constraint(m, [t in 1:net.Ntimesteps],
-                    phi_ij(j, net, v[i][t]) - v[j][t] .== zij_per_unit(i, j, net) * i_ij[(i,j)][t]
-                )
-
-            end
+            # KVL
+            m[:kvl_constraints][(i,j)] = @constraint(m, [t in 1:net.Ntimesteps],
+                phi_ij(j, net, v[i][t]) - v[j][t] .== zij_per_unit(i, j, net) * i_ij[(i,j)][t]
+            )
 
         end
-
     end
+
+    # document the constraints
+    e = edges(net)[1]
+    c = m[:sending_power_flow_constraints][e][1][1,1]  # time step 1, phase 1
+    net.constraint_info[:sending_power_flow_constraints] = CommonOPF.ConstraintInfo(
+        :sending_power_flow_constraints,
+        "sending end power definition",
+        MOI.get(m, MOI.ConstraintSet(), c),
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseMatrixDimension),
+    )
+    c = m[:kvl_constraints][e][1][1]  # time step 1, phase 1
+    net.constraint_info[:kvl_constraints] = CommonOPF.ConstraintInfo(
+        :kvl_constraints,
+        "Kirchoff's Voltage Law ",
+        MOI.get(m, MOI.ConstraintSet(), c),
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension),
+    )
+
     constrain_power_balance(m, net)
     nothing
 end
@@ -506,6 +532,13 @@ All of the power balance constraints are stored in `m[:power_balance_constraints
 as the first index. For example `m[:power_balance_constraints]["busname"]` will give the constrain container
 from JuMP for all time steps.
 
+``
+    \\sum_{i : i \\rightarrow j}  \\text{diag}( 
+    \\boldsymbol S_{ij} - \\boldsymbol Z_{ij} \\left[ \\boldsymbol i_{ij} \\boldsymbol i_{ij}^H \\right]) 
+    + \\boldsymbol s_j 
+    = \\sum_{k : j \\rightarrow k} \\text{diag}( \\boldsymbol S_{jk} )^{\\Phi_j}
+    \\quad \\forall j \\in \\mathcal{N}
+``
 """
 function constrain_power_balance(m, net::Network{MultiPhase})
     Sij = m[:Sij]
@@ -592,7 +625,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
     end
 
     # document the constraints
-    c = m[:power_balance_constraints][net.substation_bus][1][1]
+    c = m[:power_balance_constraints][net.substation_bus][1][1]  # time step 1, phase 1
     net.constraint_info[:power_balance_constraints] = CommonOPF.ConstraintInfo(
         :power_balance_constraints,
         "power balance at each bus",

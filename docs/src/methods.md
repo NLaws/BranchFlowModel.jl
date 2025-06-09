@@ -21,6 +21,7 @@ add_linear_variables
 ```@docs
 constrain_power_balance
 constrain_KVL
+constrain_bfm_nlp
 ```
 
 ## Other
