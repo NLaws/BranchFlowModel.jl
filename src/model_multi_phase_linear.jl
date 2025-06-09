@@ -33,6 +33,9 @@ function MQij(i::String, j::String, net::Network{MultiPhase})
 end
 
 
+"""
+    constrain_KVL_linear(m, net::Network{MultiPhase})
+"""
 function constrain_KVL_linear(m, net::Network{MultiPhase})
     w = m[:vsqrd]
     p = m[:pij]

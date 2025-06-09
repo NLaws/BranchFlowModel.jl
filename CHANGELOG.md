@@ -6,6 +6,7 @@
         - these were erroneously indexed on busses instead of edges
     - `:loadbalcons` -> `:power_balance_constraints`
 - added `net.var_info` and `net.constraint_info` for multiphase models and improved docs
+- stopped exporting the variable and constraint builder methods
 
 ## v0.4.5
 - move some model building utilities to CommonOPF for reuse in BusInjectionModel

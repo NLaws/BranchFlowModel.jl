@@ -1,9 +1,10 @@
 # Methods
 Some various methods used in BranchFlowModel.jl:
 
-!!! warning
-    This list of exported methods may not be up to date and there are missing doc strings.
-    Contributions are welcome via fork and pull request.
+```@contents
+Pages = ["methods.md"]
+Depth = 2
+```
 
 ## Model builders
 ```@docs
@@ -12,16 +13,18 @@ build_bfm!
 
 ## Variable builders
 ```@docs
-add_bfm_variables
-add_sdp_variables
-add_linear_variables
+BranchFlowModel.add_bfm_variables
+BranchFlowModel.add_sdp_variables
+BranchFlowModel.add_linear_variables
 ```
 
 ## Constraint builders
 ```@docs
-constrain_power_balance
-constrain_KVL
-constrain_bfm_nlp
+BranchFlowModel.constrain_power_balance
+BranchFlowModel.constrain_KVL
+BranchFlowModel.constrain_bfm_nlp
+BranchFlowModel.constrain_linear_power_balance
+BranchFlowModel.constrain_KVL_linear
 ```
 
 ## Other

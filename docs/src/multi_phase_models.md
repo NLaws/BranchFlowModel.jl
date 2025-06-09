@@ -28,9 +28,9 @@ CommonOPF.print_constraint_info(net)
 ```
 
 The [`build_bfm!](@ref) method uses:
-- [`add_bfm_variables`](@ref)
-- [`constrain_bfm_nlp`](@ref)
-- [`constrain_power_balance`](@ref)
+- [`BranchFlowModel.add_bfm_variables`](@ref)
+- [`BranchFlowModel.constrain_bfm_nlp`](@ref)
+- [`BranchFlowModel.constrain_power_balance`](@ref)
 
 The math underlying the model is as follows:
 ```math
@@ -47,7 +47,7 @@ The math underlying the model is as follows:
     \quad \forall j \in \mathcal{N}
 \end{aligned}
 ```
-For the nomenclatures see TODO.
+For the nomenclature see TODO.
 
 
 ## `Semidefinite` models
@@ -67,16 +67,26 @@ CommonOPF.print_constraint_info(net)
 ```
 
 The [`build_bfm!](@ref) method uses:
-- [`add_sdp_variables`](@ref)
-- [`constrain_KVL`](@ref)
-- [`constrain_power_balance`](@ref)
+- [`BranchFlowModel.add_sdp_variables`](@ref)
+- [`BranchFlowModel.constrain_KVL`](@ref)
+- [`BranchFlowModel.constrain_power_balance`](@ref)
 
 ## `Linear` models
-TODO document constraints and their accessors as well. 
+The `Linear` multiphase model is build by passing a `JuMP.Model`, `Network{MultiPhase}`, and the
+`Linear` type to [`build_bfm!`](@ref).
+
 ```@example imports
 net = CommonOPF.Network_IEEE13()
 m = JuMP.Model()
 
 build_bfm!(m, net, Linear)
+println("Variable information:")
 CommonOPF.print_var_info(net)
+println("Constraint information:")
+CommonOPF.print_constraint_info(net)
 ```
+
+The [`build_bfm!](@ref) method uses:
+- [`BranchFlowModel.add_linear_variables`](@ref)
+- [`BranchFlowModel.constrain_linear_power_balance`](@ref)
+- [`BranchFlowModel.constrain_KVL_linear`](@ref)
