@@ -1,10 +1,18 @@
 
-# TODO mv all linear stuff to this file and include the file
+# TODO mv all linear stuff to this file
 # TODO MP/qij should have linear in their names
 """
     MPij(i::String, j::String, net::Network{MultiPhase})
 
 Real power coefficients for 3 phase voltage drop from node i to j
+
+``
+    \\boldsymbol{M}_{P,ij} = \\begin{bmatrix}
+    -2r_{11}                & r_{12}-\\sqrt{3}x_{12} & r_{13}+\\sqrt{3}x_{13} \\
+    r_{21}+\\sqrt{3}x_{21} & -2r_{22} & r_{23}-\\sqrt{3}x_{23} \\
+    r_{31}-\\sqrt{3}x_{31} & r_{32}+\\sqrt{3}x_{32} & -2r_{33}
+    \\end{bmatrix}
+``
 """
 function MPij(i::String, j::String, net::Network{MultiPhase})
     M = zeros((3,3))
@@ -35,11 +43,18 @@ end
 
 """
     constrain_KVL_linear(m, net::Network{MultiPhase})
+
+``
+    \\boldsymbol{w}_j = \\boldsymbol{w}_i + \\boldsymbol{M}_{P,ij} \\boldsymbol{P}_{ij} 
+    + \\boldsymbol{M}_{Q,ij} \\boldsymbol{Q}_{ij}
+``
 """
 function constrain_KVL_linear(m, net::Network{MultiPhase})
     w = m[:vsqrd]
     p = m[:pij]
     q = m[:qij]
+    m[:kvl_constraints] = Dict()
+
     for j in busses(net)  # substation_bus in here but has empty i_to_j(j, net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
             i_j = (i, j)
@@ -48,9 +63,9 @@ function constrain_KVL_linear(m, net::Network{MultiPhase})
                 
                 MP = MPij(i,j,net)
                 MQ = MQij(i,j,net)
-
+                m[:kvl_constraints][i_j] = Dict()
                 for phs in phases_into_bus(net, j)
-                    @constraint(m, [t in 1:net.Ntimesteps],
+                    m[:kvl_constraints][i_j][phs] = @constraint(m, [t in 1:net.Ntimesteps],
                         w[j][t][phs] == w[i][t][phs]
                             + sum(MP[phs,k] * p[i_j][t][k] for k=phases_into_bus(net, j))
                             + sum(MQ[phs,k] * q[i_j][t][k] for k=phases_into_bus(net, j))
@@ -60,16 +75,27 @@ function constrain_KVL_linear(m, net::Network{MultiPhase})
             else
                 reg = net[(i,j)]
                 if !ismissing(reg.vreg_pu)
-                    @constraint(m, [t in 1:net.Ntimesteps],
+                    m[:kvl_constraints][i_j] = @constraint(m, [t in 1:net.Ntimesteps],
                         w[j][t] .== reg.vreg_pu.^2
                     )
                 else  # use turn ratio
-                    @constraint(m, [t in 1:net.Ntimesteps],
+                    m[:kvl_constraints][i_j] = @constraint(m, [t in 1:net.Ntimesteps],
                         w[j][t] .== w[i][t] * reg.turn_ratio^2 
                     )
                 end
             end
         end
     end
+
+    # document the constraints
+    e = edges(net)[1]
+    phs = collect(keys(m[:kvl_constraints][e][1]))[1]
+    c = m[:kvl_constraints][e][1][phs]  # time step 1
+    net.constraint_info[:kvl_constraints] = CommonOPF.ConstraintInfo(
+        :kvl_constraints,
+        "Kirchoff's Voltage Law linear version",
+        MOI.get(m, MOI.ConstraintSet(), c),
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension),
+    )
     nothing
 end

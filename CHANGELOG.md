@@ -5,6 +5,7 @@
     - `:kvl` -> `:kvl_constraints`
         - these were erroneously indexed on busses instead of edges
     - `:loadbalcons` -> `:power_balance_constraints`
+    - add `:sending_power_flow_constraints`
 - added `net.var_info` and `net.constraint_info` for multiphase models and improved docs
 - stopped exporting the variable and constraint builder methods
 

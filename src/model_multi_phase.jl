@@ -395,7 +395,7 @@ function add_linear_variables(m, net::Network{MultiPhase})
         if b == net.substation_bus
 
             # TODO allow for time-varying source voltage
-            m[:vsqrd][b][t] = substation_voltage_squared(net)
+            m[:vsqrd][b][t] = abs.(substation_voltage_squared(net))
 
             m[:p][b][t] =  @variable(m, [1:3], base_name="p_$(b)_$(t)")
             m[:q][b][t] =  @variable(m, [1:3], base_name="q_$(b)_$(t)")
