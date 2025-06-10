@@ -3,7 +3,7 @@ Some various methods used in BranchFlowModel.jl:
 
 ```@contents
 Pages = ["methods.md"]
-Depth = 2
+Depth = 3
 ```
 
 ## Model builders
@@ -29,6 +29,8 @@ BranchFlowModel.constrain_KVL_linear
 
 ## Other
 ```@docs
+BranchFlowModel.MPij
+BranchFlowModel.MQij
 check_rank_one
 reduce_tree!
 trim_tree!
