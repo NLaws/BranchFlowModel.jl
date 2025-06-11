@@ -18,21 +18,24 @@ function add_linear_variables(m, net::Network{MultiPhase})
     for b in busses(net), t in 1:net.Ntimesteps
         if b == net.substation_bus
 
-            # TODO allow for time-varying source voltage
-            m[:vsqrd][b][t] = abs.(substation_voltage_squared(net))
+            # TODO allow for time and phase-varying source voltage
+            m[:vsqrd][b][t] = [net.v0; net.v0; net.v0]
 
             m[:p][b][t] =  @variable(m, [1:3], base_name="p_$(b)_$(t)")
             m[:q][b][t] =  @variable(m, [1:3], base_name="q_$(b)_$(t)")
 
         else
+            # TODO put default variable bounds in CommonOPF? Or some other higher level
             m[:vsqrd][b][t] = @variable(m, 
-                [phs in phases_into_bus(net, b)], 
-                lower_bound=0, 
+                [phs in phases_into_bus(net, b)],
+                lower_bound = ismissing(net.bounds.v_lower_mag) ? 0.0 : net.bounds.v_lower_mag^2,
+                upper_bound = ismissing(net.bounds.v_upper_mag) ? 2.0 : net.bounds.v_upper_mag^2,
                 base_name="vsqrd_$(b)_$(t)"
             )
         end
     end
 
+    # TODO power flow bounds
     for e in edges(net), t in 1:net.Ntimesteps
         m[:pij][e][t] = @variable(m, 
             [phs in phases_into_bus(net, e[2])], 
@@ -104,49 +107,57 @@ function constrain_linear_power_balance(m, net::Network{MultiPhase})
     q0 = m[:q]
     pij = m[:pij]
     qij = m[:qij]
+    m[:power_balance_constraints] = Dict()
 
     for j in busses(net)
         pj, qj = sj_per_unit(j, net)
+            
+        m[:power_balance_constraints][j] = Dict()
+        m[:power_balance_constraints][j][:real] = Dict()
+        m[:power_balance_constraints][j][:reactive] = Dict()
 
         if j == net.substation_bus   # include the slack power variables
 
             for phs in [1,2,3]  # TODO can vectorize constraints across phs?
+
                 ks_on_phs = [k for k in j_to_k(j, net) if phs in phases_into_bus(net, k)]
-                @constraint(m, [t in 1:net.Ntimesteps],
+
+                m[:power_balance_constraints][j][:real][phs] = @constraint(
+                    m, [t in 1:net.Ntimesteps],
                     pj[phs][t] + p0[j][t][phs] - sum( pij[(j, k)][t][phs] for k in ks_on_phs ) == 0
                 )
-                @constraint(m, [t in 1:net.Ntimesteps],
+
+                m[:power_balance_constraints][j][:reactive][phs] = @constraint(
+                    m, [t in 1:net.Ntimesteps],
                     qj[phs][t] + q0[j][t][phs] - sum( qij[(j, k)][t][phs] for k in ks_on_phs ) == 0
                 )
             end     
 
         elseif isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))  # unconnected nodes
-            @warn "Bus $j has no edges in or out; constraining pj and qj to zero."
-            @constraint(m, [phs in 1:3, t in 1:net.Ntimesteps],
-                pj[phs][t] == 0
-            )
-            @constraint(m, [phs in 1:3, t in 1:net.Ntimesteps],
-                qj[phs][t] == 0
-            )
+            @warn "Bus $j has no edges in or out; no power balance constraint built."
 
         else  # mid and leaf nodes
 
             for phs in phases_into_bus(net, j)
                 ks_on_phs = [k for k in j_to_k(j, net) if phs in phases_into_bus(net, k)]
                 if !isempty(ks_on_phs)  # mid node
-                    @constraint(m, [t in 1:net.Ntimesteps],
+                    m[:power_balance_constraints][j][:real][phs] = @constraint(
+                        m, [t in 1:net.Ntimesteps],
                         sum( pij[(i, j)][t][phs] for i in i_to_j(j, net) ) +
                         pj[phs][t] - sum( pij[(j, k)][t][phs] for k in ks_on_phs ) == 0
                     )
-                    @constraint(m, [t in 1:net.Ntimesteps],
+                    m[:power_balance_constraints][j][:reactive][phs] = @constraint(
+                        m, [t in 1:net.Ntimesteps],
                         sum( qij[(i, j)][t][phs] for i in i_to_j(j, net) ) +
                         qj[phs][t] - sum( qij[(j, k)][t][phs] for k in ks_on_phs ) == 0
                     )
                 else  # leaf node
-                    @constraint(m, [t in 1:net.Ntimesteps],
+                    m[:power_balance_constraints][j][:real][phs] = @constraint(
+                        m, [t in 1:net.Ntimesteps],
                         sum( pij[(i, j)][t][phs] for i in i_to_j(j, net) ) + pj[phs][t] == 0
                     )
-                    @constraint(m, [t in 1:net.Ntimesteps],
+                    m[:power_balance_constraints][j][:reactive][phs] = @constraint(
+                        m, [t in 1:net.Ntimesteps],
                         sum( qij[(i, j)][t][phs] for i in i_to_j(j, net) ) + qj[phs][t] == 0
                     )
                 end
@@ -154,6 +165,23 @@ function constrain_linear_power_balance(m, net::Network{MultiPhase})
 
         end
     end
+
+    # document the constraints
+    b = busses(net)[1]
+    phs = collect(keys(m[:power_balance_constraints][b][:real]))[1]
+    c = m[:power_balance_constraints][b][:real][phs][1]  # time step 1
+    net.constraint_info[:power_balance_constraints] = CommonOPF.ConstraintInfo(
+        :power_balance_constraints,
+        "Real and reactive power balance at each bus (linear)",
+        MOI.get(m, MOI.ConstraintSet(), c),
+        (
+            CommonOPF.BusDimension, 
+            CommonOPF.RealReactiveDimension, 
+            CommonOPF.PhaseDimension, 
+            CommonOPF.TimeDimension
+        ),
+    )
+
     nothing
 end
 
@@ -165,8 +193,8 @@ Real power coefficients for 3 phase voltage drop from node i to j
 """
 function MPij(i::String, j::String, net::Network{MultiPhase})
     M = zeros((3,3))
-    r = rij(i,j,net)
-    x = xij(i,j,net)
+    r = rij_per_unit(i,j,net)
+    x = xij_per_unit(i,j,net)
     M[1,:] = [-2r[1,1]             r[1,2]-sqrt(3)x[1,2] r[1,3]+sqrt(3)x[1,3]]
     M[2,:] = [r[2,1]+sqrt(3)x[2,1] -2r[2,2]             r[2,3]-sqrt(3)x[2,3]]
     M[3,:] = [r[3,1]-sqrt(3)x[3,1] r[3,2]+sqrt(3)x[3,2] -2r[3,3]            ]
@@ -181,8 +209,8 @@ Reactive power coefficients for 3 phase voltage drop from node i to j
 """
 function MQij(i::String, j::String, net::Network{MultiPhase})
     M = zeros((3,3))
-    r = rij(i,j,net)
-    x = xij(i,j,net)
+    r = rij_per_unit(i,j,net)
+    x = xij_per_unit(i,j,net)
     M[1,:] = [-2x[1,1]             x[1,2]+sqrt(3)r[1,2] x[1,3]-sqrt(3)r[1,3]]
     M[2,:] = [x[2,1]-sqrt(3)r[2,1] -2x[2,2]             x[2,3]+sqrt(3)r[2,3]]
     M[3,:] = [x[3,1]+sqrt(3)r[3,1] x[3,2]-sqrt(3)r[3,2] -2x[3,3]            ]
