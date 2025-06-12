@@ -16,6 +16,8 @@ build_bfm!
 BranchFlowModel.add_bfm_variables
 BranchFlowModel.add_sdp_variables
 BranchFlowModel.add_linear_variables
+BranchFlowModel.add_vsqrd_variables
+BranchFlowModel.add_isqrd_variables
 ```
 
 ## Constraint builders
@@ -25,6 +27,8 @@ BranchFlowModel.constrain_KVL
 BranchFlowModel.constrain_bfm_nlp
 BranchFlowModel.constrain_linear_power_balance
 BranchFlowModel.constrain_KVL_linear
+BranchFlowModel.constrain_power_balance_with_isqrd_losses
+BranchFlowModel.constrain_bilinear
 ```
 
 ## Other

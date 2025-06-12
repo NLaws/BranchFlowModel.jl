@@ -5,15 +5,37 @@ including single phase and multiphase models. Each of the model types supported 
 Pages = ["single_phase_models.md"]
 Depth = 3
 ```
+```@setup imports
+using BranchFlowModel
+using CommonOPF
+using JuMP
+```
 
-## Angle relaxation
-From [[Farivar and Low]](@ref)
 
-Let `m` be the JuMP.Model provided by the user, then the variables can be accessed via:
-- `m[:vsqrd]` voltage magnitude squared, indexed on busses
-- `m[:p0], m[:q0]` net real, reactive power injection at the substation bus
-- `m[:pij], m[:qij]` net real, reactive line flow, indexed on edges
-- `m[:lij]` current magnitude squared, indexed on edges
+## `AngleRelaxation`
+The `Unrelaxed` multiphase model is build by passing a `JuMP.Model`, `Network{SinglePhase}`, and the
+`AngleRelaxation` type to [`build_bfm!`](@ref).
+
+```@example imports
+net = CommonOPF.Network_IEEE13_SinglePhase()
+m = JuMP.Model()
+
+build_bfm!(m, net, AngleRelaxation)
+println("Variable information:")
+CommonOPF.print_var_info(net)
+println("Constraint information:")
+CommonOPF.print_constraint_info(net)
+```
+
+The [`build_bfm!](@ref) method uses:
+- [`BranchFlowModel.add_linear_variables`](@ref)
+- [`BranchFlowModel.add_vsqrd_variables`](@ref)
+- [`BranchFlowModel.add_isqrd_variables`](@ref)
+- [`BranchFlowModel.constrain_power_balance_with_isqrd_losses`](@ref)
+- [`BranchFlowModel.constrain_KVL`](@ref)
+- [`BranchFlowModel.constrain_bilinear`](@ref)
+
+The math underlying the model is as follows [[Farivar and Low]](@ref):
 
 ```math
 \begin{aligned}
@@ -32,6 +54,7 @@ Let `m` be the JuMP.Model provided by the user, then the variables can be access
 \end{aligned}
 ```
 
+
 ## `SecondOrderCone` models
 ```math
 \begin{aligned}
@@ -49,6 +72,7 @@ Let `m` be the JuMP.Model provided by the user, then the variables can be access
     & \ell_{ij} \geq \frac{p_{ij}^2 + q_{ij}^2}{w_i} \quad \forall (i, j) \in \mathcal{E}
 \end{aligned}
 ```
+
 
 ## `Linear` models
 The single phase "LinDistFlow" model from [[Baran and Wu]](@ref)

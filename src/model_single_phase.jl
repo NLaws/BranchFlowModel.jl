@@ -104,6 +104,12 @@ function add_linear_variables(m, net::Network{SinglePhase})
 end
 
 
+"""
+    add_vsqrd_variables(m, net::Network{SinglePhase})
+
+Add `m[:vsqrd]` time vectdor variables.
+Applies upper/lower bounds if the `net.bounds.v_lower/upper_mag` are not missing.
+"""
 function add_vsqrd_variables(m, net::Network{SinglePhase})
     bs = collect(busses(net))
 
@@ -127,6 +133,11 @@ function add_vsqrd_variables(m, net::Network{SinglePhase})
 end
 
 
+"""
+    add_isqrd_variables(m, net::Network{SinglePhase})
+
+Add `m[:lij]` time vector variables with a lower bound of zero.
+"""
 function add_isqrd_variables(m, net::Network{SinglePhase})
     es = collect(edges(net))
 
@@ -136,12 +147,12 @@ function add_isqrd_variables(m, net::Network{SinglePhase})
         JuMP.set_lower_bound.(m[:lij][edge], 0.0)
     end
 
+    # TODO upper bounds
     # @constraint(m, [edge in net.edge_keys, t in T],
     #     lij[edge, t] <= net.amps_limit[edge]
     # )
 
     nothing
-
 end
 
 
@@ -368,6 +379,11 @@ function constrain_power_balance_linear(m, net::Network{SinglePhase})
 end
 
 
+"""
+    constrain_substation_voltage(m, net::Network{SinglePhase})
+
+Constrain `m[:vsqrd][net.substation_bus]` to `net.v0^2` (or `net.v0[t]^2` if `net.v0` is not `Real`)
+"""
 function constrain_substation_voltage(m, net::Network{SinglePhase})
     if typeof(net.v0) <: Real
         @constraint(m, con_substationV[t = 1:net.Ntimesteps],
@@ -382,6 +398,14 @@ function constrain_substation_voltage(m, net::Network{SinglePhase})
 end
 
 
+"""
+    constrain_KVL(m, net::Network{SinglePhase})
+
+```math
+w_{j} = w_{i} - 2 (p_{ij} r_{ij} + q_{ij} x_{ij}) + (r_{ij}^2 + x_{ij}^2) \\ell_{ij} 
+\\quad \\forall (i, j) \\in \\mathcal{E}
+```
+"""
 function constrain_KVL(m, net::Network{SinglePhase})
     w = m[:vsqrd]
     P = m[:pij]
@@ -416,6 +440,13 @@ function constrain_KVL(m, net::Network{SinglePhase})
 end
 
 
+"""
+    constrain_KVL_linear(m, net::Network{SinglePhase})
+
+```math
+w_j = w_i - 2 r_{ij} P_{ij} - 2 x_{ij} Q_{ij} \\quad \\forall j \\in \\mathcal{N}
+```
+"""
 function constrain_KVL_linear(m, net::Network{SinglePhase})
     w = m[:vsqrd]
     P = m[:pij]
@@ -448,6 +479,13 @@ function constrain_KVL_linear(m, net::Network{SinglePhase})
 end
 
 
+"""
+    constrain_cone(m, net::Network{SinglePhase})
+
+```math
+\\ell_{ij} \\geq \\frac{p_{ij}^2 + q_{ij}^2}{w_i} \\quad \\forall (i, j) \\in \\mathcal{E}
+```
+"""
 function constrain_cone(m, net::Network{SinglePhase})
     w = m[:vsqrd]
     P = m[:pij]
@@ -467,6 +505,14 @@ function constrain_cone(m, net::Network{SinglePhase})
 end
 
 
+"""
+    constrain_bilinear(m, net::Network{SinglePhase})
+
+```math
+w_i \\ell_{ij} = p_{ij}^2 + q_{ij}^2 \\quad \\forall (i, j) \\in \\mathcal{E}
+
+```
+"""
 function constrain_bilinear(m, net::Network{SinglePhase})
     w = m[:vsqrd]
     P = m[:pij]
