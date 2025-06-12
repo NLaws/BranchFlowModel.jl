@@ -13,7 +13,7 @@ MetaGraphsNext = "fa8bd995-216d-47f1-8a91-f3b68fbeb377"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-CommonOPF = "0.4.5"
+CommonOPF = "0.4.6"
 Graphs = "1.8"
 JSON = "0.21"
 JuMP = "1"

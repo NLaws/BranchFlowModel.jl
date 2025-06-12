@@ -1,6 +1,8 @@
 # BranchFlowModel Changelog
 
 ## dev
+- upgrade CommonOPF to v0.4.6
+- ported the multiphase LinDistFlow validation test from LinDistFlow.jl
 - refactored and added symbols used to store constraint references in the `JuMP.Model`
     - `:kvl` -> `:kvl_constraints`
         - these were erroneously indexed on busses instead of edges

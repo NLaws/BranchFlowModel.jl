@@ -69,6 +69,7 @@ end
     end
 
     m = Model(Ipopt.Optimizer)
+    set_optimizer_attribute(m, "print_level", 0)
 
     build_bfm!(m, net, Linear)
 

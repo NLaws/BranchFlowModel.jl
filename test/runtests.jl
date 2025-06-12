@@ -119,7 +119,7 @@ include("test_linear.jl")
 include("test_nlp.jl")
 
 
-@testset "multiphase KVL" begin
+@testset "multiphase Semidefinite" begin
 
     # simple min loss model
     net = CPF.Network(joinpath("data", "two_line_multi_phase.yaml"))
@@ -183,7 +183,7 @@ include("test_nlp.jl")
 end
 
 
-@testset "Papavasiliou 2018 single phase SOCP with shunts" begin
+@testset "Papavasiliou 2018 single phase SecondOrderCone with shunts" begin
     #=
     Copied network from paper "Analysis of DLMPs"
     and testing some DLMP values here as well as the addition of shunt susceptance values
@@ -273,7 +273,7 @@ end
 end
 
 
-@testset "ieee13 balanced SinglePhase" begin
+@testset "ieee13 SinglePhase Unrelaxed with and without decomposition" begin
 
     # make the dss solution to compare
     dssfilepath = "data/ieee13_makePosSeq/Master.dss"
@@ -336,7 +336,7 @@ end
 end
 
 
-@testset "basic two-line multiphase" begin
+@testset "basic two-line multiphase Semidefinite and Unrelaxed" begin
     net = CPF.Network(joinpath("data", "two_line_multi_phase.yaml"))
     net.bounds.i_upper_mag = 15 * net.Sbase / net.Vbase
 
@@ -391,9 +391,7 @@ end
     m = Model(Ipopt.Optimizer)
     set_optimizer_attribute(m, "print_level", 0)
 
-    BranchFlowModel.add_bfm_variables(m, net)
-
-    BranchFlowModel.constrain_bfm_nlp(m, net)
+    build_bfm!(m, net, Unrelaxed)
 
     @objective(m, Min, 
         sum( 
@@ -431,7 +429,7 @@ end
 end
 
 
-@testset "ieee13 unbalanced MultiPhase SDP" begin
+@testset "ieee13 unbalanced MultiPhase Semidefinite" begin
     # was testing no load (commented out stuff), now light load but with voltage tol of 2%
 
     dssfilepath = "data/ieee13/IEEE13_simple_light_load.dss"
@@ -521,6 +519,7 @@ end
             push!(errors, phsv - dss_voltages[b][i])
         end
     end
+    # TODO bug(s) or this is what you get with SDP?
     # println(minimum(errors))  # -0.008688
     # println(maximum(errors))  # 0.01114777
     # get the same min/max errors with Mosek
@@ -528,7 +527,7 @@ end
 end
 
 
-@testset "SinglePhase network reduction" begin
+@testset "SinglePhase Unrelaxed network reduction and decomposition" begin
     # confirm that optimal results do not change
 
     # 1 validate BFM against OpenDSS
@@ -697,7 +696,7 @@ end
 end
 
 
-@testset "Single phase regulators at network splits" begin
+@testset "SinglePhase Unrelaxed decomposition with regulators at network splits" begin
 
     dssfilepath = "data/singlephase38lines/master_extra_trfx.dss"
     net = CPF.dss_to_Network(dssfilepath)
