@@ -1,4 +1,4 @@
-@testset "NLP" begin
+@testset "Multiphase NLP" begin
     dssfilepath = "data/ieee13/IEEE13Nodeckt_no_trfxs.dss"
     net = BranchFlowModel.CommonOPF.dss_to_Network(dssfilepath)
 

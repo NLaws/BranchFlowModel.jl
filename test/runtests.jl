@@ -27,7 +27,7 @@ Random.seed!(42)
 
 function build_single_phase_min_loss_model(net::CPF.Network{CPF.SinglePhase})
     m = Model(Ipopt.Optimizer)
-    BranchFlowModel.build_bfm!(m, net, Unrelaxed)
+    BranchFlowModel.build_bfm!(m, net, AngleRelaxation)
     @objective(m, Min, 
         sum( 
             m[:lij][i_j][t] for t in 1:net.Ntimesteps, i_j in CPF.edges(net)
@@ -273,7 +273,7 @@ end
 end
 
 
-@testset "ieee13 SinglePhase Unrelaxed with and without decomposition" begin
+@testset "ieee13 SinglePhase AngleRelaxation with and without decomposition" begin
 
     # make the dss solution to compare
     dssfilepath = "data/ieee13_makePosSeq/Master.dss"
@@ -527,7 +527,7 @@ end
 end
 
 
-@testset "SinglePhase Unrelaxed network reduction and decomposition" begin
+@testset "SinglePhase AngleRelaxation network reduction and decomposition" begin
     # confirm that optimal results do not change
 
     # 1 validate BFM against OpenDSS
@@ -696,7 +696,7 @@ end
 end
 
 
-@testset "SinglePhase Unrelaxed decomposition with regulators at network splits" begin
+@testset "SinglePhase AngleRelaxation decomposition with regulators at network splits" begin
 
     dssfilepath = "data/singlephase38lines/master_extra_trfx.dss"
     net = CPF.dss_to_Network(dssfilepath)

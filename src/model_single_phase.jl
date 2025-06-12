@@ -1,15 +1,15 @@
 """
-    build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, mtype::ModelType=Unrelaxed)
+    build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, mtype::ModelType=AngleRelaxation)
 
 Top-level single phase builder that dispatches the ModelType enum
 """
-function build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, mtype::ModelType=Unrelaxed)
+function build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, mtype::ModelType=AngleRelaxation)
     build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, Val(mtype))
 end
 
 
 """
-    build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, ::Val{Unrelaxed})
+    build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, ::Val{AngleRelaxation})
 
 Add variables and constraints to `m` using the values in `net`. Calls the following functions:
 ```julia
@@ -22,8 +22,7 @@ constrain_KVL(m, net)
 constrain_bilinear(m, net)
 ```
 """
-function build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, ::Val{Unrelaxed})
-    # TODO the Unrelaxed model has the angle relaxation, should have both unrelaxed and with angle relaxation?
+function build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, ::Val{AngleRelaxation})
     add_linear_variables(m, net)
     add_vsqrd_variables(m, net)
     add_isqrd_variables(m, net)

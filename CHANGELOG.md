@@ -2,6 +2,7 @@
 
 ## dev
 - upgrade CommonOPF to v0.4.6
+- SinglePhase `Unrelaxed` model is now `AngleRelaxation` (as it should be)
 - ported the multiphase LinDistFlow validation test from LinDistFlow.jl
 - refactored and added symbols used to store constraint references in the `JuMP.Model`
     - `:kvl` -> `:kvl_constraints`

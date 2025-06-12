@@ -9,18 +9,21 @@ using JSON
 import SparseArrays: sparse
 
 # use the same version of MathOptInterface as CommonOPF
+# TODO JuMP exports MOI?
 const MOI = CommonOPF.MOI
 """
     ModelType
 
 An enum with values:
 1. `Unrelaxed`
-2. `Semidefinite`
-3. `SecondOrderCone`
-4. `Linear`
+2. `AngleRelaxation`
+3. `Semidefinite`
+4. `SecondOrderCone`
+5. `Linear`
 """
 @enum ModelType begin
     Unrelaxed
+    AngleRelaxation
     Semidefinite
     SecondOrderCone
     Linear  # TODO mv LinDistFlow into BranchFlowModel
@@ -56,6 +59,7 @@ export
 
     # ModelType
     Unrelaxed,
+    AngleRelaxation,
     Semidefinite,
     SecondOrderCone,  # JuMP also exports SecondOrderCone
     Linear,
