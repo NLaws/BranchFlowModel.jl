@@ -14,7 +14,6 @@ makedocs(
         "Variables" => "variables.md",
         "Constraints" => "constraints.md",
         "Methods" => "methods.md",
-        "Math" => "math.md"
     ],
     warnonly = true,  # TODO rm this and fix all the docs
 )
