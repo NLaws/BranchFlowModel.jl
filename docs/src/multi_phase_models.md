@@ -3,7 +3,7 @@ BranchFlowModel.jl provides methods to build many different variations of the Br
 including single phase and multiphase models. Each of the model types supported are documented below.
 ```@contents
 Pages = ["multi_phase_models.md"]
-Depth = 3
+Depth = 2
 ```
 ```@setup imports
 using BranchFlowModel
@@ -13,7 +13,7 @@ using JuMP
 
 
 ## `Unrelaxed` models
-The `Unrelaxed` multiphase model is build by passing a `JuMP.Model`, `Network{MultiPhase}`, and the
+The `Unrelaxed` multiphase model is built by passing a `JuMP.Model`, `Network{MultiPhase}`, and the
 `Unrelaxed` type to [`build_bfm!`](@ref).
 
 ```@example imports
@@ -51,7 +51,7 @@ For the nomenclature see TODO.
 
 
 ## `Semidefinite` models
-The `Semidefinite` multiphase model is build by passing a `JuMP.Model`, `Network{MultiPhase}`, and the
+The `Semidefinite` multiphase model is built by passing a `JuMP.Model`, `Network{MultiPhase}`, and the
 `Semidefinite` type to [`build_bfm!`](@ref).
 
 
@@ -72,7 +72,7 @@ The [`build_bfm!](@ref) method uses:
 - [`BranchFlowModel.constrain_power_balance`](@ref)
 
 ## `Linear` models
-The `Linear` multiphase model is build by passing a `JuMP.Model`, `Network{MultiPhase}`, and the
+The `Linear` multiphase model is built by passing a `JuMP.Model`, `Network{MultiPhase}`, and the
 `Linear` type to [`build_bfm!`](@ref).
 
 ```@example imports

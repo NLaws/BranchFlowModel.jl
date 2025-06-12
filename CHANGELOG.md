@@ -2,12 +2,14 @@
 
 ## dev
 - upgrade CommonOPF to v0.4.6
+- refactor `SecondOrderCone` -> `SOC` to avoid collision with `JuMP.SecondOrderCone`
 - SinglePhase `Unrelaxed` model is now `AngleRelaxation` (as it should be)
 - ported the multiphase LinDistFlow validation test from LinDistFlow.jl
 - refactored and added symbols used to store constraint references in the `JuMP.Model`
     - `:kvl` -> `:kvl_constraints`
         - these were erroneously indexed on busses instead of edges
     - `:loadbalcons` -> `:power_balance_constraints`
+        - also changed the `"p"` and `"q"` keys to `:real` and `:reactive`
     - add `:sending_power_flow_constraints`
 - added `net.var_info` and `net.constraint_info` for multiphase models and improved docs
 - stopped exporting the variable and constraint builder methods

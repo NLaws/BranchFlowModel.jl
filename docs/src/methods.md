@@ -29,6 +29,8 @@ BranchFlowModel.constrain_linear_power_balance
 BranchFlowModel.constrain_KVL_linear
 BranchFlowModel.constrain_power_balance_with_isqrd_losses
 BranchFlowModel.constrain_bilinear
+BranchFlowModel.constrain_substation_voltage
+BranchFlowModel.constrain_cone
 ```
 
 ## Other

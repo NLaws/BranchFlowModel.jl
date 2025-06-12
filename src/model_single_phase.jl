@@ -34,7 +34,7 @@ end
 
 
 """
-    build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, ::Val{SecondOrderCone})
+    build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, ::Val{SOC})
 
 Add variables and constraints to `m` using the values in `net`. Calls the following functions:
 ```julia
@@ -47,7 +47,7 @@ constrain_KVL(m, net)
 constrain_cone(m, net)
 ```
 """
-function build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, ::Val{SecondOrderCone})
+function build_bfm!(m::JuMP.AbstractModel, net::Network{SinglePhase}, ::Val{SOC})
     add_linear_variables(m, net)
     add_vsqrd_variables(m, net)
     add_isqrd_variables(m, net)
@@ -89,7 +89,7 @@ Add variables for the single-phase, linear model:
 - `p0` and `q0` slack bus power
 """
 function add_linear_variables(m, net::Network{SinglePhase})
-    es = collect(edges(net))
+    es = edges(net)
     
     # line flows, net power sent from i to j
     CommonOPF.add_time_vector_variables!(m, net, :pij, es)
@@ -99,6 +99,20 @@ function add_linear_variables(m, net::Network{SinglePhase})
     # slack bus variables
     @variable(m, p0[1:net.Ntimesteps])
     @variable(m, q0[1:net.Ntimesteps])
+
+    net.var_info[:pij] = CommonOPF.VariableInfo(
+        :pij,
+        "sending end real power from bus i to j",
+        CommonOPF.RealPowerUnit,
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension)
+    )
+
+    net.var_info[:qij] = CommonOPF.VariableInfo(
+        :qij,
+        "sending end reactive power from bus i to j",
+        CommonOPF.ReactivePowerUnit,
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension)
+    )
 
     nothing
 end
@@ -111,7 +125,7 @@ Add `m[:vsqrd]` time vectdor variables.
 Applies upper/lower bounds if the `net.bounds.v_lower/upper_mag` are not missing.
 """
 function add_vsqrd_variables(m, net::Network{SinglePhase})
-    bs = collect(busses(net))
+    bs = busses(net)
 
     # TODO warn when applying power injection lower bounds and SDP, radial b/c for radial
     # networks with power injections unbounded below (voltage angle relaxation) the SOCP (more
@@ -129,6 +143,13 @@ function add_vsqrd_variables(m, net::Network{SinglePhase})
     end
     # TODO more bounds in a centralized fashion
 
+    net.var_info[:vsqrd] = CommonOPF.VariableInfo(
+        :vsqrd,
+        "voltage magnitude squared",
+        CommonOPF.VoltSquaredUnit,
+        (CommonOPF.BusDimension, CommonOPF.TimeDimension)
+    )
+
     nothing
 end
 
@@ -139,7 +160,7 @@ end
 Add `m[:lij]` time vector variables with a lower bound of zero.
 """
 function add_isqrd_variables(m, net::Network{SinglePhase})
-    es = collect(edges(net))
+    es = edges(net)
 
     # current squared (non-negative)
     CommonOPF.add_time_vector_variables!(m, net, :lij, es)
@@ -151,6 +172,13 @@ function add_isqrd_variables(m, net::Network{SinglePhase})
     # @constraint(m, [edge in net.edge_keys, t in T],
     #     lij[edge, t] <= net.amps_limit[edge]
     # )
+
+    net.var_info[:lij] = CommonOPF.VariableInfo(
+        :lij,
+        "current magnitude squared on edge i-j",
+        CommonOPF.AmpSquaredUnit,
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension)
+    )
 
     nothing
 end
@@ -198,50 +226,42 @@ function constrain_power_balance_with_isqrd_losses(m, net::Network{SinglePhase})
             var = net[j][:Capacitor].var
         end
 
-        # check for loads
-        pj = zeros(net.Ntimesteps)
-        qj = zeros(net.Ntimesteps)
-        if j in real_load_busses(net)
-            pj = -net[j][:Load].kws1 * 1e3 / net.Sbase
-        end
-        if j in reactive_load_busses(net)
-            qj = -net[j][:Load].kvars1 * 1e3 / net.Sbase
-        end
+        # known net power injections
+        sj = sj_per_unit(j, net)
+        pj, qj = real(sj), imag(sj)
 
         # define the constraints
         # source nodes, injection = flows out
         if isempty(i_to_j(j, net)) && !isempty(j_to_k(j, net))
 
             if j == net.substation_bus  # include the slack power variables
-                m[:power_balance_constraints][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
+                m[:power_balance_constraints][j][:real] = @constraint(m, [t = 1:net.Ntimesteps],
                     m[:p0][t] + pj[t] - sum( pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
                 )
-                m[:power_balance_constraints][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
+                m[:power_balance_constraints][j][:reactive] = @constraint(m, [t = 1:net.Ntimesteps],
                     m[:q0][t] + qj[t] - sum( qij[(j,k)][t] for k in j_to_k(j, net) ) == 0 
                 )
             else  # a source node with known injection
-                m[:power_balance_constraints][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
+                m[:power_balance_constraints][j][:real] = @constraint(m, [t = 1:net.Ntimesteps],
                     pj[t] - sum( pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
                 )
-                m[:power_balance_constraints][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
+                m[:power_balance_constraints][j][:reactive] = @constraint(m, [t = 1:net.Ntimesteps],
                     qj[t] - sum( qij[(j,k)][t] for k in j_to_k(j, net) ) == 0
                 )
             end
         
         # unconnected nodes (should not exist so we warn)
         elseif isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
-            @warn "Bus $j has no edges, setting power_balance_constraints to zero."
-            m[:power_balance_constraints][j]["p"] = zeros(net.Ntimesteps)
-            m[:power_balance_constraints][j]["q"] = zeros(net.Ntimesteps)
+            @warn "Bus $j has no edges, not defining power_balance_constraints"
 
         # leaf nodes / sinks, flows in = draw out
         elseif !isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
-            m[:power_balance_constraints][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
+            m[:power_balance_constraints][j][:real] = @constraint(m, [t = 1:net.Ntimesteps],
                 sum( pij[(i,j)][t] for i in i_to_j(j, net) )
                 - sum( lij[(i,j)][t] * rij_per_unit(i,j,net) for i in i_to_j(j, net) ) 
                 + pj[t] == 0
             )
-            m[:power_balance_constraints][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
+            m[:power_balance_constraints][j][:reactive] = @constraint(m, [t = 1:net.Ntimesteps],
                 sum( qij[(i,j)][t] for i in i_to_j(j, net) )
                 - sum( lij[(i,j)][t] * xij_per_unit(i,j,net) for i in i_to_j(j, net) )
                 - shunt_susceptance * m[:vsqrd][j][t]
@@ -250,13 +270,13 @@ function constrain_power_balance_with_isqrd_losses(m, net::Network{SinglePhase})
         
         # intermediate nodes
         else
-            m[:power_balance_constraints][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
+            m[:power_balance_constraints][j][:real] = @constraint(m, [t = 1:net.Ntimesteps],
                 sum( pij[(i,j)][t] for i in i_to_j(j, net) )
                 - sum( lij[(i,j)][t] * rij_per_unit(i,j,net) for i in i_to_j(j, net) ) 
                 - sum( pij[(j,k)][t] for k in j_to_k(j, net) )
                 + pj[t] == 0
             )
-            m[:power_balance_constraints][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
+            m[:power_balance_constraints][j][:reactive] = @constraint(m, [t = 1:net.Ntimesteps],
                 sum( qij[(i,j)][t] for i in i_to_j(j, net) ) 
                 - sum( lij[(i,j)][t] * xij_per_unit(i,j,net) for i in i_to_j(j, net) )
                 - sum( qij[(j,k)][t] for k in j_to_k(j, net) ) 
@@ -266,6 +286,19 @@ function constrain_power_balance_with_isqrd_losses(m, net::Network{SinglePhase})
         end
     end
 
+    # document the constraints
+    b = busses(net)[1]
+    c = m[:power_balance_constraints][b][:real][1]  # time step 1
+    net.constraint_info[:power_balance_constraints] = CommonOPF.ConstraintInfo(
+        :power_balance_constraints,
+        "Real and reactive power balance at each bus",
+        MOI.get(m, MOI.ConstraintSet(), c),
+        (
+            CommonOPF.BusDimension, 
+            CommonOPF.RealReactiveDimension, 
+            CommonOPF.TimeDimension
+        ),
+    )
     nothing
 end
 
@@ -311,49 +344,41 @@ function constrain_power_balance_linear(m, net::Network{SinglePhase})
             var = net[j][:Capacitor].var
         end
 
-        # check for loads
-        pj = zeros(net.Ntimesteps)
-        qj = zeros(net.Ntimesteps)
-        if j in real_load_busses(net)
-            pj = -net[j][:Load].kws1 * 1e3 / net.Sbase
-        end
-        if j in reactive_load_busses(net)
-            qj = -net[j][:Load].kvars1 * 1e3 / net.Sbase
-        end
+        # known net power injections
+        sj = sj_per_unit(j, net)
+        pj, qj = real(sj), imag(sj)
 
         # define the constraints
         # source nodes, injection = flows out
         if isempty(i_to_j(j, net)) && !isempty(j_to_k(j, net))
 
             if j == net.substation_bus  # include the slack power variables
-                m[:power_balance_constraints][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
+                m[:power_balance_constraints][j][:real] = @constraint(m, [t = 1:net.Ntimesteps],
                     m[:p0][t] + pj[t] - sum( pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
                 )
-                m[:power_balance_constraints][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
+                m[:power_balance_constraints][j][:reactive] = @constraint(m, [t = 1:net.Ntimesteps],
                     m[:q0][t] + qj[t] - sum( qij[(j,k)][t] for k in j_to_k(j, net) ) == 0 
                 )
             else  # a source node with known injection
-                m[:power_balance_constraints][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
+                m[:power_balance_constraints][j][:real] = @constraint(m, [t = 1:net.Ntimesteps],
                     pj[t] - sum( pij[(j,k)][t] for k in j_to_k(j, net) ) == 0
                 )
-                m[:power_balance_constraints][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
+                m[:power_balance_constraints][j][:reactive] = @constraint(m, [t = 1:net.Ntimesteps],
                     qj[t] - sum( qij[(j,k)][t] for k in j_to_k(j, net) ) == 0
                 )
             end
         
         # unconnected nodes (should not exist so we warn)
         elseif isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
-            @warn "Bus $j has no edges, setting power_balance_constraints to zero."
-            m[:power_balance_constraints][j]["p"] = zeros(net.Ntimesteps)
-            m[:power_balance_constraints][j]["q"] = zeros(net.Ntimesteps)
+            @warn "Bus $j has no edges, not defining power_balance_constraints"
 
         # leaf nodes / sinks, flows in = draw out
         elseif !isempty(i_to_j(j, net)) && isempty(j_to_k(j, net))
-            m[:power_balance_constraints][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
+            m[:power_balance_constraints][j][:real] = @constraint(m, [t = 1:net.Ntimesteps],
                 sum( pij[(i,j)][t] for i in i_to_j(j, net) )
                 + pj[t] == 0
             )
-            m[:power_balance_constraints][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
+            m[:power_balance_constraints][j][:reactive] = @constraint(m, [t = 1:net.Ntimesteps],
                 sum( qij[(i,j)][t] for i in i_to_j(j, net) )
                 - shunt_susceptance * m[:vsqrd][j][t]
                 + qj[t] + var == 0
@@ -361,12 +386,12 @@ function constrain_power_balance_linear(m, net::Network{SinglePhase})
         
         # intermediate nodes
         else
-            m[:power_balance_constraints][j]["p"] = @constraint(m, [t = 1:net.Ntimesteps],
+            m[:power_balance_constraints][j][:real] = @constraint(m, [t = 1:net.Ntimesteps],
                 sum( pij[(i,j)][t] for i in i_to_j(j, net) )
                 - sum( pij[(j,k)][t] for k in j_to_k(j, net) )
                 + pj[t] == 0
             )
-            m[:power_balance_constraints][j]["q"] = @constraint(m, [t = 1:net.Ntimesteps],
+            m[:power_balance_constraints][j][:reactive] = @constraint(m, [t = 1:net.Ntimesteps],
                 sum( qij[(i,j)][t] for i in i_to_j(j, net) ) 
                 - sum( qij[(j,k)][t] for k in j_to_k(j, net) ) 
                 - shunt_susceptance * m[:vsqrd][j][t]
@@ -374,6 +399,20 @@ function constrain_power_balance_linear(m, net::Network{SinglePhase})
             )
         end
     end
+
+    # document the constraints
+    b = busses(net)[1]
+    c = m[:power_balance_constraints][b][:real][1]  # time step 1
+    net.constraint_info[:power_balance_constraints] = CommonOPF.ConstraintInfo(
+        :power_balance_constraints,
+        "Real and reactive power balance at each bus",
+        MOI.get(m, MOI.ConstraintSet(), c),
+        (
+            CommonOPF.BusDimension, 
+            CommonOPF.RealReactiveDimension, 
+            CommonOPF.TimeDimension
+        ),
+    )
 
     nothing
 end
@@ -411,13 +450,13 @@ function constrain_KVL(m, net::Network{SinglePhase})
     P = m[:pij]
     Q = m[:qij]
     l = m[:lij]
-    m[:vcons] = Dict()
+    m[:kvl_constraints] = Dict()
     for j in busses(net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
             if !( isa(net[(i,j)], CommonOPF.VoltageRegulator) )
                 rᵢⱼ = rij_per_unit(i,j,net)
                 xᵢⱼ = xij_per_unit(i,j,net)
-                m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
+                m[:kvl_constraints][(i,j)] = @constraint(m, [t = 1:net.Ntimesteps],
                     w[j][t] == w[i][t]
                         - 2*(rᵢⱼ * P[(i,j)][t] + xᵢⱼ * Q[(i,j)][t])
                         + (rᵢⱼ^2 + xᵢⱼ^2) * l[(i,j)][t]
@@ -425,17 +464,27 @@ function constrain_KVL(m, net::Network{SinglePhase})
             else
                 reg = net[(i,j)]
                 if !ismissing(reg.vreg_pu)
-                    m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
+                    m[:kvl_constraints][(i,j)] = @constraint(m, [t = 1:net.Ntimesteps],
                         w[j][t] == reg.vreg_pu^2
                     )
                 else  # use turn ratio
-                    m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
+                    m[:kvl_constraints][(i,j)] = @constraint(m, [t = 1:net.Ntimesteps],
                         w[j][t] == w[i][t] * reg.turn_ratio^2 
                     )
                 end
             end
         end
     end
+
+    # document the constraints
+    e = edges(net)[1]
+    c = m[:kvl_constraints][e][1]  # time step 1
+    net.constraint_info[:kvl_constraints] = CommonOPF.ConstraintInfo(
+        :kvl_constraints,
+        "Kirchoff's Voltage Law squared (using V^2 and I^2)",
+        MOI.get(m, MOI.ConstraintSet(), c),
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension),
+    )
     nothing
 end
 
@@ -451,30 +500,40 @@ function constrain_KVL_linear(m, net::Network{SinglePhase})
     w = m[:vsqrd]
     P = m[:pij]
     Q = m[:qij]
-    m[:vcons] = Dict()
+    m[:kvl_constraints] = Dict()
     for j in busses(net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
             if !( isa(net[(i,j)], CommonOPF.VoltageRegulator) )
                 rᵢⱼ = rij_per_unit(i,j,net)
                 xᵢⱼ = xij_per_unit(i,j,net)
-                m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
+                m[:kvl_constraints][(i,j)] = @constraint(m, [t = 1:net.Ntimesteps],
                     w[j][t] == w[i][t]
                         - 2*(rᵢⱼ * P[(i,j)][t] + xᵢⱼ * Q[(i,j)][t])
                 )
             else
                 reg = net[(i,j)]
                 if !ismissing(reg.vreg_pu)
-                    m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
+                    m[:kvl_constraints][(i,j)] = @constraint(m, [t = 1:net.Ntimesteps],
                         w[j][t] == reg.vreg_pu^2
                     )
                 else  # use turn ratio
-                    m[:vcons][j] = @constraint(m, [t = 1:net.Ntimesteps],
+                    m[:kvl_constraints][(i,j)] = @constraint(m, [t = 1:net.Ntimesteps],
                         w[j][t] == w[i][t] * reg.turn_ratio^2 
                     )
                 end
             end
         end
     end
+
+    # document the constraints
+    e = edges(net)[1]
+    c = m[:kvl_constraints][e][1]  # time step 1
+    net.constraint_info[:kvl_constraints] = CommonOPF.ConstraintInfo(
+        :kvl_constraints,
+        "Kirchoff's Voltage Law squared w/o I^2 term",
+        MOI.get(m, MOI.ConstraintSet(), c),
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension),
+    )
     nothing
 end
 

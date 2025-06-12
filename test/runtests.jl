@@ -183,7 +183,7 @@ include("test_nlp.jl")
 end
 
 
-@testset "Papavasiliou 2018 single phase SecondOrderCone with shunts" begin
+@testset "Papavasiliou 2018 single phase SOC with shunts" begin
     #=
     Copied network from paper "Analysis of DLMPs"
     and testing some DLMP values here as well as the addition of shunt susceptance values
@@ -206,20 +206,20 @@ end
     set_optimizer_attribute(m_net, "maxit", 10000)
     set_optimizer_attribute(m_net, "verbose", 0)
     set_optimizer_attribute(m_net, "reltol", 1e-7)
-    build_bfm!(m_net, net, BranchFlowModel.SecondOrderCone)
+    build_bfm!(m_net, net, BranchFlowModel.SOC)
 
     function add_generator_at_bus_11_net!(m)
         b = "11"
         @variable(m, 0.4 >= pgen11 >= 0)
         @variable(m, 0.4 >= qgen11 >= 0)
-        JuMP.delete.(m, m[:power_balance_constraints][b]["p"])
-        m[:power_balance_constraints][b]["p"] = @constraint(m, 
+        JuMP.delete.(m, m[:power_balance_constraints][b][:real])
+        m[:power_balance_constraints][b][:real] = @constraint(m, 
             sum( m[:pij][(i,b)][1] for i in i_to_j(b, net) )
             - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
             + pgen11 - net[b][:Load].kws1[1] == 0
         )
-        JuMP.delete.(m, m[:power_balance_constraints][b]["q"])
-        m[:power_balance_constraints][b]["q"] = @constraint(m, 
+        JuMP.delete.(m, m[:power_balance_constraints][b][:reactive])
+        m[:power_balance_constraints][b][:reactive] = @constraint(m, 
             sum( m[:pij][(i,b)][1] for i in i_to_j(b, net) )
             - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
             + qgen11 - net[b][:Load].kvars1[1] == 0
@@ -249,7 +249,7 @@ end
     # so set load at 7 to zero
     net["7"][:Load].kws1 = [0.0]
 
-    build_bfm!(m, net, BranchFlowModel.SecondOrderCone)
+    build_bfm!(m, net, BranchFlowModel.SOC)
 
     add_generator_at_bus_11_net!(m)
 
@@ -258,7 +258,7 @@ end
     )
     optimize!(m)
     shadow_prices = Dict(
-        j => JuMP.dual.(m[:power_balance_constraints][j]["p"])
+        j => JuMP.dual.(m[:power_balance_constraints][j][:real])
         for j in busses(net)
     )
 

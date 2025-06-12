@@ -50,7 +50,7 @@ function add_linear_variables(m, net::Network{MultiPhase})
     net.var_info[:vsqrd] = CommonOPF.VariableInfo(
         :vsqrd,
         "voltage magnitude squared",
-        CommonOPF.VoltUnit,
+        CommonOPF.VoltSquaredUnit,
         (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension)
     )
 
@@ -272,7 +272,7 @@ function constrain_KVL_linear(m, net::Network{MultiPhase})
     c = m[:kvl_constraints][e][1][phs]  # time step 1
     net.constraint_info[:kvl_constraints] = CommonOPF.ConstraintInfo(
         :kvl_constraints,
-        "Kirchoff's Voltage Law linear version",
+        "Kirchoff's Voltage Law w/o I^2 term",
         MOI.get(m, MOI.ConstraintSet(), c),
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension),
     )

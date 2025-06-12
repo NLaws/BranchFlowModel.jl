@@ -18,15 +18,18 @@ An enum with values:
 1. `Unrelaxed`
 2. `AngleRelaxation`
 3. `Semidefinite`
-4. `SecondOrderCone`
+4. `SOC`  
 5. `Linear`
+
+!!! note
+    JuMP exports `SecondOrderCone` so we abbreviate it as `SOC`.
 """
 @enum ModelType begin
     Unrelaxed
     AngleRelaxation
     Semidefinite
-    SecondOrderCone
-    Linear  # TODO mv LinDistFlow into BranchFlowModel
+    SOC
+    Linear
 end
 
 
@@ -61,7 +64,7 @@ export
     Unrelaxed,
     AngleRelaxation,
     Semidefinite,
-    SecondOrderCone,  # JuMP also exports SecondOrderCone
+    SOC,  # JuMP also exports SOC
     Linear,
 
     # MetaGraphsNext

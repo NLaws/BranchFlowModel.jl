@@ -1,30 +1,41 @@
 
 # Accessing and Modifying Constraints
 Let the JuMP.Model provided by the user be called `m`. 
-Some constraints are stored in the model dict as anonymous constraints with symbol keys.
+The constraints are stored in the model dict as anonymous constraints with symbol keys.
+The constraint keys are documented in the `Network.constraint_info` when [`build_bfm!`](@ref) is
+called. 
 
-## Power Injections
-BranchFlowModel.jl uses the convention that power injections are positive (and loads are negative). If no load is provided for a given bus (and phase) then the real and reactive power injections at that bus (and phase) are set to zero with an equality constraint.
 
-All power injection constraints are stored in `m[:injection_equalities]`. The constraints are indexed in the following order:
-1. by bus name (string), as provided in `CommonOPF.busses`;
-2. by `"p"` or `"q"` for real and reactive power respectively;
-3. by phase number (integer); and
-4. by time (integer).
-For example, `m[:injection_equalities]["680"]["p"][2][1]` contains the constraint reference for the power injection equality constraint for bus "680", real power, in time step 2, on phase 1.
-
-If one wished to replace any constraint one must first delete the constraint using the `delete` function. For example:
 ```julia
-delete(m, m[:cons][:injection_equalities]["680"]["p"][1])
-```
-Note that the time index was not provided in the `delete` command in this example, which implies that the equality constraints for all time steps were deleted. One can also delete individual time step constraints by providing the time index.
+using BranchFlowModel
+using CommonOPF
+using JuMP
+using ECOS
 
-The deleted constraints can then be replaced with a new set of constraints. For example:
-```julia
-m[:cons][:injection_equalities]["680"]["p"][1] = @constraint(m, [t in 1:net.Ntimesteps],
-    m[:Pj]["680",1,t] == -1e3 / net.Sbase
+
+net = Network_Papavasiliou_2018()
+
+m = JuMP.Model(ECOS.Optimizer) 
+
+# modify the power balance constraints at bus 11, adding real and reactive power injection variables
+b = "11"
+@variable(m, 0.4 >= pgen11 >= 0)
+@variable(m, 0.4 >= qgen11 >= 0)
+
+JuMP.delete.(m, m[:power_balance_constraints][b][:real])
+
+m[:power_balance_constraints][b][:real] = @constraint(m, 
+    sum( m[:pij][(i,b)][1] for i in i_to_j(b, net) )
+    - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
+    + pgen11 - net[b][:Load].kws1[1] == 0
+)
+
+JuMP.delete.(m, m[:power_balance_constraints][b][:reactive])
+m[:power_balance_constraints][b][:reactive] = @constraint(m, 
+    sum( m[:pij][(i,b)][1] for i in i_to_j(b, net) )
+    - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
+    + qgen11 - net[b][:Load].kvars1[1] == 0
 )
 ```
-where `net` is the `CommonOPF.Network` struct for the problem of interest. Note that it is not necessary to store the new constraints in the `m[:cons][:injection_equalities]`.
 
 See the [JuMP documentation](https://jump.dev/JuMP.jl/stable/manual/constraints/#Delete-a-constraint) for more on deleting constraints.

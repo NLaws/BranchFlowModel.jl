@@ -3,7 +3,7 @@ BranchFlowModel.jl provides methods to build many different variations of the Br
 including single phase and multiphase models. Each of the model types supported are documented below.
 ```@contents
 Pages = ["single_phase_models.md"]
-Depth = 3
+Depth = 2
 ```
 ```@setup imports
 using BranchFlowModel
@@ -13,7 +13,7 @@ using JuMP
 
 
 ## `AngleRelaxation`
-The `Unrelaxed` multiphase model is build by passing a `JuMP.Model`, `Network{SinglePhase}`, and the
+The `AngleRelaxation` single phase model is built by passing a `JuMP.Model`, `Network{SinglePhase}`, and the
 `AngleRelaxation` type to [`build_bfm!`](@ref).
 
 ```@example imports
@@ -55,7 +55,31 @@ The math underlying the model is as follows [[Farivar and Low]](@ref):
 ```
 
 
-## `SecondOrderCone` models
+## `SOC` models
+The `SOC` (second order cone) single phase model is built by passing a `JuMP.Model`, `Network{SinglePhase}`, and the
+`SOC` type to [`build_bfm!`](@ref).
+
+```@example imports
+net = CommonOPF.Network_IEEE13_SinglePhase()
+m = JuMP.Model()
+
+build_bfm!(m, net, SOC)
+println("Variable information:")
+CommonOPF.print_var_info(net)
+println("Constraint information:")
+CommonOPF.print_constraint_info(net)
+```
+
+The [`build_bfm!](@ref) method uses:
+- [`BranchFlowModel.add_linear_variables(m, net)`](@ref)
+- [`BranchFlowModel.add_vsqrd_variables(m, net)`](@ref)
+- [`BranchFlowModel.add_isqrd_variables(m, net)`](@ref)
+- [`BranchFlowModel.constrain_power_balance_with_isqrd_losses(m, net)`](@ref)
+- [`BranchFlowModel.constrain_substation_voltage(m, net)`](@ref)
+- [`BranchFlowModel.constrain_KVL(m, net)`](@ref)
+- [`BranchFlowModel.constrain_cone(m, net)`](@ref)
+
+The math underlying the model is as follows [[Farivar and Low]](@ref):
 ```math
 \begin{aligned}
     &\sum_{i : i \rightarrow j} ( p_{ij} - r_{ij} \ell_{ij} ) + p_j 
@@ -75,7 +99,22 @@ The math underlying the model is as follows [[Farivar and Low]](@ref):
 
 
 ## `Linear` models
-The single phase "LinDistFlow" model from [[Baran and Wu]](@ref)
+The single phase "LinDistFlow" model from [[Baran and Wu]](@ref). 
+The `Linear` single phase model is built by passing a `JuMP.Model`, `Network{SinglePhase}`, and the
+`Linear` type to [`build_bfm!`](@ref).
+
+```@example imports
+net = CommonOPF.Network_IEEE13_SinglePhase()
+m = JuMP.Model()
+
+build_bfm!(m, net, Linear)
+println("Variable information:")
+CommonOPF.print_var_info(net)
+println("Constraint information:")
+CommonOPF.print_constraint_info(net)
+```
+
+The math underlying the model is as follows:
 
 Notation:
 - ``P_{ij}`` real power flow from node ``i`` to node ``j``
@@ -91,6 +130,7 @@ w_j = w_i - 2 r_{ij} P_{ij} - 2 x_{ij} Q_{ij} \ \forall j \in \mathcal{N}^+ \\
 (v_{j,\min})^2 \le w_j \le (v_{j,\max})^2 \ \forall j \in \mathcal{N}^+ 
 \end{aligned}
 ```
+
 
 # References
 
