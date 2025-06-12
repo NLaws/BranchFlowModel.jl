@@ -424,15 +424,24 @@ end
 Constrain `m[:vsqrd][net.substation_bus]` to `net.v0^2` (or `net.v0[t]^2` if `net.v0` is not `Real`)
 """
 function constrain_substation_voltage(m, net::Network{SinglePhase})
+    m[:substation_voltage_constraints] = Dict()
     if typeof(net.v0) <: Real
-        @constraint(m, con_substationV[t = 1:net.Ntimesteps],
+        m[:substation_voltage_constraints] = @constraint(m, [t = 1:net.Ntimesteps],
             m[:vsqrd][net.substation_bus][t] == net.v0^2
         )
     else  # vector of time
-        @constraint(m, con_substationV[t = 1:net.Ntimesteps],
+        m[:substation_voltage_constraints] = @constraint(m, [t = 1:net.Ntimesteps],
             m[:vsqrd][net.substation_bus][t] == net.v0[t]^2
         )
     end
+
+    c = m[:substation_voltage_constraints][1]  # time step 1
+    net.constraint_info[:l] = CommonOPF.ConstraintInfo(
+        :substation_voltage_constraints,
+        "Set m[:vsqrd][net.substation_bus][t] == net.v0[t]^2 for all t = 1:net.Ntimesteps",
+        MOI.get(m, MOI.ConstraintSet(), c),
+        (CommonOPF.TimeDimension,),
+    )
     nothing
 end
 
@@ -550,17 +559,28 @@ function constrain_cone(m, net::Network{SinglePhase})
     P = m[:pij]
     Q = m[:qij]
     l = m[:lij]
+    m[:soc_constraints] = Dict()
     for j in busses(net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
             # # equivalent but maybe not handled as well in JuMP ?
             # @constraint(m, [t = 1:net.Ntimesteps],
             #     w[i][t] * l[(i,j)][t] ≥ P[(i,j)][t]^2 + Q[(i,j)][t]^2
             # )
-            @constraint(m, [t = 1:net.Ntimesteps], 
+             m[:soc_constraints][(i,j)] = @constraint(m, [t = 1:net.Ntimesteps], 
                 [w[i][t]/2, l[(i,j)][t], P[(i,j)][t], Q[(i,j)][t]] in JuMP.RotatedSecondOrderCone()
             )
         end
     end
+
+    # document the constraints
+    e = edges(net)[1]
+    c = m[:soc_constraints][e][1]  # time step 1
+    net.constraint_info[:soc_constraints] = CommonOPF.ConstraintInfo(
+        :soc_constraints,
+        "Second order cone constraints",
+        MOI.get(m, MOI.ConstraintSet(), c),
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension),
+    )
 end
 
 
@@ -577,11 +597,22 @@ function constrain_bilinear(m, net::Network{SinglePhase})
     P = m[:pij]
     Q = m[:qij]
     l = m[:lij]
+    m[:bilinear_constraints] = Dict()
     for j in busses(net)
         for i in i_to_j(j, net)  # for radial network there is only one i in i_to_j
-            @constraint(m, [t = 1:net.Ntimesteps],
+            m[:bilinear_constraints][(i,j)] = @constraint(m, [t = 1:net.Ntimesteps],
                 w[i][t] * l[(i,j)][t] == P[(i,j)][t]^2 + Q[(i,j)][t]^2
             )
         end
     end
+
+    # document the constraints
+    e = edges(net)[1]
+    c = m[:bilinear_constraints][e][1]  # time step 1
+    net.constraint_info[:bilinear_constraints] = CommonOPF.ConstraintInfo(
+        :bilinear_constraints,
+        "Bilinear constraints",
+        MOI.get(m, MOI.ConstraintSet(), c),
+        (CommonOPF.EdgeDimension, CommonOPF.TimeDimension),
+    )
 end
