@@ -174,7 +174,7 @@ function constrain_linear_power_balance(m, net::Network{MultiPhase})
     net.constraint_info[:power_balance_constraints] = CommonOPF.ConstraintInfo(
         :power_balance_constraints,
         "Real and reactive power balance at each bus (linear)",
-        MOI.get(m, MOI.ConstraintSet(), c),
+        typeof(MOI.get(m, MOI.ConstraintSet(), c)),
         (
             CommonOPF.BusDimension, 
             CommonOPF.RealReactiveDimension, 
@@ -274,7 +274,7 @@ function constrain_KVL_linear(m, net::Network{MultiPhase})
     net.constraint_info[:kvl_constraints] = CommonOPF.ConstraintInfo(
         :kvl_constraints,
         "Kirchoff's Voltage Law w/o I^2 term",
-        MOI.get(m, MOI.ConstraintSet(), c),
+        typeof(MOI.get(m, MOI.ConstraintSet(), c)),
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension),
     )
     nothing

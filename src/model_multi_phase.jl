@@ -419,14 +419,14 @@ function constrain_bfm_nlp(m, net::Network{MultiPhase})
     net.constraint_info[:sending_power_flow_constraints] = CommonOPF.ConstraintInfo(
         :sending_power_flow_constraints,
         "sending end power definition",
-        MOI.get(m, MOI.ConstraintSet(), c),
+        typeof(MOI.get(m, MOI.ConstraintSet(), c)),
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseMatrixDimension),
     )
     c = m[:kvl_constraints][e][1][1]  # time step 1, phase 1
     net.constraint_info[:kvl_constraints] = CommonOPF.ConstraintInfo(
         :kvl_constraints,
         "Kirchoff's Voltage Law ",
-        MOI.get(m, MOI.ConstraintSet(), c),
+        typeof(MOI.get(m, MOI.ConstraintSet(), c)),
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension),
     )
 
@@ -542,7 +542,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
     net.constraint_info[:power_balance_constraints] = CommonOPF.ConstraintInfo(
         :power_balance_constraints,
         "power balance at each bus",
-        MOI.get(m, MOI.ConstraintSet(), c),
+        typeof(MOI.get(m, MOI.ConstraintSet(), c)),
         (CommonOPF.BusDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension),
     )
 
@@ -608,7 +608,7 @@ function constrain_KVL(m, net::Network{MultiPhase})
     net.constraint_info[:kvl_constraints] = CommonOPF.ConstraintInfo(
         :kvl_constraints,
         "Kirchoff's Voltage Law with angle relaxation for Semidefinite model",
-        MOI.get(m, MOI.ConstraintSet(), c),
+        typeof(MOI.get(m, MOI.ConstraintSet(), c)),
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension, CommonOPF.PhaseDimension),
     )
     nothing

@@ -292,7 +292,7 @@ function constrain_power_balance_with_isqrd_losses(m, net::Network{SinglePhase})
     net.constraint_info[:power_balance_constraints] = CommonOPF.ConstraintInfo(
         :power_balance_constraints,
         "Real and reactive power balance at each bus",
-        MOI.get(m, MOI.ConstraintSet(), c),
+        typeof(MOI.get(m, MOI.ConstraintSet(), c)),
         (
             CommonOPF.BusDimension, 
             CommonOPF.RealReactiveDimension, 
@@ -406,7 +406,7 @@ function constrain_power_balance_linear(m, net::Network{SinglePhase})
     net.constraint_info[:power_balance_constraints] = CommonOPF.ConstraintInfo(
         :power_balance_constraints,
         "Real and reactive power balance at each bus",
-        MOI.get(m, MOI.ConstraintSet(), c),
+        typeof(MOI.get(m, MOI.ConstraintSet(), c)),
         (
             CommonOPF.BusDimension, 
             CommonOPF.RealReactiveDimension, 
@@ -439,7 +439,7 @@ function constrain_substation_voltage(m, net::Network{SinglePhase})
     net.constraint_info[:l] = CommonOPF.ConstraintInfo(
         :substation_voltage_constraints,
         "Set m[:vsqrd][net.substation_bus][t] == net.v0[t]^2 for all t = 1:net.Ntimesteps",
-        MOI.get(m, MOI.ConstraintSet(), c),
+        typeof(MOI.get(m, MOI.ConstraintSet(), c)),
         (CommonOPF.TimeDimension,),
     )
     nothing
@@ -491,7 +491,7 @@ function constrain_KVL(m, net::Network{SinglePhase})
     net.constraint_info[:kvl_constraints] = CommonOPF.ConstraintInfo(
         :kvl_constraints,
         "Kirchoff's Voltage Law squared (using V^2 and I^2)",
-        MOI.get(m, MOI.ConstraintSet(), c),
+        typeof(MOI.get(m, MOI.ConstraintSet(), c)),
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension),
     )
     nothing
@@ -540,7 +540,7 @@ function constrain_KVL_linear(m, net::Network{SinglePhase})
     net.constraint_info[:kvl_constraints] = CommonOPF.ConstraintInfo(
         :kvl_constraints,
         "Kirchoff's Voltage Law squared w/o I^2 term",
-        MOI.get(m, MOI.ConstraintSet(), c),
+        typeof(MOI.get(m, MOI.ConstraintSet(), c)),
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension),
     )
     nothing
@@ -578,7 +578,7 @@ function constrain_cone(m, net::Network{SinglePhase})
     net.constraint_info[:soc_constraints] = CommonOPF.ConstraintInfo(
         :soc_constraints,
         "Second order cone constraints",
-        MOI.get(m, MOI.ConstraintSet(), c),
+        typeof(MOI.get(m, MOI.ConstraintSet(), c)),
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension),
     )
 end
@@ -612,7 +612,7 @@ function constrain_bilinear(m, net::Network{SinglePhase})
     net.constraint_info[:bilinear_constraints] = CommonOPF.ConstraintInfo(
         :bilinear_constraints,
         "Bilinear constraints",
-        MOI.get(m, MOI.ConstraintSet(), c),
+        typeof(MOI.get(m, MOI.ConstraintSet(), c)),
         (CommonOPF.EdgeDimension, CommonOPF.TimeDimension),
     )
 end
