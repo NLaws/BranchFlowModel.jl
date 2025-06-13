@@ -483,8 +483,7 @@ function constrain_power_balance(m, net::Network{MultiPhase})
     for j in busses(net)
 
         # check for loads
-        Pj, Qj = sj_per_unit(j, net)
-        Sj = Pj + im * Qj
+        Sj = sj_per_unit(j, net)
         Sj = hcat(Sj...)  # time X phase
 
         # source nodes, injection = flows out

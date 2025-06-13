@@ -70,7 +70,8 @@ end
     # add loads with voltage dependency
     # similar constraints to constrain_linear_power_balance (started with copy/paste from there)
     for j in CPF.load_busses(net)
-        pj, qj = CPF.sj_per_unit(j, net)
+        sj = CPF.sj_per_unit(j, net)
+        pj, qj = real(sj), imag(sj)
 
         for phs in CPF.phases_into_bus(net, j)
 
@@ -114,7 +115,8 @@ end
     for j in Qresource_nodes
 
         m[:Qvar][j] = Dict()
-        pj, qj = CPF.sj_per_unit(j, net)
+        sj = CPF.sj_per_unit(j, net)
+        pj, qj = real(sj), imag(sj)
 
         for phs in CPF.phases_into_bus(net, j)
 
@@ -145,13 +147,6 @@ end
                         m[:Qvar][j][phs][t] / net.Sbase == 0
                     )
 
-                    # delete(m, m[:power_balance_constraints][j][:real][phs])
-                    # m[:power_balance_constraints][j][:real][phs] = @constraint(
-                    #     m, [t in 1:net.Ntimesteps],
-                    #     sum( pij[(i, j)][t][phs] for i in i_to_j(j, net) ) + 
-                    #     pj[phs][t] * (a0 + a1 * m[:vsqrd][j][t][phs]) == 0
-                    # )
-
                 else
                     m[:power_balance_constraints][j][:reactive][phs] = @constraint(
                         m, [t in 1:net.Ntimesteps],
@@ -168,7 +163,7 @@ end
     j = "611"
     phs = 3
     delete(m, m[:power_balance_constraints][j][:reactive][phs])
-    pj, qj = CPF.sj_per_unit(j, net)
+    qj = imag(CPF.sj_per_unit(j, net))
     m[:power_balance_constraints][j][:reactive][phs] = 
         @constraint(m, [t in 1:net.Ntimesteps],
             sum( qij[(i, j)][t][phs] for i in i_to_j(j, net) ) +

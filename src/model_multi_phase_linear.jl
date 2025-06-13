@@ -110,7 +110,8 @@ function constrain_linear_power_balance(m, net::Network{MultiPhase})
     m[:power_balance_constraints] = Dict()
 
     for j in busses(net)
-        pj, qj = sj_per_unit(j, net)
+        sj = sj_per_unit(j, net)
+        pj, qj = real(sj), imag(sj)
             
         m[:power_balance_constraints][j] = Dict()
         m[:power_balance_constraints][j][:real] = Dict()
