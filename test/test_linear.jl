@@ -24,18 +24,6 @@
 end
 
 
-@testset "linear multiphase model" begin
-
-    dssfilepath = "data/ieee13/IEEE13_simple_light_load.dss"
-    net = Network(dssfilepath)
-    m = Model(HiGHS.Optimizer)
-
-    build_bfm!(m, net, Linear)
-    # TODO finish the linear multiphase model
-
-end
-
-
 @testset "multiphase LinDistFlow Arnold 2016 validation" begin
     #=
     Validating against Arnold 2016 results, which requires:
