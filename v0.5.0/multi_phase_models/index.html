@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Multiphase Models · BranchFlowModel</title><meta name="title" content="Multiphase Models · BranchFlowModel"/><meta property="og:title" content="Multiphase Models · BranchFlowModel"/><meta property="twitter:title" content="Multiphase Models · BranchFlowModel"/><meta name="description" content="Documentation for BranchFlowModel."/><meta property="og:description" content="Documentation for BranchFlowModel."/><meta property="twitter:description" content="Documentation for BranchFlowModel."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">BranchFlowModel</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">User Documentation</a></li><li><span class="tocitem">Models</span><ul><li><a class="tocitem" href="../single_phase_models/">Single Phase Models</a></li><li class="is-active"><a class="tocitem" href>Multiphase Models</a><ul class="internal"><li><a class="tocitem" href="#Unrelaxed-models"><span><code>Unrelaxed</code> models</span></a></li><li><a class="tocitem" href="#Semidefinite-models"><span><code>Semidefinite</code> models</span></a></li><li><a class="tocitem" href="#Linear-models"><span><code>Linear</code> models</span></a></li><li class="toplevel"><a class="tocitem" href="#References"><span>References</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../variables/">Variables</a></li><li><a class="tocitem" href="../constraints/">Constraints</a></li><li><a class="tocitem" href="../methods/">Methods</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Models</a></li><li class="is-active"><a href>Multiphase Models</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Multiphase Models</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/NLaws/BranchFlowModel.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/NLaws/BranchFlowModel.jl/blob/main/docs/src/multi_phase_models.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Multiphase-Models"><a class="docs-heading-anchor" href="#Multiphase-Models">Multiphase Models</a><a id="Multiphase-Models-1"></a><a class="docs-heading-anchor-permalink" href="#Multiphase-Models" title="Permalink"></a></h1><p>BranchFlowModel.jl provides methods to build many different variations of the Branch Flow Model, including single phase and multiphase models. Each of the model types supported are documented below.</p><ul><li><a href="#Multiphase-Models">Multiphase Models</a></li><li class="no-marker"><ul><li><a href="#Unrelaxed-models"><code>Unrelaxed</code> models</a></li><li><a href="#Semidefinite-models"><code>Semidefinite</code> models</a></li><li><a href="#Linear-models"><code>Linear</code> models</a></li></ul></li><li><a href="#References">References</a></li></ul><h2 id="Unrelaxed-models"><a class="docs-heading-anchor" href="#Unrelaxed-models"><code>Unrelaxed</code> models</a><a id="Unrelaxed-models-1"></a><a class="docs-heading-anchor-permalink" href="#Unrelaxed-models" title="Permalink"></a></h2><p>The <code>Unrelaxed</code> multiphase model is built by passing a <code>JuMP.Model</code>, <code>Network{MultiPhase}</code>, and the <code>Unrelaxed</code> type to <a href="../methods/#BranchFlowModel.build_bfm!"><code>build_bfm!</code></a>.</p><pre><code class="language-julia hljs">net = CommonOPF.Network_IEEE13()
+m = JuMP.Model()
+
+build_bfm!(m, net, Unrelaxed)
+println(&quot;Variable information:&quot;)
+CommonOPF.print_var_info(net)
+println(&quot;Constraint information:&quot;)
+CommonOPF.print_constraint_info(net)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Variable information:
+┌────────┬──────────────────────────────────────────────┬──────────────────┬─────────────────────┐
+│ symbol │                                  description │            units │          dimensions │
+├────────┼──────────────────────────────────────────────┼──────────────────┼─────────────────────┤
+│    Sij │ complex sending end branch power flow matrix │ ComplexPowerUnit │ (Edge, Time, Phase) │
+├────────┼──────────────────────────────────────────────┼──────────────────┼─────────────────────┤
+│      i │           complex sending end branch current │          AmpUnit │ (Edge, Time, Phase) │
+├────────┼──────────────────────────────────────────────┼──────────────────┼─────────────────────┤
+│     sj │              complex net bus power injection │ ComplexPowerUnit │  (Bus, Time, Phase) │
+├────────┼──────────────────────────────────────────────┼──────────────────┼─────────────────────┤
+│      v │                       complex voltage vector │         VoltUnit │  (Bus, Time, Phase) │
+└────────┴──────────────────────────────────────────────┴──────────────────┴─────────────────────┘
+Constraint information:
+┌────────────────────────────────┬──────────────────────────────┬────────────────────────────────────────────────────┬───────────────────────────┐
+│                         symbol │                  description │                                           set_type │                dimensions │
+├────────────────────────────────┼──────────────────────────────┼────────────────────────────────────────────────────┼───────────────────────────┤
+│                kvl_constraints │      Kirchoff&#39;s Voltage Law  │ MathOptInterface.EqualTo{ComplexF64}(-1.0 - 0.0im) │       (Edge, Time, Phase) │
+├────────────────────────────────┼──────────────────────────────┼────────────────────────────────────────────────────┼───────────────────────────┤
+│      power_balance_constraints │    power balance at each bus │  MathOptInterface.EqualTo{ComplexF64}(0.0 - 0.0im) │        (Bus, Time, Phase) │
+├────────────────────────────────┼──────────────────────────────┼────────────────────────────────────────────────────┼───────────────────────────┤
+│ sending_power_flow_constraints │ sending end power definition │  MathOptInterface.EqualTo{ComplexF64}(0.0 - 0.0im) │ (Edge, Time, PhaseMatrix) │
+└────────────────────────────────┴──────────────────────────────┴────────────────────────────────────────────────────┴───────────────────────────┘</code></pre><p>The <a href="../methods/#BranchFlowModel.build_bfm!">`build_bfm!</a> method uses:</p><ul><li><a href="../methods/#BranchFlowModel.add_bfm_variables"><code>BranchFlowModel.add_bfm_variables</code></a></li><li><a href="../methods/#BranchFlowModel.constrain_bfm_nlp"><code>BranchFlowModel.constrain_bfm_nlp</code></a></li><li><a href="../methods/#BranchFlowModel.constrain_power_balance"><code>BranchFlowModel.constrain_power_balance</code></a></li></ul><p>The math underlying the model is as follows:</p><p class="math-container">\[\begin{aligned}
+    &amp;\boldsymbol S_{ij} = \boldsymbol v_i^{\Phi_{ij}} \boldsymbol i_{ij}^H
+    \quad \forall (i, j) \in \mathcal{E}
+    \\
+    &amp;\boldsymbol v_i^{\Phi_{ij}} - \boldsymbol v_j = \boldsymbol Z_{ij} \boldsymbol i_{ij}
+    \quad \forall (i, j) \in \mathcal{E}
+    \\
+    &amp;\sum_{i : i \rightarrow j}  \text{diag}( \boldsymbol S_{ij} - \boldsymbol Z_{ij} \left[ \boldsymbol i_{ij} \boldsymbol i_{ij}^H \right]) 
+    + \boldsymbol s_j 
+    = \sum_{k : j \rightarrow k} \text{diag}( \boldsymbol S_{jk} )^{\Phi_j}
+    \quad \forall j \in \mathcal{N}
+\end{aligned}\]</p><p>For the nomenclature see TODO.</p><h2 id="Semidefinite-models"><a class="docs-heading-anchor" href="#Semidefinite-models"><code>Semidefinite</code> models</a><a id="Semidefinite-models-1"></a><a class="docs-heading-anchor-permalink" href="#Semidefinite-models" title="Permalink"></a></h2><p>The <code>Semidefinite</code> multiphase model is built by passing a <code>JuMP.Model</code>, <code>Network{MultiPhase}</code>, and the <code>Semidefinite</code> type to <a href="../methods/#BranchFlowModel.build_bfm!"><code>build_bfm!</code></a>.</p><pre><code class="language-julia hljs">net = CommonOPF.Network_IEEE13()
+m = JuMP.Model()
+
+build_bfm!(m, net, Semidefinite)
+println(&quot;Variable information:&quot;)
+CommonOPF.print_var_info(net)
+println(&quot;Constraint information:&quot;)
+CommonOPF.print_constraint_info(net)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Variable information:
+┌────────┬───────────────────────────────────────────────────────────────────┬──────────────────┬───────────────────────────────┐
+│ symbol │                                                       description │            units │                    dimensions │
+├────────┼───────────────────────────────────────────────────────────────────┼──────────────────┼───────────────────────────────┤
+│      H │ 3x3 Hermitian matrices for the positive semi-definite constraints │       MixedUnits │  (Bus, Time, HermitianMatrix) │
+├────────┼───────────────────────────────────────────────────────────────────┼──────────────────┼───────────────────────────────┤
+│    Sij │            3x3 Complex matrices of line flow powers (from i to j) │ ComplexPowerUnit │     (Edge, Time, PhaseMatrix) │
+├────────┼───────────────────────────────────────────────────────────────────┼──────────────────┼───────────────────────────────┤
+│      l │                 3x3 Hermitian matrices of current squared (I*I^T) │   AmpSquaredUnit │ (Edge, Time, HermitianMatrix) │
+├────────┼───────────────────────────────────────────────────────────────────┼──────────────────┼───────────────────────────────┤
+│     sj │                   3x1 matrices of net power injections (at bus j) │ ComplexPowerUnit │            (Bus, Time, Phase) │
+├────────┼───────────────────────────────────────────────────────────────────┼──────────────────┼───────────────────────────────┤
+│      w │                 3x3 Hermitian matrices of voltage squared (V*V^T) │  VoltSquaredUnit │  (Bus, Time, HermitianMatrix) │
+└────────┴───────────────────────────────────────────────────────────────────┴──────────────────┴───────────────────────────────┘
+Constraint information:
+┌───────────────────────────┬─────────────────────────────────────────────────────────────────────┬───────────────────────────────────────────────────┬─────────────────────┐
+│                    symbol │                                                         description │                                          set_type │          dimensions │
+├───────────────────────────┼─────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┼─────────────────────┤
+│           kvl_constraints │ Kirchoff&#39;s Voltage Law with angle relaxation for Semidefinite model │ MathOptInterface.EqualTo{ComplexF64}(1.0 - 0.0im) │ (Edge, Time, Phase) │
+├───────────────────────────┼─────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────┼─────────────────────┤
+│ power_balance_constraints │                                           power balance at each bus │ MathOptInterface.EqualTo{ComplexF64}(0.0 - 0.0im) │  (Bus, Time, Phase) │
+└───────────────────────────┴─────────────────────────────────────────────────────────────────────┴───────────────────────────────────────────────────┴─────────────────────┘</code></pre><p>The <a href="../methods/#BranchFlowModel.build_bfm!">`build_bfm!</a> method uses:</p><ul><li><a href="../methods/#BranchFlowModel.add_sdp_variables"><code>BranchFlowModel.add_sdp_variables</code></a></li><li><a href="../methods/#BranchFlowModel.constrain_KVL"><code>BranchFlowModel.constrain_KVL</code></a></li><li><a href="../methods/#BranchFlowModel.constrain_power_balance"><code>BranchFlowModel.constrain_power_balance</code></a></li></ul><h2 id="Linear-models"><a class="docs-heading-anchor" href="#Linear-models"><code>Linear</code> models</a><a id="Linear-models-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-models" title="Permalink"></a></h2><p>The <code>Linear</code> multiphase model is built by passing a <code>JuMP.Model</code>, <code>Network{MultiPhase}</code>, and the <code>Linear</code> type to <a href="../methods/#BranchFlowModel.build_bfm!"><code>build_bfm!</code></a>.</p><pre><code class="language-julia hljs">net = CommonOPF.Network_IEEE13()
+m = JuMP.Model()
+
+build_bfm!(m, net, Linear)
+println(&quot;Variable information:&quot;)
+CommonOPF.print_var_info(net)
+println(&quot;Constraint information:&quot;)
+CommonOPF.print_constraint_info(net)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Variable information:
+┌────────┬────────────────────────────────────────────┬───────────────────┬─────────────────────┐
+│ symbol │                                description │             units │          dimensions │
+├────────┼────────────────────────────────────────────┼───────────────────┼─────────────────────┤
+│    pij │     sending end real power from bus i to j │     RealPowerUnit │ (Edge, Time, Phase) │
+├────────┼────────────────────────────────────────────┼───────────────────┼─────────────────────┤
+│     pj │      net bus injection real power on bus j │     RealPowerUnit │  (Bus, Time, Phase) │
+├────────┼────────────────────────────────────────────┼───────────────────┼─────────────────────┤
+│    qij │ sending end reactive power from bus i to j │ ReactivePowerUnit │ (Edge, Time, Phase) │
+├────────┼────────────────────────────────────────────┼───────────────────┼─────────────────────┤
+│     qj │  net bus injection reactive power on bus j │ ReactivePowerUnit │  (Bus, Time, Phase) │
+├────────┼────────────────────────────────────────────┼───────────────────┼─────────────────────┤
+│  vsqrd │                  voltage magnitude squared │   VoltSquaredUnit │  (Bus, Time, Phase) │
+└────────┴────────────────────────────────────────────┴───────────────────┴─────────────────────┘
+Constraint information:
+┌───────────────────────────┬──────────────────────────────────────────────────────┬────────────────────────────────────────┬──────────────────────────────────┐
+│                    symbol │                                          description │                               set_type │                       dimensions │
+├───────────────────────────┼──────────────────────────────────────────────────────┼────────────────────────────────────────┼──────────────────────────────────┤
+│           kvl_constraints │                  Kirchoff&#39;s Voltage Law w/o I^2 term │ MathOptInterface.EqualTo{Float64}(1.0) │              (Edge, Time, Phase) │
+├───────────────────────────┼──────────────────────────────────────────────────────┼────────────────────────────────────────┼──────────────────────────────────┤
+│ power_balance_constraints │ Real and reactive power balance at each bus (linear) │ MathOptInterface.EqualTo{Float64}(0.0) │ (Bus, RealReactive, Phase, Time) │
+└───────────────────────────┴──────────────────────────────────────────────────────┴────────────────────────────────────────┴──────────────────────────────────┘</code></pre><p>The <a href="../methods/#BranchFlowModel.build_bfm!">`build_bfm!</a> method uses:</p><ul><li><a href="../methods/#BranchFlowModel.add_linear_variables"><code>BranchFlowModel.add_linear_variables</code></a></li><li><a href="../methods/#BranchFlowModel.constrain_linear_power_balance"><code>BranchFlowModel.constrain_linear_power_balance</code></a></li><li><a href="../methods/#BranchFlowModel.constrain_KVL_linear"><code>BranchFlowModel.constrain_KVL_linear</code></a></li></ul><p>The math underlying the model is as follows (from <a href="#Arnold-et-al.">Arnold et al.</a>):</p><p class="math-container">\[\begin{aligned}
+P_{ij,\phi} + p_{j,\phi} = \sum_{k:j\rightarrow k} P_{jk,\phi} \ \forall j \in \mathcal{N}^+, \forall \phi \in [1,2,3] \\
+Q_{ij,\phi} + q_{j,\phi} = \sum_{k:j\rightarrow k} Q_{jk,\phi} \ \forall j \in \mathcal{N}^+, \forall \phi \in [1,2,3] \\
+\boldsymbol{w}_j = \boldsymbol{w}_i + \boldsymbol{M}_{P,ij} \boldsymbol{P}_{ij} + \boldsymbol{M}_{Q,ij} \boldsymbol{Q}_{ij} \\
+(\boldsymbol{v}_{j,\min})^2 \le \boldsymbol{w}_j \le (\boldsymbol{v}_{j,\max})^2 \ \forall j \in \mathcal{N}^+ \\
+\boldsymbol{M}_{P,ij} = \begin{bmatrix}
+-2r_{11}                &amp; r_{12}-\sqrt{3}x_{12} &amp; r_{13}+\sqrt{3}x_{13} \\
+  r_{21}+\sqrt{3}x_{21} &amp; -2r_{22} &amp; r_{23}-\sqrt{3}x_{23} \\
+  r_{31}-\sqrt{3}x_{31} &amp; r_{32}+\sqrt{3}x_{32} &amp; -2r_{33}
+\end{bmatrix} \\
+\boldsymbol{M}_{Q,ij} = \begin{bmatrix}
+-2x_{11}                &amp;   x_{12}+\sqrt{3}r_{12} &amp;   x_{13}-\sqrt{3}r_{13} \\
+  x_{21}-\sqrt{3}r_{21}  &amp; -2x_{22}                &amp;   x_{23}+\sqrt{3}r_{23} \\
+  x_{31}+\sqrt{3}r_{31} &amp;   x_{32}-\sqrt{3}r_{32} &amp; -2x_{33}
+\end{bmatrix} 
+\end{aligned}\]</p><h1 id="References"><a class="docs-heading-anchor" href="#References">References</a><a id="References-1"></a><a class="docs-heading-anchor-permalink" href="#References" title="Permalink"></a></h1><h3 id="Arnold-et-al."><a class="docs-heading-anchor" href="#Arnold-et-al.">Arnold et al.</a><a id="Arnold-et-al.-1"></a><a class="docs-heading-anchor-permalink" href="#Arnold-et-al." title="Permalink"></a></h3><p>Arnold, Daniel B., et al. &quot;Optimal dispatch of reactive power for voltage regulation and balancing in unbalanced distribution systems.&quot; 2016 IEEE Power and Energy Society General Meeting (PESGM). IEEE, 2016.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../single_phase_models/">« Single Phase Models</a><a class="docs-footer-nextpage" href="../variables/">Variables »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.13.0 on <span class="colophon-date" title="Saturday 21 June 2025 01:42">Saturday 21 June 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
