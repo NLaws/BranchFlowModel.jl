@@ -1,7 +1,7 @@
 # BranchFlowModel Changelog
 
 ## v0.5.0
-- upgrade CommonOPF to v0.4.7
+- upgrade CommonOPF to v0.4.7, then 0.5.0
 - refactor `SecondOrderCone` -> `SOC` to avoid collision with `JuMP.SecondOrderCone`
 - SinglePhase `Unrelaxed` model is now `AngleRelaxation` (as it should be)
 - port the multiphase LinDistFlow validation test from LinDistFlow.jl
