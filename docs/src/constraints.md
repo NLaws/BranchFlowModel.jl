@@ -27,14 +27,14 @@ JuMP.delete.(m, m[:power_balance_constraints][b][:real])
 m[:power_balance_constraints][b][:real] = @constraint(m, 
     sum( m[:pij][(i,b)][1] for i in i_to_j(b, net) )
     - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
-    + pgen11 - net[b][:Load].kws1[1] == 0
+    + pgen11 - net[b][:Load].p1[1] == 0
 )
 
 JuMP.delete.(m, m[:power_balance_constraints][b][:reactive])
 m[:power_balance_constraints][b][:reactive] = @constraint(m, 
     sum( m[:pij][(i,b)][1] for i in i_to_j(b, net) )
     - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
-    + qgen11 - net[b][:Load].kvars1[1] == 0
+    + qgen11 - net[b][:Load].q1[1] == 0
 )
 ```
 

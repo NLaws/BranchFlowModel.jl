@@ -216,13 +216,13 @@ end
         m[:power_balance_constraints][b][:real] = @constraint(m, 
             sum( m[:pij][(i,b)][1] for i in i_to_j(b, net) )
             - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
-            + pgen11 - net[b][:Load].kws1[1] == 0
+            + pgen11 - net[b][:Load].p1[1] == 0
         )
         JuMP.delete.(m, m[:power_balance_constraints][b][:reactive])
         m[:power_balance_constraints][b][:reactive] = @constraint(m, 
             sum( m[:pij][(i,b)][1] for i in i_to_j(b, net) )
             - sum( m[:lij][(i,b)][1] * rij(i,b,net) for i in i_to_j(b, net) ) 
-            + qgen11 - net[b][:Load].kvars1[1] == 0
+            + qgen11 - net[b][:Load].q1[1] == 0
         )
     end
     add_generator_at_bus_11_net!(m_net)
@@ -245,9 +245,9 @@ end
     set_optimizer_attribute(m, "reltol", 1e-6)
 
     # this is not enough to get prices > 50 b/c 7 is injecting
-    net["11"][:Load].kws1 = [0.4]
+    net["11"][:Load].p1 = [0.4]
     # so set load at 7 to zero
-    net["7"][:Load].kws1 = [0.0]
+    net["7"][:Load].p1 = [0.0]
 
     build_bfm!(m, net, BranchFlowModel.SOC)
 
@@ -456,23 +456,23 @@ end
     net = CPF.dss_to_Network(dssfilepath)
     
     # for lb in CPF.load_busses(net)
-    #     if !(ismissing(net[lb][:Load].kws1))
-    #         net[lb][:Load].kws1 = [kW]
+    #     if !(ismissing(net[lb][:Load].p1))
+    #         net[lb][:Load].p1 = [kW]
     #     end
-    #     if !(ismissing(net[lb][:Load].kws2))
-    #         net[lb][:Load].kws2 = [kW]
+    #     if !(ismissing(net[lb][:Load].p2))
+    #         net[lb][:Load].p2 = [kW]
     #     end
-    #     if !(ismissing(net[lb][:Load].kws3))
-    #         net[lb][:Load].kws3 = [kW]
+    #     if !(ismissing(net[lb][:Load].p3))
+    #         net[lb][:Load].p3 = [kW]
     #     end
-    #     if !(ismissing(net[lb][:Load].kvars1))
-    #         net[lb][:Load].kvars1 = [kvar]
+    #     if !(ismissing(net[lb][:Load].q1))
+    #         net[lb][:Load].q1 = [kvar]
     #     end
-    #     if !(ismissing(net[lb][:Load].kvars2))
-    #         net[lb][:Load].kvars2 = [kvar]
+    #     if !(ismissing(net[lb][:Load].q2))
+    #         net[lb][:Load].q2 = [kvar]
     #     end
-    #     if !(ismissing(net[lb][:Load].kvars3))
-    #         net[lb][:Load].kvars3 = [kvar]
+    #     if !(ismissing(net[lb][:Load].q3))
+    #         net[lb][:Load].q3 = [kvar]
     #     end
     # end
 
@@ -583,16 +583,16 @@ end
     # solve above first with sum of p_below loads, then set p_below.v0, solve p_below, set p_above.P/Qload to p_below.substation_bus values
     # later solve in parallel
     # a load already exists for bus "12"; we need to add p_below's loads to it
-    existing_kw = net_above["12"][:Load].kws1[1]
-    existing_kvar = net_above["12"][:Load].kvars1[1]
+    existing_kw = net_above["12"][:Load].p1[1]
+    existing_kvar = net_above["12"][:Load].q1[1]
 
     CPF.init_split_networks!([net_below, net_above])  # set net_above loads at net_below.substation_bus
     # NOTE only one time step so all load vectors have one value
-    @test net_above["12"][:Load].kws1[1] - existing_kw == sum( 
-        net_below[ld_bus][:Load].kws1[1] for ld_bus in CPF.real_load_busses(net_below) 
+    @test net_above["12"][:Load].p1[1] - existing_kw == sum( 
+        net_below[ld_bus][:Load].p1[1] for ld_bus in CPF.real_load_busses(net_below) 
     )
-    @test net_above["12"][:Load].kvars1[1] - existing_kvar == sum( 
-        net_below[ld_bus][:Load].kvars1[1] for ld_bus in CPF.reactive_load_busses(net_below) 
+    @test net_above["12"][:Load].q1[1] - existing_kvar == sum( 
+        net_below[ld_bus][:Load].q1[1] for ld_bus in CPF.reactive_load_busses(net_below) 
     )
 
     m_above = make_solve_single_phase_min_loss_model(net_above)
@@ -632,8 +632,8 @@ end
 
     tol = 1e-6
     while pdiff > tol || qdiff > tol || vdiff > tol
-        net_above["12"][:Load].kws1[1] = value(m_below[:p0][1]) * net_above.Sbase / 1e3
-        net_above["12"][:Load].kvars1[1] = value(m_below[:q0][1]) * net_above.Sbase / 1e3
+        net_above["12"][:Load].p1[1] = value(m_below[:p0][1]) * net_above.Sbase
+        net_above["12"][:Load].q1[1] = value(m_below[:q0][1]) * net_above.Sbase
         m_above = make_solve_single_phase_min_loss_model(net_above)
         v_above = sqrt(value(m_above[:vsqrd][net_below.substation_bus][1]))
         vdiff = abs(net_below.v0 - v_above)

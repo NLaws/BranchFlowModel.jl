@@ -61,15 +61,15 @@ function set_inputs!(mg::MetaGraphsNext.MetaGraph; α::R=0.0) where R <: Real
             m_below =  mg.graph_data[:models][v_below]
             net_below = mg[v_below]
             if α == 0.0
-                net_above[net_below.substation_bus][:Load].kws1 = value.(m_below[:p0]) * net_above.Sbase / 1e3
-                net_above[net_below.substation_bus][:Load].kvars1 = value.(m_below[:q0]) * net_above.Sbase / 1e3
+                net_above[net_below.substation_bus][:Load].p1 = value.(m_below[:p0]) * net_above.Sbase
+                net_above[net_below.substation_bus][:Load].q1 = value.(m_below[:q0]) * net_above.Sbase
             else
-                p_kp1 = value.(m_below[:p0]) * net_above.Sbase / 1e3
-                q_kp1 = value.(m_below[:q0]) * net_above.Sbase / 1e3
-                p_k = copy(net_above[net_below.substation_bus][:Load].kws1)
-                q_k = copy(net_above[net_below.substation_bus][:Load].kvars1)
-                net_above[net_below.substation_bus][:Load].kws1 = (p_kp1 + α .* p_k) ./ (1 + α)
-                net_above[net_below.substation_bus][:Load].kvars1 = (q_kp1 + α .* q_k) ./ (1 + α)
+                p_kp1 = value.(m_below[:p0]) * net_above.Sbase
+                q_kp1 = value.(m_below[:q0]) * net_above.Sbase
+                p_k = copy(net_above[net_below.substation_bus][:Load].p1)
+                q_k = copy(net_above[net_below.substation_bus][:Load].q1)
+                net_above[net_below.substation_bus][:Load].p1 = (p_kp1 + α .* p_k) ./ (1 + α)
+                net_above[net_below.substation_bus][:Load].q1 = (q_kp1 + α .* q_k) ./ (1 + α)
             end
         end
     end
@@ -148,10 +148,10 @@ function get_diffs(mg::MetaGraphsNext.MetaGraph)
             m_below =  mg.graph_data[:models][v_below]
             sub = mg[v_below].substation_bus
             push!(pdiffs, 
-                sum(abs.(value.(m_below[:p0]) * net_above.Sbase / 1e3 - net_above[sub][:Load].kws1)) / net_below.Ntimesteps
+                sum(abs.(value.(m_below[:p0]) * net_above.Sbase - net_above[sub][:Load].p1)) / net_below.Ntimesteps
             )
             push!(qdiffs, 
-                sum(abs.(value.(m_below[:q0]) * net_above.Sbase / 1e3 - net_above[sub][:Load].kvars1)) / net_below.Ntimesteps
+                sum(abs.(value.(m_below[:q0]) * net_above.Sbase - net_above[sub][:Load].q1)) / net_below.Ntimesteps
             )
         end
     end

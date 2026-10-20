@@ -59,8 +59,8 @@
         diag( sij[(j,k)] ) for k in CPF.j_to_k(j, net) )
 
     for phs in 1:3
-        @test real(net_power[phs]) ≈ net[j, :kws, phs][1] * 1e3 / net.Sbase
-        @test imag(net_power[phs]) ≈ net[j, :kvars, phs][1] * 1e3 / net.Sbase
+        @test real(net_power[phs]) ≈ net[j, :p, phs][1] / net.Sbase
+        @test imag(net_power[phs]) ≈ net[j, :q, phs][1] / net.Sbase
     end
 
 

@@ -1,5 +1,9 @@
 # BranchFlowModel Changelog
 
+## v0.6.0
+- upgrade to CommonOPF v0.6, `Load`s refactored to have unitless power fields, e.g. `kws1` is now
+  `p1` and `kvars2` is now `q2`
+
 ## v0.5.0
 - upgrade CommonOPF to v0.4.7, then 0.5.0
 - refactor `SecondOrderCone` -> `SOC` to avoid collision with `JuMP.SecondOrderCone`

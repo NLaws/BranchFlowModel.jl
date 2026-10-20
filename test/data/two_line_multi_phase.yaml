@@ -38,15 +38,15 @@ Conductor:
 
 Load:
   - bus: b3
-    kws1: 
+    p1: 
       - 5.6
-    kvars1: 
+    q1: 
       - 1.2
-    kws2: 
+    p2: 
       - 5.6
-    kvars2: 
+    q2: 
       - 1.2
-    kws3: 
+    p3: 
       - 5.6
-    kvars3: 
+    q3: 
       - 1.2

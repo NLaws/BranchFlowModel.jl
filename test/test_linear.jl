@@ -2,7 +2,7 @@
 
     dssfilepath = "data/singlephase38lines/master.dss"
     net = Network(dssfilepath)
-    net.Sbase = 1e3  # put loads into kW and KVaR
+    net.Sbase = 1
 
     m = Model(HiGHS.Optimizer)
     build_bfm!(m, net, Linear)
@@ -18,8 +18,8 @@
     @test termination_status(m) == MOI.OPTIMAL
 
     # lossless model
-    @test value.(m[:p0])[1] ≈ CPF.total_load_kw(net)[1] rtol=1e-7
-    @test value.(m[:q0])[1] ≈ CPF.total_load_kvar(net)[1] rtol=1e-7
+    @test value.(m[:p0])[1] ≈ CPF.total_load_p(net)[1] rtol=1e-7
+    @test value.(m[:q0])[1] ≈ CPF.total_load_q(net)[1] rtol=1e-7
     
 end
 
